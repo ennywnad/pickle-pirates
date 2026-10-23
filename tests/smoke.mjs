@@ -65,6 +65,15 @@ for (const gfx of ['classic', 'med']) {
   });
   if (!hit.hitIt || !hit.crossed) fail(`${gfx}: could not hit the ball over the net (${JSON.stringify(hit)})`);
 
+  // the shot button: press Drive just before the ball arrives and the game times the swing
+  await page.evaluate(() => { const S = window.__sim, G = S.G, pl = G.players[0]; G.cfg.opp = 'cpu'; pl.x = 10; pl.y = 42; S.feedBall('home'); G.state = 'play';
+    for (let i = 0; i < 240; i++) { const sp = contactSpot(pl, G.ball); if (sp && sp.t < 0.35) break; S.step(1); } window.__r0 = G.shotN; });
+  await page.keyboard.down('Space');
+  const queued = await page.evaluate(() => !!window.__sim.G.players[0].queue);
+  const struck = await page.evaluate(() => { const S = window.__sim, G = S.G; for (let i = 0; i < 90 && G.shotN === window.__r0; i++) S.step(1); return G.lastShot && G.lastShot.team === 'home' && G.shotN > window.__r0 ? G.lastShot : null; });
+  await page.keyboard.up('Space');
+  if (!queued || !struck) fail(`${gfx}: the Drive key did not queue and strike a shot (${JSON.stringify({ queued, struck })})`);
+
   // keyboard moves the player
   // (stepped by hand: the software-rendered 3D view runs too few frames to measure in real time)
   const [x0, x1] = await page.evaluate(() => { const S = window.__sim, pl = S.G.players[0]; pl.x = 10; const a = pl.x; S.keys.add('KeyA'); S.step(30); S.keys.delete('KeyA'); return [a, pl.x]; });

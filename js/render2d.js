@@ -50,10 +50,12 @@ function drawNet(){
   ctx.fillStyle = '#150e1c'; for (const x of [x0, x1]) { ctx.fillRect(x - 3, sy(NETY, NET_H_SIDE + 0.4), 6, scale*(NET_H_SIDE + 0.4)*0.55); }
 }
 function drawPlayer(pl, t){
-  const sp = SPECIES[pl.species] || SPECIES.pickle, x = sx(pl.x), y = sy(pl.y), r = PL_R*scale;
-  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x, y + r*0.3, r*1.1, r*0.5, 0, 0, 7); ctx.fill();
-  // paddle swings around the body
-  const sw = pl.swing > 0 ? (1 - pl.swing/0.28) : 0, side = pl.team === 'home' ? 1 : -1;
+  const sp = SPECIES[pl.species] || SPECIES.pickle, r = PL_R*scale, hand = handOf(pl);
+  const lean = pl.lunge > 0 ? pl.lungeSide*hand*(pl.lunge/0.45)*0.6*r : 0, hop = pl.split > 0 ? Math.sin(pl.split/0.18*Math.PI)*r*0.35 : 0;
+  const x = sx(pl.x) + lean, y = sy(pl.y) - hop;
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(sx(pl.x), sy(pl.y) + r*0.3, r*1.1, r*0.5, 0, 0, 7); ctx.fill();
+  // paddle: ready in front, swinging across on the side the ball was on
+  const sw = pl.swing > 0 ? (1 - pl.swing/0.28) : 0, side = (pl.swing > 0 ? pl.swingSide : 1)*hand*(pl.team === 'home' ? 1 : -1);
   const pa = pl.face + side*(0.9 - sw*1.8), px = x + Math.cos(pa)*r*1.5, py = y - r*0.6 + Math.sin(pa)*r*1.5*0.6;
   ctx.fillStyle = '#3a2a1a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(px, py, r*0.45, r*0.55, pa, 0, 7); ctx.fill(); ctx.stroke();
@@ -62,7 +64,31 @@ function drawPlayer(pl, t){
   // tricorn hat for the pirates, a band for everyone else
   if (pl.species === 'pickle') { ctx.fillStyle = '#1b1410'; ctx.beginPath(); ctx.moveTo(x - r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*2.5, x + r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*1.75, x - r*0.95, y - r*1.55); ctx.fill(); }
   else { ctx.fillStyle = sp.acc; ctx.fillRect(x - r*0.7, y - r*1.25, r*1.4, r*0.3); }
-  if (pl.human && !G.attract) { ctx.strokeStyle = '#ffc23a'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(x, y + r*0.3, r*1.35, r*0.6, 0, 0, 7); ctx.stroke(); }
+}
+// the human's reach: a ring at the feet that lights up when the ball can be hit
+function drawReach(pl, t){
+  const B = G.ball, live = ballFor(pl, B) && contactQ(pl, B.x, B.y, B.z, B.bounces > 0), rr = TUNE.reach*scale;
+  ctx.save(); ctx.lineWidth = live ? 3 : 1.5;
+  ctx.strokeStyle = live ? '#ffc23a' : pl.queue ? `rgba(255,194,58,${0.45 + 0.25*Math.sin(t*12)})` : 'rgba(243,234,210,.3)';
+  ctx.beginPath(); ctx.ellipse(sx(pl.x), sy(pl.y), rr, rr*0.55, 0, 0, 7); ctx.stroke(); ctx.restore();
+}
+// a pending shot over the player's head, with the drive's power filling as you hold
+function drawQueue(pl, x, y){
+  const Q = pl.queue; if (!Q || !pl.human || G.attract) return;
+  const label = { drive:'DRIVE', soft:'SOFT', lob:'LOB' }[Q.kind] || Q.kind.toUpperCase();
+  ctx.save(); ctx.font = '12px Bungee, "Arial Black", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(label).width + 16, h = 20;
+  ctx.fillStyle = 'rgba(11,20,24,.88)'; ctx.strokeStyle = '#ffc23a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w/2, y - h/2, w, h, 6) : ctx.rect(x - w/2, y - h/2, w, h); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffc23a'; ctx.fillText(label, x, y + 1);
+  if (Q.kind === 'drive' && Q.power > 0) { ctx.fillStyle = '#ff6a3c'; ctx.fillRect(x - w/2 + 3, y + h/2 - 4, (w - 6)*Q.power, 2.5); }
+  ctx.restore();
+}
+// where a manually aimed shot is headed
+function drawReticle(x, y, r){
+  ctx.save(); ctx.strokeStyle = 'rgba(95,208,255,.9)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x, y, r, r*0.55, 0, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - r*1.4, y); ctx.lineTo(x - r*0.5, y); ctx.moveTo(x + r*0.5, y); ctx.lineTo(x + r*1.4, y); ctx.moveTo(x, y - r*0.8); ctx.lineTo(x, y - r*0.3); ctx.moveTo(x, y + r*0.3); ctx.lineTo(x, y + r*0.8); ctx.stroke(); ctx.restore();
 }
 function drawBall(){
   const B = G.ball; if (B.z < -0.5) return;
@@ -99,12 +125,14 @@ function render(now){
   // far side first, then the net, then the near side, so overlaps read right
   const far = G.players.filter(p => p.y <= NETY), near = G.players.filter(p => p.y > NETY), ballFar = G.ball.y <= NETY;
   drawCannon();
+  { const h = humanPl(); if (h) drawReach(h, t); if (G.aimPreview) drawReticle(sx(G.aimPreview.x), sy(G.aimPreview.y), scale*0.9); }
   for (const p of far) drawPlayer(p, t);
   if (ballFar) drawBall();
   drawNet();
   if (!ballFar) drawBall();
   for (const p of near) drawPlayer(p, t);
-  for (const p of G.pops) drawPop(p, sx(p.x), sy(p.y, 4));
+  for (const p of G.pops) drawPop(p, sx(p.x), sy(p.y, p.lift || 4));
+  { const h = humanPl(); if (h) drawQueue(h, sx(h.x), sy(h.y) - PL_R*scale*3.2); }
   ctx.restore();
   drawJoy();
 }

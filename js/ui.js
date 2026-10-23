@@ -7,7 +7,7 @@ function segHtml(id, opts, cur){ return `<div class="seg" id="${id}">${opts.map(
 function renderHub(){
   $('hubWrap').innerHTML = `
     <div class="logo"><p class="eyebrow">Arcade pickleball · pirate crews · real rules</p><h1>Pickle <em>Pirates</em></h1><div class="tape"></div>
-      <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup. This is the first skeleton: rally against a stand-in crew on a placeholder court while the real game gets built.</p></div>
+      <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup. Early build: rally against a stand-in crew on a placeholder court while the real game gets built.</p></div>
     <button class="chal prac" type="button" id="btnPractice">
       <span class="num">P</span>
       <span class="cinfo"><span class="arena">PRACTICE · BALL CANNON</span><span class="ct">Practice</span><span class="co">The cannon feeds serves, drives, drops, dinks and lobs. Hit them back over the net and keep the rally going.</span></span>
@@ -80,7 +80,7 @@ function startPractice(id){
   show(null); paused = false; renderCtrlBar();
   setTimeout(resize, 30);
   band('intro');
-  toast('Practice', 'Hit it back over the net · pause for settings', 1700, 'small');
+  toast('Practice', 'Press a shot as the ball comes · the swing is timed for you', 2200, 'small');
   wake();
 }
 // ---------------- practice settings: island and ball cannon (from the dock, or live from the pause menu)

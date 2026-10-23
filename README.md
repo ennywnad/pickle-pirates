@@ -6,13 +6,14 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1 and 2 of 10 are done:
+Milestones 1–3 of 10 are done:
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
 - **The ball cannon:** Practice feeds serves, drives, drops, dinks and lobs, with your choice of placement, spin, pace and timing.
+- **Hitting:** press a shot as the ball comes and the game times the swing. Footwork comes with a move-to-ball assist, split steps and lunges, and you can aim or let auto-aim pick a spot.
 
-Scoring, the rules engine, real shots and the real CPU come in later milestones.
+Scoring, the rules engine and the real CPU come next.
 
 | # | Milestone | Done when |
 |---|-----------|-----------|
@@ -41,6 +42,18 @@ Scoring, the rules engine, real shots and the real CPU come in later milestones.
 
 Keys and buttons can be remapped under Controls.
 
+### How hitting works
+
+You choose the shot and where it goes; the game swings at the best moment.
+
+1. **Press a shot early.** Pressing up to about half a second before the ball arrives is perfect; the press waits up to about a second for the ball.
+2. **Hold Drive for power.** Harder drives are riskier.
+3. **Get the stick out of the way if you like.** With the left stick centered, the move-to-ball assist runs you to a good contact spot. Between points it sends you back to the baseline (or keeps you at the kitchen line mid-rally). Hold Plant to stay put.
+4. **What sets each shot's quality:** your timing, the ball's height (waist-high is best), how far you're stretching, how fast it's coming and how fast you're running. Quality decides how far the shot strays from your target. Very poor contact mishits.
+5. **Situational shots:** a high ball near the net becomes a smash. Soft is a dink from the kitchen and a drop from further back. The serve and the return must bounce before you hit them (the two-bounce rule).
+
+Timing grades (perfect, early, late, stretch) pop up over your player. The ring at your feet lights up when the ball is in reach, and the reticle shows where a manually aimed shot is headed.
+
 ## Ball physics
 
 The ball is tuned to published pickleball measurements, and `tests/ball.mjs` checks it against them on every push:
@@ -62,7 +75,7 @@ It's static files with no build step: three.js r180 is vendored under `vendor/th
 
 ```sh
 npm run serve        # http://localhost:8123
-npm install && npm test   # ball physics checks, then the Playwright smoke test against the running server
+npm install && npm test   # ball physics and hitting checks, then the Playwright smoke test against the running server
 ```
 
 Add `?debug` to the address for test hooks on `window.__sim`.
@@ -76,9 +89,9 @@ js/core.js        helpers, court geometry, crews, islands, booty list, saves
 js/audio.js       mixer, crowd, sound effects, music cues
 js/match.js       match state, tuning sliders, accessibility
 js/ball.js        ball flight, spin, bounces, net, line calls, launch solvers
-js/shots.js       who can reach the ball, shot targets, the hit (placeholder)
+js/shots.js       contact window, auto-timed swing, shot quality and errors, aim
 js/rules.js       rally referee (placeholder) and the ball cannon
-js/players.js     footwork and the stand-in CPU (placeholder)
+js/players.js     footwork, move-to-ball assist, the stand-in CPU (placeholder)
 js/input.js       remappable keys, controllers, touch, controls screen
 js/update.js      per-frame step
 js/render2d.js    classic top-down view, scoreboard

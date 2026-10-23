@@ -209,6 +209,15 @@ async function init(){
   // height line: ball down to its shadow
   const hLine = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.6, 1.6, 1.5), transparent:true, opacity:0.45, depthWrite:false })); dyn.add(hLine);
   const landing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.62, 32).rotateX(-Math.PI/2), landMat); landing.renderOrder = 2; dyn.add(landing);
+  // the human's reach ring (lights up when the ball can be hit) and the aim reticle for a manually aimed shot
+  const reachCol = uniform(new THREE.Vector3(1, 1, 1)), reachA = uniform(0.3);
+  const reachMat = new THREE.MeshBasicNodeMaterial({ transparent:true, depthWrite:false }); reachMat.colorNode = reachCol; reachMat.opacityNode = reachA;
+  const reachRing = new THREE.Mesh(new THREE.RingGeometry(0.95, 1, 48).rotateX(-Math.PI/2), reachMat); reachRing.renderOrder = 2; dyn.add(reachRing);
+  const retMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(0.5, 1.9, 2.6), transparent:true, opacity:0.9, depthWrite:false });
+  const reticle = new THREE.Group();
+  reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.7, 0.85, 32).rotateX(-Math.PI/2), retMat));
+  for (const a of [0, Math.PI/2, Math.PI, Math.PI*1.5]) { const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.12).rotateX(-Math.PI/2), retMat); bar.position.set(Math.cos(a)*1.25, 0, Math.sin(a)*1.25); bar.rotation.y = -a; reticle.add(bar); }
+  reticle.renderOrder = 2; dyn.add(reticle);
   const TRAIL_N = 14;
   const trailMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(BALL_VIS*0.8, 0), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.0, 1.85, 0.6), transparent:true, opacity:0.45, depthWrite:false }), TRAIL_N); trailMesh.frustumCulled = false; trailMesh.count = 0; dyn.add(trailMesh);
   const PART_MAX = 80;
@@ -401,13 +410,26 @@ async function init(){
       const fx = Math.cos(pl.face), fz = Math.sin(pl.face);
       let yaw = Math.atan2(fx, fz); let dy = yaw - v.yaw; while (dy > Math.PI) dy -= 2*Math.PI; while (dy < -Math.PI) dy += 2*Math.PI; v.yaw += dy*Math.min(1, dt*12);
       f.root.rotation.y = v.yaw;
-      const sp = Math.hypot(pl.vx, pl.vy);
-      f.bob.position.y = sp > 1 ? Math.abs(Math.sin(t*14 + i))*0.22 : Math.sin(t*3 + i)*0.04;
-      f.bob.rotation.z = sp > 1 ? Math.sin(t*14 + i)*0.06 : 0;
-      const s = pl.swing > 0 ? 1 - pl.swing/0.28 : 0, side = pl.team === 'home' ? 1 : -1;
-      f.pivot.rotation.y = side*(s > 0 ? 1.2 - s*2.6 : 0.9);
-      f.pivot.rotation.x = pl.swingKind === 'lob' && s > 0 ? -s*0.9 : 0;
+      const sp = Math.hypot(pl.vx, pl.vy), hop = pl.split > 0 ? Math.sin(pl.split/0.18*Math.PI)*0.5 : 0;
+      f.bob.position.y = hop + (sp > 1 ? Math.abs(Math.sin(t*14 + i))*0.22 : Math.sin(t*3 + i)*0.04);
+      // a lunge leans the whole body toward the ball
+      const lk = pl.lunge > 0 ? pl.lunge/0.45 : 0;
+      f.bob.rotation.z = (sp > 1 ? Math.sin(t*14 + i)*0.06 : 0) - pl.lungeSide*0.45*lk;
+      f.bob.position.x = 0;
+      // the paddle: ready in front, then a swing across on whichever side the ball was (forehand or backhand)
+      const s = pl.swing > 0 ? 1 - pl.swing/0.28 : 0, side = pl.swing > 0 ? pl.swingSide : 1;
+      // forehand is the figure's local −x for both crews (each faces the net)
+      f.pivot.position.x = -side*0.9;
+      f.pivot.rotation.y = -side*(s > 0 ? 1.2 - s*2.6 : 0.9);
+      f.pivot.rotation.x = (pl.swingKind === 'lob' || pl.swingKind === 'drop' || pl.swingKind === 'dink') && s > 0 ? -s*0.9 : pl.swingKind === 'smash' && s > 0 ? 1.4 - s*2.2 : 0;
     });
+    { const h = !G.attract && G.players.find(p => p.human);
+      reachRing.visible = !!h;
+      if (h) { const v = figs[G.players.indexOf(h)].v; W(v.x, v.z, 0.05, reachRing.position); reachRing.scale.setScalar(TUNE.reach);
+        const live = ballFor(h, G.ball) && contactQ(h, G.ball.x, G.ball.y, G.ball.z, G.ball.bounces > 0);
+        if (live) { reachCol.value.set(2.2, 1.5, 0.25); reachA.value = 0.9; } else if (h.queue) { reachCol.value.set(2.2, 1.5, 0.25); reachA.value = 0.45 + 0.25*Math.sin(t*12); } else { reachCol.value.set(1.4, 1.35, 1.2); reachA.value = 0.28; } }
+      reticle.visible = !!G.aimPreview;
+      if (G.aimPreview) { W(G.aimPreview.x, G.aimPreview.y, 0.07, reticle.position); reticle.rotation.y = t*0.8; } }
     // ball, its shadow, trail and landing marker
     const B = G.ball;
     ball.visible = ballBlob.visible = B.z > -0.5;

@@ -195,6 +195,8 @@ function launchFor(kind, from, tx, ty, opt = {}){
     case 'dink': return aimThrough(from, tx, ty, netAt(from, tx, ty) + TUNE.dinkClear*(opt.arcK || 1), spin ?? 0);
     case 'drop': return aimThrough(from, tx, ty, netAt(from, tx, ty) + TUNE.dropClear*(opt.arcK || 1), spin ?? 150*RPM);
     case 'lob':  return aimByApex(from, tx, ty, TUNE.lobApex*(opt.arcK || 1), spin ?? 400*RPM);
+    case 'smash': return aimBySpeed(from, tx, ty, TUNE.smashSpeed*MPH*sp, spin ?? 500*RPM) || aimBySpeed(from, tx, ty, TUNE.smashSpeed*MPH*sp*0.8, spin ?? 500*RPM) || launchFor('drive', from, tx, ty, opt);
+    case 'pop':  return aimByApex(from, tx, ty, Math.max(from.z + 1.5, 7), 0);   // a mishit: a weak floater
   }
   return aimByApex(from, tx, ty, 6, 0);
 }

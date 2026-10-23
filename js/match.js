@@ -2,7 +2,9 @@
 'use strict';
 // ---------------- match state
 let G = null;
-const mkPlayer = (team, species, human) => ({ team, species, human:!!human, x:CW/2, y: team === 'home' ? CL - 2 : 2, vx:0, vy:0, face: team === 'home' ? -Math.PI/2 : Math.PI/2, swing:0, swingKind:null, cool:0, ai:{ tx:CW/2, ty: team === 'home' ? CL - 2 : 2, think:0 } });
+const mkPlayer = (team, species, human) => ({ team, species, human:!!human, x:CW/2, y: team === 'home' ? CL - 2 : 2, vx:0, vy:0, face: team === 'home' ? -Math.PI/2 : Math.PI/2,
+  swing:0, swingKind:null, swingSide:1, cool:0, queue:null, split:0, burst:0, lunge:0, lungeSide:1, spot:null, spotT:0,
+  ai:{ tx:CW/2, ty: team === 'home' ? CL - 2 : 2, think:0, pressAt:0.3, rollFor:-1 } });
 const mkBall = () => ({ x:CW/2, y:NETY, z:-5, vx:0, vy:0, vz:0, sx:0, sy:0, sz:0, live:false, side:null, bounces:0, lastBy:null, lastKind:null, still:0, trail:[] });
 
 // ---------------- accessibility (saved per browser)
@@ -36,7 +38,18 @@ const TUNE_DEF = [
   ['Footwork', [
     ['runSpeed', 'Run speed', 6, 24, 0.5, 14, 'ft/s'],
     ['runAccel', 'Acceleration', 20, 160, 5, 70, ''],
-    ['reach', 'Paddle reach', 1.5, 5, 0.1, 3.2, 'ft'],
+    ['assist', 'Move-to-ball assist', 0, 1, 0.05, 0.6, ''],
+    ['reach', 'Paddle reach', 1.5, 5, 0.1, 3.0, 'ft'],
+    ['lungeReach', 'Extra reach on a lunge', 0, 2, 0.05, 0.9, 'ft'],
+  ]],
+  ['Hitting', [
+    ['queueTime', 'A shot press waits up to', 0.3, 2, 0.05, 1.1, 's'],
+    ['sweetEarly', 'Perfect timing: press up to', 0.2, 1, 0.02, 0.5, 's before contact'],
+    ['sweetLate', 'Perfect timing: no later than', 0, 0.3, 0.01, 0.1, 's before contact'],
+    ['forgive', 'Error forgiveness', 0, 1, 0.05, 0.5, ''],
+    ['aimAssist', 'Aim assist (keeps manual aim inside the lines)', 0, 1, 0.05, 0.6, ''],
+    ['holdTime', 'Drive hold to full power', 0.15, 1.2, 0.05, 0.5, 's'],
+    ['smashSpeed', 'Smash speed', 35, 75, 1, 56, 'mph'],
   ]],
 ];
 const TUNE = {};
@@ -63,7 +76,7 @@ const FEED_DELAY = { fast:0.6, normal:1.4, slow:2.4 }, PACE = { slow:0.85, norma
 function newMatch(islandId, attract){
   const isl = ISLANDS.find(i => i.id === islandId) || ISLANDS[0];
   G = { island:isl, theme:THEMES[isl.id], attract:!!attract, mode: attract ? 'attract' : 'practice', state:'feed', stT:1.0, time:0,
-    score:{ home:0, away:0 }, rally:0, best:0, shotN:0, feedTo:'home', lastCall:null,
+    score:{ home:0, away:0 }, rally:0, best:0, shotN:0, aimPreview:null, cpuSkill: attract ? 0.8 : 0.7, feedTo:'home', lastCall:null,
     ball:mkBall(), landing:null, parts:[], pops:[], shake:0,
     cfg: attract ? { ...practiceDef(), opp:'cpu', marker:false } : { ...practice }, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 } };
   G.players = [mkPlayer('home', HOME.species, !attract), mkPlayer('away', isl.opp.species, false)];

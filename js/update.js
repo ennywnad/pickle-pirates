@@ -12,9 +12,11 @@ function update(dt){
   for (let p = 0; p < G.players.length; p++) {
     const pl = G.players[p];
     if (pl.swing > 0) pl.swing = Math.max(0, pl.swing - dt);
-    if (pl.human) { const [ix, iy] = readInput(0); movePlayer(pl, ix, iy, dt); }
+    if (pl.human) { humanMove(pl, dt); if (pl.queue) { const a = readAim(0); if (a[0] || a[1]) pl.queue.aim = a; } }
     else cpuPlayer(pl, dt);
+    shotTick(pl, dt);
   }
+  { const h = humanPl(); G.aimPreview = h ? aimPreview(h) : null; }
 
   // restart: the cannon feeds the next ball
   if (G.state === 'dead' || G.state === 'feed') {

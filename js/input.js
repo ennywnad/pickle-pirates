@@ -76,11 +76,13 @@ function actionHeld(p, a){
   return false;
 }
 const playing = () => G && !G.attract && !paused && G.state !== 'end';
+// a shot press waits for the best moment to swing (see shots.js); Drive keeps charging while held
 function pressShot(p, kind){
   if (!playing()) return;
   const pl = humanPl(); if (!pl) return;
-  hitBall(pl, kind, readAim(p), actionHeld(p, 'top') ? 'top' : actionHeld(p, 'slice') ? 'slice' : null);
+  queueShot(pl, kind, { hold: kind === 'drive', aim: readAim(p), mod: actionHeld(p, 'top') ? 'top' : actionHeld(p, 'slice') ? 'slice' : null });
 }
+function releaseDrive(p){ const pl = humanPl(); if (pl) releaseShot(pl); }
 function pressBooty(p = 0){ if (!playing()) return; toast('No booty yet', 'Power-ups wash up in milestone 9', 1200, 'small'); }
 cv.addEventListener('pointerdown', e => {
   ensureAudio();
@@ -104,7 +106,7 @@ function holdBtn(el, down, up){
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
   el.addEventListener('contextmenu', e => e.preventDefault());
 }
-holdBtn($('bHit'), () => pressShot(0, 'drive'));
+holdBtn($('bHit'), () => pressShot(0, 'drive'), () => releaseDrive(0));
 holdBtn($('bSoft'), () => pressShot(0, 'soft'));
 holdBtn($('bLob'), () => pressShot(0, 'lob'));
 holdBtn($('bBooty'), () => pressBooty(0));
@@ -128,7 +130,10 @@ window.addEventListener('keydown', e => {
   if (used || ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   keys.add(e.code);
 });
-window.addEventListener('keyup', e => { keys.delete(e.code); });
+window.addEventListener('keyup', e => {
+  keys.delete(e.code);
+  if (G && !G.attract) for (let p = 0; p < humans(); p++) { const kb = devicesFor(p).kb; if (kb && (binds[kb].drive || []).includes(e.code)) releaseDrive(p); }
+});
 window.addEventListener('blur', () => { keys.clear(); touchHeld.clear(); });
 
 // ---------------- gamepads (standard mapping: Xbox, PlayStation, Switch Pro)
@@ -186,6 +191,7 @@ function pollPad(){
     if (inGame && !paused && p >= 0) {
       const B = binds.pad, on = a => (B[a] || []).some(i => now[i]), was = a => (B[a] || []).some(i => ps.prev[i]), hit = a => on(a) && !was(a);
       for (const a of SHOT_ACTIONS) if (hit(a)) { ensureAudio(); pressShot(p, a); }
+      if (!on('drive') && was('drive')) releaseDrive(p);
       if (hit('booty')) pressBooty(p);
     } else if (!inGame || paused) {
       if (down(0)) { ensureAudio(); padConfirm(); }
