@@ -17,7 +17,7 @@ const sandbox = {
   BOT: { input:[0, 0], aim:[0, 0], plant:false }, readInput: () => sandbox.BOT.input, readAim: () => sandbox.BOT.aim, actionHeld: (p, a) => a === 'plant' && sandbox.BOT.plant,
 };
 vm.createContext(sandbox);
-for (const f of ['js/core.js', 'js/match.js', 'js/ball.js', 'js/rules.js', 'js/shots.js', 'js/referee.js', 'js/players.js', 'js/update.js'])
+for (const f of ['js/core.js', 'js/match.js', 'js/ball.js', 'js/rules.js', 'js/shots.js', 'js/referee.js', 'js/players.js', 'js/ai.js', 'js/update.js'])
   vm.runInContext(readFileSync(new URL(f, root), 'utf8'), sandbox, { filename: f });
 const run = src => vm.runInContext(src, sandbox);
 

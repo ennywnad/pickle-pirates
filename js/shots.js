@@ -25,11 +25,11 @@ function contactQ(pl, x, y, z, bounced, px = pl.x, py = pl.y){
 function timingQ(tau){
   if (tau >= TUNE.sweetLate && tau <= TUNE.sweetEarly) return { k:1, grade:'perfect' };
   if (tau < TUNE.sweetLate) return { k:0.55 + 0.45*tau/Math.max(0.01, TUNE.sweetLate), grade:'late' };
-  return { k:Math.max(0.55, 1 - 0.45*(tau - TUNE.sweetEarly)/0.6), grade:'early' };
+  return { k:Math.max(0.4, 1 - 0.6*(tau - TUNE.sweetEarly)/0.5), grade:'early' };
 }
 // press a shot button: the shot waits (up to queueTime) for the best moment to swing
 function queueShot(pl, kind, opt = {}){
-  pl.queue = { kind, t:0, hold:!!opt.hold, power:0, aim:opt.aim || null, mod:opt.mod || null, skill:opt.skill ?? 1 };
+  pl.queue = { kind, t:0, hold:!!opt.hold, power:0, aim:opt.aim || null, mod:opt.mod || null, skill:opt.skill ?? 1, target:opt.target || null, arcK:opt.arcK || 1 };
 }
 function releaseShot(pl){ if (pl.queue) pl.queue.hold = false; }
 // the ball can be hit by this player right now (and isn't theirs to leave)
@@ -84,23 +84,25 @@ function strike(pl, Q, c){
   let q = clamp(c.q*tq.k*paceQ*moveQ*Q.skill, 0, 1);
   if (kind === 'drive') q *= 1 - 0.25*Q.power;   // swinging harder is riskier
   // aim, then stray from it
-  const t = shotTarget(pl, kind, Q.aim, opp);
+  const t = Q.target && kind !== 'smash' ? Q.target : shotTarget(pl, kind, Q.aim, opp);   // the CPU picks its own spot
   const spread = (1 - q)*(1 - 0.6*TUNE.forgive);
-  let tx = t.x + gauss()*(0.25 + 4.5*spread), ty = t.y + gauss()*(0.25 + 4*spread);
+  let tx = t.x + gauss()*(0.35 + 7*spread), ty = t.y + gauss()*(0.35 + 6*spread);
+  // soft shots off poor contact float up (an attackable ball) or dump short
+  const softSpray = (kind === 'dink' || kind === 'drop') ? Math.max(0.4, 1 + gauss()*2.2*spread) : 1;
   const from = { x:B.x, y:B.y, z:Math.max(B.z, 0.3) };
   if (q < 0.25 && Math.random() < 0.6) {   // mishit: frames it into the net or floats a sitter
     kind = 'pop';
     if (Math.random() < 0.45) { tx = B.x + rand(-2, 2); ty = NETY + backDir(pl.team)*1.5; }
     else { tx = rand(3, CW - 3); ty = isNear(pl.team) ? rand(NETY - 12, NETY - 5) : rand(NETY + 5, NETY + 12); }
   }
-  const v = launchFor(kind, from, tx, ty, { spin:spinFor(kind, Q.mod), speedK:powerK*(1 + gauss()*0.04*spread) });
+  const v = launchFor(kind, from, tx, ty, { spin:spinFor(kind, Q.mod), speedK:powerK*(1 + gauss()*0.04*spread), arcK:(Q.arcK || 1)*softSpray });
   Object.assign(B, v, { z:from.z, bounces:0, lastBy:pl.team, lastKind:kind, still:0 });
   // body: face the shot, swing on the side the ball was on, lunge if stretched
   pl.face = Math.atan2(ty - pl.y, tx - pl.x); pl.swing = 0.28; pl.swingKind = kind; pl.swingSide = c.side;
   if (c.lunge) { pl.lunge = 0.45; pl.lungeSide = c.side; }
   // the other side split-steps as the ball is struck
   if (opp) { opp.split = 0.18; opp.burst = 0.5; }
-  G.rally++; G.best = Math.max(G.best, G.rally); G.shotN++; G.hits++;
+  G.rally++; G.best = Math.max(G.best, G.rally); G.shotN++; G.hits++; G.stats.strokes++;
   G.lastShot = { team:pl.team, kind, q, grade:tq.grade, volley:c.volley, power:Q.power };
   sfx(SHOT_SOUND[kind] || 'paddle', kind === 'pop' ? 0.5 : 1);
   if (kind === 'pop') grade(pl, 'mishit');

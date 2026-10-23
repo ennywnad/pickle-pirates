@@ -84,12 +84,14 @@ for (const gfx of ['classic', 'med']) {
   await tap('#btnQuit');
   await tap('#btnGame');
   await page.waitForSelector('#gameset:not([hidden])', { timeout: 5000 });
+  await tap('#g_tier button[data-v="captain"]');
   await tap('#gameGo');
   await page.waitForTimeout(1500);
-  const gm = await page.evaluate(() => { const S = window.__sim, G = S.G; const start = { mode: G.mode, state: G.state, call: document.getElementById('clk').textContent };
+  const gm = await page.evaluate(() => { const S = window.__sim, G = S.G; const start = { mode: G.mode, state: G.state, call: document.getElementById('clk').textContent, tier: G.players[1].tier, board: document.getElementById('arenaShort').textContent };
     G.players[0].human = false; for (let i = 0; i < 60*90 && G.match.rallies < 4; i++) S.step(1); G.players[0].human = true;
     return { ...start, rallies: G.match.rallies, pts: G.match.pts }; });
   if (gm.mode !== 'game' || !['set', 'serve', 'play'].includes(gm.state) || !/^\d+–\d+$/.test(gm.call) || gm.rallies < 4) fail(`${gfx}: singles game did not run (${JSON.stringify(gm)})`);
+  if (gm.tier !== 'captain' || !/CAPTAIN/.test(gm.board)) fail(`${gfx}: the opponent level did not carry into the game (${gm.tier}, "${gm.board}")`);
   await page.waitForTimeout(300);
 
   // pause, back to the dock, save code round trip

@@ -20,7 +20,7 @@ function update(dt){
     if (pl.swing > 0) pl.swing = Math.max(0, pl.swing - dt);
     if (setting || (serving && G.match && (pl.team === G.match.server || !pl.human))) { pl.vx *= 0.8; pl.vy *= 0.8; continue; }   // a CPU receiver waits in place too
     if (pl.human) { humanMove(pl, dt); if (pl.queue) { const a = readAim(0); if (a[0] || a[1]) pl.queue.aim = a; } }
-    else cpuPlayer(pl, dt);
+    else aiPlayer(pl, dt);
     shotTick(pl, dt);
   }
   { const h = humanPl(); G.aimPreview = h ? aimPreview(h) : null; G.kitchenWarn = h ? kitchenWarn(h) : false; }

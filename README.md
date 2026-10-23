@@ -6,15 +6,24 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–4 of 11 are done. What changed in each version is in the [changelog](CHANGELOG.md).
+Milestones 1–5 of 11 are done. What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
 - **The ball cannon:** Practice feeds serves, drives, drops, dinks and lobs, with your choice of placement, spin, pace and timing.
 - **Hitting:** press a shot as the ball comes and the game times the swing, with a move-to-ball assist, split steps, lunges and aim.
 - **Rules and scoring:** full singles games under the 2026 rulebook: serving order, the kitchen, the two-bounce rule, side-out or rally scoring, switching ends.
+- **CPU opponent:** three crew levels (Deckhand, Bosun, Captain) that read the ball, come to the net, dink, speed up, drop and lob, and lose in believable ways.
 
-The real CPU opponent comes next.
+The first playable build, v0.1 on Brine Bay, comes next.
+
+| Level | How it plays |
+|---|---|
+| Deckhand · easy | Slow first step, rough reads, early swings, pops up about one dink in four, often stays back |
+| Bosun · medium | Comes to the net most points, punishes high balls, occasional rushed swing |
+| Captain · hard | Reads the ball early, plays from the kitchen line, rarely misses, serves deep to your backhand |
+
+Pick the level in the singles setup or the Practice settings. `tests/ai.mjs` checks the ladder (each level beats the one below), plays each level against a bot that plays like a decent human (it should beat the Deckhand and lose to the Captain), checks the styles, and runs a 20-game soak.
 
 | # | Milestone | Done when |
 |---|-----------|-----------|
@@ -93,7 +102,8 @@ It's static files with no build step: three.js r180 is vendored under `vendor/th
 
 ```sh
 npm run serve        # http://localhost:8123
-npm install && npm test   # ball, rules, hitting and full-game checks, then the Playwright smoke test against the running server
+npm install && npm test   # ball, rules, hitting, full-game and CPU checks, then the Playwright smoke test against the running server
+node tests/ai.mjs         # the full CPU run: ladder, vs the bot, styles, 20-game soak (a few minutes)
 ```
 
 Add `?debug` to the address for test hooks on `window.__sim`.
@@ -110,7 +120,8 @@ js/ball.js        ball flight, spin, bounces, net, line calls, launch solvers
 js/shots.js       contact window, auto-timed swing, shot quality and errors, aim
 js/rules.js       the rules engine: scoring, serving, two-bounce, kitchen, ends (pure, tested on its own)
 js/referee.js     runs points: serving, faults and calls, side outs, switching ends, the ball cannon
-js/players.js     footwork, move-to-ball assist, the stand-in CPU (placeholder)
+js/players.js     footwork, move-to-ball assist, kitchen guard
+js/ai.js          the CPU: three levels, reading the ball, positioning, shot choice, serves
 js/input.js       remappable keys, controllers, touch, controls screen
 js/update.js      per-frame step
 js/render2d.js    classic top-down view, scoreboard

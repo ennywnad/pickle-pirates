@@ -24,6 +24,7 @@ function endRally(loser, kind, x, y){
   G.stats.rallies++; G.stats.longest = Math.max(G.stats.longest, G.rally);
   if (kind === 'ace') G.stats.aces++;
   G.stats.faults[kind] = (G.stats.faults[kind] || 0) + 1;
+  G.stats.faultBy[loser][kind] = (G.stats.faultBy[loser][kind] || 0) + 1;
   for (const pl of G.players) pl.queue = null;
   if (G.mode === 'game') return endPoint(winner, kind);
   // practice
@@ -54,7 +55,7 @@ function startPoint(){
   const S = G.match, server = S.server, pos = servePositions(isNear(server), serverCourt(S));
   G.state = 'set'; G.stT = 0.9; G.hits = 0; G.rally = 0; G.serveT = 0;
   Object.assign(G.ball, { live:false, z:-5, bounces:0, lastBy:null, lastKind:null, serve:null, trail:[] });
-  for (const pl of G.players) { const p = pl.team === server ? pos.server : pos.receiver; pl.setTo = { x:p.x, y:p.y }; pl.queue = null; pl.momentum = 0; pl.spot = null; }
+  for (const pl of G.players) { const p = pl.team === server ? pos.server : pos.receiver; pl.setTo = { x:p.x, y:p.y }; pl.queue = null; pl.momentum = 0; pl.spot = null; if (!pl.human) aiNewPoint(pl); }
 }
 // glide everyone to their spots, then wait for the serve
 function serveSetup(dt){
@@ -77,30 +78,31 @@ function holdServe(dt){
   const srv = G.players.find(p => p.team === G.match.server), B = G.ball;
   G.serveT += dt;
   Object.assign(B, { x:srv.x + handOf(srv)*0.5, y:srv.y - backDir(srv.team)*0.6, z:1.6 + Math.sin(G.serveT*5)*0.05, vx:0, vy:0, vz:0, sx:0, sy:0, sz:0 });
-  if (!srv.human && G.serveT > (G.attract ? 0.9 : 1.2)) { const r = Math.random(); doServe(srv, r < 0.6 ? 'drive' : r < 0.9 ? 'soft' : 'lob', null); }
+  if (!srv.human && G.serveT > (G.attract ? 0.9 : 1.2)) aiServe(srv);
 }
 // serve: drive = a hard serve, soft = a slower deep one, lob = a high lob serve. aim picks the spot inside the service court.
-function doServe(pl, kind, aim){
+function doServe(pl, kind, aim, place){
   if (G.state !== 'serve' || pl.team !== G.match.server) return false;
   const S = G.match, court = serverCourt(S), recNear = !isNear(pl.team), box = serviceBox(recNear, court), B = G.ball;
   const deepY = recNear ? box.y1 : box.y0, dir = recNear ? -1 : 1;   // dir: from the receiver's baseline toward the net
   let tx = (box.x0 + box.x1)/2 + rand(-2.6, 2.6), depth = rand(2, 7);
-  if (aim && (aim[0] || aim[1])) {
+  if (place) { tx = (box.x0 + box.x1)/2 + place.xk*4; depth = place.depth; }   // the CPU's chosen spot: across the box, feet from the baseline
+  else if (aim && (aim[0] || aim[1])) {
     tx = (box.x0 + box.x1)/2 + aim[0]*5;
     depth = 4.5 + aim[1]*(recNear ? -4 : 4);   // stick toward the receiver's baseline = deeper
     const safeX = clamp(tx, box.x0 + 1.2, box.x1 - 1.2), safeD = clamp(depth, 1.2, 12);
     tx += (safeX - tx)*TUNE.aimAssist; depth += (safeD - depth)*TUNE.aimAssist;
   }
   // a little spray: the human serves near-perfectly, the CPU by its skill
-  const q = pl.human ? 0.92 : 0.8 + 0.15*G.cpuSkill, spread = (1 - q)*(1 - 0.6*TUNE.forgive);
+  const q = pl.human ? 0.92 : tierOf(pl).serve, spread = (1 - q)*(1 - 0.6*TUNE.forgive);
   tx += gauss()*(0.2 + 4*spread); depth += gauss()*(0.2 + 4*spread);
   const ty = deepY + dir*depth;
-  const from = { x:B.x, y:B.y, z:1.5 };
+  const from = { x:pl.x + handOf(pl)*0.5, y:pl.y - backDir(pl.team)*0.6, z:1.5 };   // from the server's hand, wherever the ball was last drawn
   const v = kind === 'lob' ? launchFor('lob', from, tx, ty, { arcK:0.7 }) : launchFor('serve', from, tx, ty, { speedK: kind === 'soft' ? 0.78 : 1 });
   Object.assign(B, from, v, { live:true, bounces:0, lastBy:pl.team, lastKind:'serve', serve:{ court, recNear }, still:0, trail:[] });
   pl.swing = 0.28; pl.swingKind = 'serve'; pl.swingSide = 1;
   const rec = G.players.find(p => p.team !== pl.team); if (rec) { rec.split = 0.18; rec.burst = 0.5; }
-  G.hits = 1; G.rally = 1; G.shotN++; G.state = 'play'; G.yourServe = false;
+  G.hits = 1; G.rally = 1; G.shotN++; G.state = 'play'; G.yourServe = false; G.stats.strokes++;
   sfx('drive', 0.9);
   return true;
 }

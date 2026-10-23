@@ -2,6 +2,40 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.0.5 · CPU opponent (milestone 5) · 2026-10-23
+
+The crew across the net now plays real pickleball, at three levels.
+
+**Three crew levels**
+- **Deckhand (easy):** a slow first step, rough reads of the ball, early swings, about one dink in four popped up, and it often stays back.
+- **Bosun (medium):** comes to the net most points and punishes high balls, with the odd rushed swing.
+- **Captain (hard):** reads the ball early, plays from the kitchen line, rarely misses, and serves deep to your backhand.
+- Pick the level in the singles setup (Bosun by default) or under Crew level in the Practice settings.
+- The scoreboard and the results card show which level you're playing.
+
+**How the CPU plays**
+- Reads where the ball will be, with error that shrinks as the ball arrives, then runs to a contact spot after a reaction delay.
+- Picks shots by contact height and where both players are: puts away high balls, dinks at the kitchen line, speeds up when a dink sits up, drops and lobs when you're at the net, and drives deep when you're both back.
+- The longer a dink rally runs, the more tempted it is to speed up.
+- Returns serve deep and comes in. When serving it stays back until the return bounces (two-bounce rule).
+- Waits between shots at the baseline or the kitchen line, shading toward where the ball is headed.
+- Serves drives, soft deep serves and the odd lob serve.
+- Never volleys from the kitchen.
+- In a very long rally its shots slowly get looser, so points don't run forever.
+
+**Fixes**
+- A CPU serve now leaves from the server's paddle. Before, it could start from where the last point ended and fly out.
+- The move-to-ball assist runs at full speed and steers you clear of kitchen faults.
+- Shot error is wider, so rallies end in believable mistakes instead of running forever.
+- Up at the net, you (with the move-to-ball assist) and the CPU now volley or smash a high ball instead of backing off to play it after the bounce.
+- Pressing a shot a full second early costs more than before. Inside the half-second window nothing changes.
+
+**Tests**
+- `tests/ai.mjs` checks the ladder: each level beats the one below, and one level apart the loser still scores.
+- It also plays each level against a bot that plays like a decent human. The bot beats the Deckhand, loses to the Captain, and the Bosun sits in between.
+- It checks style (the Captain plays at the kitchen line more, the Deckhand pops up more dinks) and runs a 20-game soak across islands and formats with every point checked against the rules.
+- CI runs a shorter 6-game soak on every push.
+
 ## v0.0.4 · Rules and scoring (milestone 4) · 2026-10-23
 
 You can now play a full singles game under the 2026 official rules.

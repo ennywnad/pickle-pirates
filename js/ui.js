@@ -7,14 +7,14 @@ function segHtml(id, opts, cur){ return `<div class="seg" id="${id}">${opts.map(
 function renderHub(){
   $('hubWrap').innerHTML = `
     <div class="logo"><p class="eyebrow">Arcade pickleball · pirate crews · real rules</p><h1>Pickle <em>Pirates</em></h1><div class="tape"></div>
-      <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup. Early build: rally against a stand-in crew on a placeholder court while the real game gets built.</p></div>
+      <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup. Early build: play singles against a CPU crew at three levels on a placeholder court while the real game gets built.</p></div>
     <button class="chal prac" type="button" id="btnPractice">
       <span class="num">P</span>
       <span class="cinfo"><span class="arena">PRACTICE · BALL CANNON</span><span class="ct">Practice</span><span class="co">The cannon feeds serves, drives, drops, dinks and lobs. Hit them back over the net and keep the rally going.</span></span>
       <span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal prac" type="button" id="btnGame">
       <span class="num">1v1</span>
-      <span class="cinfo"><span class="arena">SINGLES · FULL RULES</span><span class="ct">Singles game</span><span class="co">You against the stand-in crew: serves, the kitchen, the two-bounce rule, side-out scoring, switching ends.</span></span>
+      <span class="cinfo"><span class="arena">SINGLES · FULL RULES</span><span class="ct">Singles game</span><span class="co">You against a CPU crew at three levels, under the full rules: serves, the kitchen, the two-bounce rule, side-out scoring, switching ends.</span></span>
       <span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">THE CAREER · v1.0</span><span class="ct">Voyage</span><span class="co">One match per island, objectives, stars and booty unlocks.</span></span><span class="lock">Coming later</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">SINGLES OR DOUBLES</span><span class="ct">Versus</span><span class="co">P1 vs P2, two players vs the CPU, or solo; games to 11, 15 or 21.</span></span><span class="lock">Coming later</span></button>
@@ -104,6 +104,7 @@ function renderPractice(){
       ${seg('pace', 'Pace')}
       ${seg('rate', 'Time between balls')}
       ${seg('opp', 'Across the net', 'Cannon only scores a point for every return that lands in.')}
+      ${seg('tier', 'Crew level', 'How well the crew across the net plays it back.')}
     </div>
     <div class="card pset"><h3 class="h">Rules</h3>
       ${tog('kitchen', 'Kitchen rule', 'Volleying with a foot in the kitchen, or stepping in right after a volley, is a fault')}
@@ -117,23 +118,24 @@ function renderPractice(){
   for (const k of Object.keys(PRAC_OPTS)) $('p_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { practice[k] = b.dataset.v; savePractice(); $('p_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
   for (const k of ['marker', 'height', 'kitchen', 'twoBounce']) $('p_' + k).onchange = e => { practice[k] = e.target.checked; savePractice(); };
   if (!pracLive) $('p_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('p_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
-  const go = () => { if (pracLive && G && !G.attract) { G.cfg = { ...practice }; syncPracLabels(); paused = false; show(null); toast('Settings applied', '', 1000, 'small'); } else startPractice(practiceIsland); };
+  const go = () => { if (pracLive && G && !G.attract) { G.cfg = { ...practice }; G.players[1].tier = AI_TIERS[practice.tier] ? practice.tier : 'bosun'; syncPracLabels(); paused = false; show(null); toast('Settings applied', '', 1000, 'small'); } else startPractice(practiceIsland); };
   const back = () => { if (pracLive && G && !G.attract) { paused = true; preparePause(); show('pause'); } else { renderHub(); show('hub'); } };
   $('pracGo').onclick = go; $('pracGoTop').onclick = go; $('pracBack').onclick = back;
 }
 function syncPracLabels(){
   const cannonOnly = G.cfg.opp === 'none';
   $('objText').textContent = cannonOnly ? 'Practice · return the cannon\'s feeds' : 'Practice · keep the rally going';
-  $('hSub').textContent = cannonOnly ? 'RETURNS IN' : 'PICKLE PIRATES'; $('aSub').textContent = cannonOnly ? 'MISSED' : 'STAND-IN CREW';
+  $('hSub').textContent = cannonOnly ? 'RETURNS IN' : 'PICKLE PIRATES'; $('aSub').textContent = cannonOnly ? 'MISSED' : tierOf(G.players[1]).name.toUpperCase();
 }
 function startAttract(){ newMatch(practiceIsland, true); resize(); }
 // ---------------- singles game: setup, start, results
 function openGameSetup(){
   const C = gameCfg, tog = (k, label, note) => `<label class="tog"><input type="checkbox" id="g_${k}" ${C[k] ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>${label}</b><small>${note}</small></span></label>`;
   $('gameWrap').innerHTML = `
-    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Singles game</h2><span class="slots">YOU VS THE STAND-IN CREW</span></div><button class="btn small" id="gameGoTop" type="button">Start</button></div>
+    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Singles game</h2><span class="slots">YOU VS A CPU CREW</span></div><button class="btn small" id="gameGoTop" type="button">Start</button></div>
     <div class="card pset">
       <div class="prow"><h3 class="h">Island</h3>${segHtml('g_island', ISLANDS.map(i => [i.id, i.name]), practiceIsland)}</div>
+      <div class="prow"><h3 class="h">Opponent</h3>${segHtml('g_tier', GAME_OPTS.tier, C.tier)}<p class="gfxnote">Deckhands are slow to react and pop up their dinks. Bosuns come to the net and punish high balls. Captains read everything early and rarely miss.</p></div>
       <div class="prow"><h3 class="h">Game to</h3>${segHtml('g_to', GAME_OPTS.to, C.to)}<p class="gfxnote">Win by 2. Ends switch when the first side reaches 6 (8 in a game to 15, 11 in a game to 21).</p></div>
       <div class="prow"><h3 class="h">Scoring</h3>${segHtml('g_scoring', GAME_OPTS.scoring, C.scoring)}<p class="gfxnote">Side-out: only the serving side scores, and losing a rally passes the serve. Rally: every rally scores.</p></div>
     </div>
@@ -146,7 +148,7 @@ function openGameSetup(){
       ${tog('height', 'Height line', 'In 3D, a thin line from the ball down to its shadow')}
     </div>
     <div class="btns"><button class="btn" id="gameGo" type="button">Start the game</button><button class="btn ghost" id="gameBack" type="button">Back to the dock</button></div>`;
-  for (const k of ['to', 'scoring']) $('g_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { gameCfg[k] = k === 'to' ? Number(b.dataset.v) : b.dataset.v; saveGameCfg(); $('g_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+  for (const k of ['to', 'scoring', 'tier']) $('g_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { gameCfg[k] = k === 'to' ? Number(b.dataset.v) : b.dataset.v; saveGameCfg(); $('g_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
   for (const k of ['kitchen', 'twoBounce', 'marker', 'height']) $('g_' + k).onchange = e => { gameCfg[k] = e.target.checked; saveGameCfg(); };
   $('g_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('g_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
   $('gameGo').onclick = $('gameGoTop').onclick = () => startGame();
@@ -162,14 +164,14 @@ function startGame(){
   show(null); paused = false; renderCtrlBar();
   setTimeout(resize, 30);
   band('intro');
-  toast(`First to ${G.match.to}`, `${teamName(G.match.server)} serve first`, 2000, 'small');
+  toast(`First to ${G.match.to}`, `vs a ${tierOf(G.players[1]).name} · ${teamName(G.match.server)} serve first`, 2200, 'small');
   wake();
 }
 function showResults(){
   const S = G.match, won = S.winner === 'home', st = G.stats;
   const faults = Object.entries(st.faults).filter(([k]) => !['double bounce', 'winner', 'ace', 'in'].includes(k)).map(([k, n]) => `${CALL_TEXT[k].replace('!', '').toLowerCase()} ${n}`).join(', ');
   $('resCard').innerHTML = `
-    <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · GAME TO ${S.to}</p><h2>${won ? 'Victory!' : 'Sunk!'}</h2></div>
+    <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · GAME TO ${S.to} · VS ${tierOf(G.players[1]).name.toUpperCase()}</p><h2>${won ? 'Victory!' : 'Sunk!'}</h2></div>
     <div class="final"><div><div class="n">${S.pts.home}</div><div class="who">${HOME.abbr}</div></div><div class="dash">–</div><div><div class="n">${S.pts.away}</div><div class="who">${G.island.opp.abbr}</div></div></div>
     <dl class="xprows"><div><dt>Rallies</dt><dd>${S.rallies}</dd></div><div><dt>Side outs</dt><dd>${S.sideOuts}</dd></div><div><dt>Longest rally</dt><dd>${st.longest} shots</dd></div><div><dt>Aces</dt><dd>${st.aces}</dd></div>${faults ? `<div><dt>Faults</dt><dd>${faults}</dd></div>` : ''}</dl>
     <div class="btns"><button class="btn" id="resAgain" type="button">Rematch</button><button class="btn ghost" id="resHub" type="button">Back to the dock</button></div>`;

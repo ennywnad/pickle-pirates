@@ -64,31 +64,35 @@ const PRAC_OPTS = {
   spin:  [['none','Flat'],['top','Topspin'],['slice','Slice'],['random','Random']],
   pace:  [['slow','Slow'],['normal','Normal'],['fast','Fast']],
   rate:  [['fast','Quick'],['normal','Normal'],['slow','Relaxed']],
-  opp:   [['cpu','Stand-in crew returns'],['none','Cannon only']],
+  opp:   [['cpu','A crew returns it'],['none','Cannon only']],
+  tier:  [['deckhand','Deckhand'],['bosun','Bosun'],['captain','Captain']],
 };
-const practiceDef = () => ({ feed:'mix', place:'random', spin:'none', pace:'normal', rate:'normal', opp:'cpu', marker:true, height:true, kitchen:true, twoBounce:true });
+const practiceDef = () => ({ feed:'mix', place:'random', spin:'none', pace:'normal', rate:'normal', opp:'cpu', marker:true, height:true, kitchen:true, twoBounce:true, tier:'bosun' });
 let practice = practiceDef();
 try { const pr = JSON.parse(localStorage.getItem('pickle-practice') || 'null'); if (pr && typeof pr === 'object') for (const k in practice) if (k in pr && (typeof pr[k] === typeof practice[k]) && (!PRAC_OPTS[k] || PRAC_OPTS[k].some(o => o[0] === pr[k]))) practice[k] = pr[k]; } catch(e) {}
 const savePractice = () => { try { localStorage.setItem('pickle-practice', JSON.stringify(practice)); } catch(e) {} };
 const FEED_DELAY = { fast:0.6, normal:1.4, slow:2.4 }, PACE = { slow:0.85, normal:1, fast:1.15 };
 
 // ---------------- singles game settings (saved per browser)
-const GAME_OPTS = { to:[[11,'11'],[15,'15'],[21,'21']], scoring:[['sideout','Side-out (standard)'],['rally','Rally scoring']] };
-const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true });
+const GAME_OPTS = { to:[[11,'11'],[15,'15'],[21,'21']], scoring:[['sideout','Side-out (standard)'],['rally','Rally scoring']], tier:[['deckhand','Deckhand · easy'],['bosun','Bosun · medium'],['captain','Captain · hard']] };
+const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true, tier:'bosun' });
 let gameCfg = gameDef();
 try { const g = JSON.parse(localStorage.getItem('pickle-game') || 'null'); if (g && typeof g === 'object') for (const k in gameCfg) if (k in g && typeof g[k] === typeof gameCfg[k]) gameCfg[k] = g[k]; } catch(e) {}
 const saveGameCfg = () => { try { localStorage.setItem('pickle-game', JSON.stringify(gameCfg)); } catch(e) {} };
 
-// mode 'practice': you on the near side, the ball cannon restarts every rally, the stand-in (or nobody) across the net.
+// mode 'practice': you on the near side, the ball cannon restarts every rally, a CPU crew (or nobody) across the net.
 // mode 'game': a singles game under the full rules. Attract mode plays games CPU vs CPU behind the menus.
 function newMatch(islandId, attract, mode){
   const isl = ISLANDS.find(i => i.id === islandId) || ISLANDS[0];
   mode = attract ? 'game' : mode || 'practice';
   const cfg = attract ? { ...gameDef(), opp:'cpu' } : mode === 'game' ? { ...gameCfg, opp:'cpu' } : { kitchen:true, twoBounce:true, ...practice };
   G = { island:isl, theme:THEMES[isl.id], attract:!!attract, mode, state:'feed', stT:1.0, time:0,
-    near:'home', hits:0, score:{ home:0, away:0 }, rally:0, best:0, shotN:0, aimPreview:null, cpuSkill: attract ? 0.8 : 0.7, feedTo:'home', lastCall:null,
-    ball:mkBall(), landing:null, parts:[], pops:[], shake:0, cfg, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 }, stats:{ rallies:0, longest:0, aces:0, faults:{} } };
+    near:'home', hits:0, score:{ home:0, away:0 }, rally:0, best:0, shotN:0, aimPreview:null, feedTo:'home', lastCall:null,
+    ball:mkBall(), landing:null, parts:[], pops:[], shake:0, cfg, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 }, stats:{ rallies:0, longest:0, aces:0, strokes:0, faults:{}, faultBy:{ home:{}, away:{} } } };
   G.players = [mkPlayer('home', HOME.species, !attract), mkPlayer('away', isl.opp.species, false)];
+  G.players[1].tier = AI_TIERS[cfg.tier] ? cfg.tier : 'bosun';
+  G.players[0].tier = attract ? pick(['bosun', 'captain']) : 'bosun';   // the home side's CPU (attract mode, tests)
+  if (attract) G.players[1].tier = pick(AI_ORDER);
   if (mode === 'game') {
     G.match = newScore({ to:cfg.to, scoring:cfg.scoring, server: Math.random() < 0.5 ? 'home' : 'away' });
     G.score = G.match.pts;

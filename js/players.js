@@ -1,11 +1,10 @@
-// Pickle Pirates · Footwork: running, the split step, lunges, the move-to-ball assist, and the stand-in CPU
-// The real CPU (positioning, shot choice, difficulty tiers) arrives with milestone 5 in js/ai.js.
+// Pickle Pirates · Footwork: running, the split step, lunges, the move-to-ball assist (the CPU is in js/ai.js)
 'use strict';
 const BOUNDS = { near:{ y0:NETY + 0.6, y1:CL + 8 }, far:{ y0:-8, y1:NETY - 0.6 } };
 function movePlayer(pl, ix, iy, dt){
   for (const k of ['split', 'burst', 'lunge']) if (pl[k] > 0) pl[k] = Math.max(0, pl[k] - dt);
   // a split step lands into a quick first step; a lunge has to recover before you can run again
-  const top = TUNE.runSpeed*(pl.lunge > 0 ? 0.35 : 1), acc = TUNE.runAccel*(pl.burst > 0 && pl.split <= 0 ? 1.8 : 1)*(pl.split > 0 ? 0.3 : 1);
+  const top = TUNE.runSpeed*(pl.speedK || 1)*(pl.lunge > 0 ? 0.35 : 1), acc = TUNE.runAccel*(pl.burst > 0 && pl.split <= 0 ? 1.8 : 1)*(pl.split > 0 ? 0.3 : 1);
   const tvx = ix*top, tvy = iy*top, a = acc*dt;
   const dvx = tvx - pl.vx, dvy = tvy - pl.vy, dm = hyp(dvx, dvy);
   if (dm > a) { pl.vx += dvx/dm*a; pl.vy += dvy/dm*a; } else { pl.vx = tvx; pl.vy = tvy; }
@@ -18,7 +17,7 @@ function movePlayer(pl, ix, iy, dt){
 // how long to cover d feet from a standstill: accelerate to top speed, then run
 function runTime(pl, d){
   if (d <= 0) return 0;
-  const v = TUNE.runSpeed, a = TUNE.runAccel, da = v*v/(2*a);
+  const v = TUNE.runSpeed*(pl.speedK || 1), a = TUNE.runAccel, da = v*v/(2*a);
   return d <= da ? Math.sqrt(2*d/a) : v/a + (d - da)/v;
 }
 // where to stand to take the incoming ball: the earliest point on its path that's at a good height, follows the
@@ -35,12 +34,24 @@ function contactSpot(pl, B){
     const sx = p.x - hand*1.5, sy = p.y + back*0.5;
     if (!bounced && G.cfg.kitchen !== false && inKitchenZone(sx, sy)) continue;   // never plan a volley from the kitchen
     const reachT = runTime(pl, hyp(sx - pl.x, sy - pl.y) - 0.3) + 0.08;
-    const good = p.z >= 1.1 && p.z <= 4.2;
+    // waist-high is best; up at the net, a high ball is a volley or a smash, not a reason to back off to the baseline
+    const good = p.z >= 1.1 && (p.z <= 4.2 || (!bounced && Math.abs(pl.y - NETY) <= KD + 4));
     const spot = { x:clamp(sx, -5, CW + 5), y:sy, bx:p.x, by:p.y, bz:p.z, t:p.t };
     if (good && reachT <= p.t) return spot;
     if (!fallback && reachT <= p.t + 0.25) fallback = spot;
   }
   return fallback;
+}
+// keep assisted and CPU footwork out of the kitchen while a volley is coming or a volley's momentum is still on:
+// stop at the line, and back out if already in
+function kitchenGuard(pl, ix, iy){
+  if (G.cfg.kitchen === false) return [ix, iy];
+  const B = G.ball, risky = pl.momentum > 0 || (B.live && ballFor(pl, B) && B.bounces === 0);
+  if (!risky) return [ix, iy];
+  const back = backDir(pl.team), out = (pl.y - NETY)*back - (KD + FOOT_R + 0.1);   // feet beyond the kitchen line (negative = in)
+  if (out < 0) return [ix*0.5, back*0.9];
+  if (out < 0.5 && iy*back < 0) iy = 0;
+  return [ix, iy];
 }
 // the human: stick movement, blended with the move-to-ball assist unless Plant is held
 function humanMove(pl, dt){
@@ -54,11 +65,13 @@ function humanMove(pl, dt){
     if (sp) {
       const dx = sp.x - pl.x, dy = sp.y - pl.y, d = hyp(dx, dy);
       if (d > 0.3) {
-        const own = hyp(ix, iy), k = TUNE.assist*(own > 0.2 ? 0.5 : 1)*Math.min(1, d/1.5);
+        // stick centered: the assist runs you there (near full speed at the default strength); with the stick, it nudges
+        const own = hyp(ix, iy), k = (own > 0.2 ? 0.5*TUNE.assist : Math.min(1, 0.35 + TUNE.assist))*Math.min(1, d/1.5);
         ix += dx/d*k; iy += dy/d*k;
         const m = hyp(ix, iy); if (m > 1) { ix /= m; iy /= m; }
       }
     }
+    if (hyp(...readInput(0)) < 0.2) [ix, iy] = kitchenGuard(pl, ix, iy);   // the assist never walks you into a kitchen fault (the stick can)
   } else {
     pl.spot = null;
     // between shots: with the stick centered, drift back to a ready spot (kitchen line if you're up, else the baseline)
@@ -70,33 +83,4 @@ function humanMove(pl, dt){
     }
   }
   movePlayer(pl, ix, iy, dt);
-}
-// the stand-in CPU: runs to the contact spot, presses a shot at a slightly random moment, recovers toward the middle
-function cpuPlayer(pl, dt){
-  const B = G.ball, ai = pl.ai, back = backDir(pl.team);
-  if (G.cfg.opp === 'none' && !pl.human && pl.team === 'away') {   // cannon only: the stand-in leans on the far post and watches
-    const dx = -3.2 - pl.x, dy = NETY + backDir(pl.team)*3 - pl.y, d = hyp(dx, dy);
-    movePlayer(pl, d > 0.3 ? dx/d : 0, d > 0.3 ? dy/d : 0, dt);
-    if (d < 0.5) pl.face = Math.atan2(B.y - pl.y, B.x - pl.x);
-    return;
-  }
-  ai.think -= dt;
-  const incoming = ballFor(pl, B);
-  if (ai.think <= 0) {
-    ai.think = 0.1;
-    if (incoming) { pl.spot = contactSpot(pl, B); pl.spotAt = G.time; if (pl.spot) { ai.tx = pl.spot.x; ai.ty = pl.spot.y; } }
-    else { pl.spot = null; ai.tx = CW/2 + (B.live ? (B.x - CW/2)*0.3 : 0); ai.ty = baseY(pl.team) - back*3; }
-  }
-  const dx = ai.tx - pl.x, dy = ai.ty - pl.y, d = hyp(dx, dy);
-  const k = d > 0.3 ? Math.min(1, d/1.5) : 0;
-  movePlayer(pl, d ? dx/d*k : 0, d ? dy/d*k : 0, dt);
-  // press a shot a little before the ball arrives; how close to the sweet spot depends on skill
-  if (incoming && !pl.queue && pl.spot) {
-    if (ai.rollFor !== G.shotN) { ai.rollFor = G.shotN; const sk = G.cpuSkill; ai.pressAt = Math.random() < 0.06*(1.5 - sk) ? -1 : clamp(rand(0.12, 0.45) + gauss()*0.25*(1 - sk), 0.02, 1.0); }
-    if (ai.pressAt > 0 && pl.spot.t - (G.time - pl.spotAt) <= ai.pressAt) {
-      const fromNet = Math.abs(pl.y - NETY), r = Math.random();
-      const kind = pl.spot.bz > 5 && fromNet < 16 ? 'drive' : fromNet <= KD + 3 ? (r < 0.65 ? 'soft' : r < 0.9 ? 'drive' : 'lob') : (r < 0.5 ? 'drive' : r < 0.85 ? 'soft' : 'lob');
-      queueShot(pl, kind, { skill: 0.75 + 0.25*G.cpuSkill });
-    }
-  }
 }

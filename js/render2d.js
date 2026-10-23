@@ -158,7 +158,7 @@ function updateHud(){
   if (G.mode !== 'game') { setT('clk', `RALLY ${G.rally}`); setT('objProg', `Best rally ${G.best}`); return; }
   const S = G.match, mine = humanPl(), gp = gamePoint(S);
   setT('clk', scoreCall(S));
-  setT('arenaShort', `GAME TO ${S.to}${S.scoring === 'rally' ? ' · RALLY' : ''}`);
+  setT('arenaShort', `TO ${S.to}${S.scoring === 'rally' ? ' · RALLY' : ''} · ${tierOf(G.players[1]).name.toUpperCase()}`);
   setT('hSub', S.server === 'home' ? '● SERVING' : HOME.name.toUpperCase());
   setT('aSub', S.server === 'away' ? '● SERVING' : G.island.opp.name.toUpperCase());
   const yours = G.state === 'serve' && mine && S.server === mine.team;
