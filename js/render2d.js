@@ -67,12 +67,19 @@ function drawPlayer(pl, t){
 function drawBall(){
   const B = G.ball; if (B.z < -0.5) return;
   const r = Math.max(3, BALL_R*scale*2.2);
-  if (G.landing) { const lx = sx(G.landing.x), ly = sy(G.landing.y); ctx.strokeStyle = 'rgba(255,194,58,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(lx, ly, r*1.8, r*0.9, 0, 0, 7); ctx.stroke(); }
+  if (G.landing) { const lx = sx(G.landing.x), ly = sy(G.landing.y); ctx.strokeStyle = G.landing.in ? 'rgba(255,194,58,.9)' : 'rgba(255,90,60,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(lx, ly, r*1.8, r*0.9, 0, 0, 7); ctx.stroke(); }
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(sx(B.x), sy(B.y), r*0.9, r*0.45, 0, 0, 7); ctx.fill();
-  if (B.trail.length > 2) { ctx.strokeStyle = 'rgba(255,240,140,.35)'; ctx.lineWidth = r; ctx.lineCap = 'round'; ctx.beginPath(); B.trail.forEach(([x, y, z], i) => i ? ctx.lineTo(sx(x), sy(y, z)) : ctx.moveTo(sx(x), sy(y, z))); ctx.stroke(); }
+  if (G.cfg.height && B.z > 0.4) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx(B.x), sy(B.y)); ctx.lineTo(sx(B.x), sy(B.y, B.z)); ctx.stroke(); }
+  if (B.trail.length > 2 && hyp(B.vx, B.vy, B.vz) > 45) { ctx.strokeStyle = 'rgba(255,240,140,.35)'; ctx.lineWidth = r; ctx.lineCap = 'round'; ctx.beginPath(); B.trail.forEach(([x, y, z], i) => i ? ctx.lineTo(sx(x), sy(y, z)) : ctx.moveTo(sx(x), sy(y, z))); ctx.stroke(); }
   const bx = sx(B.x), by = sy(B.y, B.z);
   ctx.fillStyle = '#f4e23a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx, by, r, 0, 7); ctx.fill(); ctx.stroke();
   ctx.fillStyle = 'rgba(80,70,10,.55)'; for (const [ox, oy] of [[-0.35,-0.3],[0.3,-0.25],[0,0.2],[-0.3,0.35],[0.35,0.3]]) { ctx.beginPath(); ctx.arc(bx + ox*r, by + oy*r, r*0.13, 0, 7); ctx.fill(); }
+}
+function drawCannon(){
+  const C = G.cannon, x = sx(C.x), y = sy(C.y), r = scale*0.9, dir = C.y < NETY ? 1 : -1, k = C.kick*scale*0.4;
+  ctx.fillStyle = '#6b4520'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.rect(x - r, y - r*0.7 - dir*k, r*2, r*1.4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#2a2a30'; ctx.beginPath(); ctx.rect(x - r*0.35, y - dir*k, r*0.7, dir*r*1.6); ctx.fill(); ctx.stroke();
 }
 function drawPop(p, x, y){
   const k = p.life/p.max, a = Math.min(1, k*3), s = Math.round(p.size*(k > 0.85 ? 1 + (k - 0.85)*3 : 1));
@@ -91,6 +98,7 @@ function render(now){
   for (const p of G.parts) { ctx.fillStyle = p.c; ctx.globalAlpha = p.life/p.max; ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y, p.z), Math.max(1, p.s*scale), 0, 7); ctx.fill(); } ctx.globalAlpha = 1;
   // far side first, then the net, then the near side, so overlaps read right
   const far = G.players.filter(p => p.y <= NETY), near = G.players.filter(p => p.y > NETY), ballFar = G.ball.y <= NETY;
+  drawCannon();
   for (const p of far) drawPlayer(p, t);
   if (ballFar) drawBall();
   drawNet();

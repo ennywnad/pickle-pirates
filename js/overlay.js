@@ -51,5 +51,5 @@ window.__sim = {
 // test-only hooks (?debug): fast-forward the simulation and drive the keyboard
 if (/[?&]debug\b/.test(location.search)) Object.assign(window.__sim, {
   step(n, dt = 1/60, each){ for (let i = 0; i < n; i++) { if (each) each(i); update(dt); } },
-  keys, startPractice: id => startPractice(id), feedBall, predict, aimShot,
+  keys, startPractice: id => startPractice(id), feedBall, predict, launchFor, landedIn, practice,
 });

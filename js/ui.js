@@ -10,9 +10,8 @@ function renderHub(){
       <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup. This is the first skeleton: rally against a stand-in crew on a placeholder court while the real game gets built.</p></div>
     <button class="chal prac" type="button" id="btnPractice">
       <span class="num">P</span>
-      <span class="cinfo"><span class="arena">PRACTICE · BALL CANNON</span><span class="ct">Practice</span><span class="co">The cannon feeds you a ball; hit it back over the net and keep the rally going.</span></span>
-      <span class="lock" style="color:var(--hazard)">Play</span></button>
-    <div class="card gfx"><h3 class="h">Practice island</h3>${segHtml('islandSeg', ISLANDS.map(i => [i.id, i.name]), practiceIsland)}<p class="gfxnote">Colors only for now: every island shares the placeholder dock court.</p></div>
+      <span class="cinfo"><span class="arena">PRACTICE · BALL CANNON</span><span class="ct">Practice</span><span class="co">The cannon feeds serves, drives, drops, dinks and lobs. Hit them back over the net and keep the rally going.</span></span>
+      <span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">THE CAREER · v1.0</span><span class="ct">Voyage</span><span class="co">One match per island, objectives, stars and booty unlocks.</span></span><span class="lock">Coming later</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">SINGLES OR DOUBLES</span><span class="ct">Versus</span><span class="co">P1 vs P2, two players vs the CPU, or solo; games to 11, 15 or 21.</span></span><span class="lock">Coming later</span></button>
     <div class="card gfx"><h3 class="h">Sound</h3>
@@ -34,7 +33,6 @@ function renderHub(){
     <p class="foot ver">Pickle Pirates ${GAME_VERSION} · <a href="https://github.com/ennywnad/pickle-pirates" target="_blank" rel="noopener">source</a></p>`;
   document.querySelectorAll('#gfxSeg button').forEach(b => b.onclick = () => setGfx(b.dataset.g));
   document.querySelectorAll('#engSeg button').forEach(b => b.onclick = () => setEngine(b.dataset.e));
-  $('islandSeg').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('islandSeg').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
   $('sndOn').onchange = e => setMuted(!e.target.checked);
   $('btnControls').onclick = () => openControls('hub');
   $('a_rm').onchange = e => { A11Y.rm = e.target.checked; saveA11y(); applyA11y(); };
@@ -54,11 +52,11 @@ function renderHub(){
     if (!r.ok) { $('saveMsg').textContent = r.msg; return; }
     $('saveMsg').textContent = `Loaded: ${save.plays} practice session${save.plays === 1 ? '' : 's'}.`;
   };
-  $('btnPractice').onclick = () => startPractice(practiceIsland);
+  $('btnPractice').onclick = () => openPractice(false);
 }
 function show(which){
-  for (const id of ['hub','pause','ctrls']) $(id).hidden = id !== which;
-  app.classList.toggle('menu', which === 'hub');
+  for (const id of ['hub','pause','ctrls','prac']) $(id).hidden = id !== which;
+  app.classList.toggle('menu', which === 'hub' || (which === 'prac' && !pracLive));
   musicSheet(which);
   if (which) $(which).scrollTop = 0;
   requestAnimationFrame(resize);
@@ -77,13 +75,47 @@ function startPractice(id){
   Object.keys(hudCache).forEach(k => delete hudCache[k]);
   $('aAbbr').textContent = G.island.opp.abbr; $('aSw').style.background = G.island.opp.shirt; $('aSw').style.boxShadow = `inset 0 -3px 0 ${G.island.opp.trim}`;
   $('arenaShort').textContent = G.island.name.toUpperCase().slice(0, 16);
-  $('objText').textContent = 'Practice · keep the rally going';
+  syncPracLabels();
   save.plays++; persist();
   show(null); paused = false; renderCtrlBar();
   setTimeout(resize, 30);
   band('intro');
   toast('Practice', 'Hit it back over the net · pause for settings', 1700, 'small');
   wake();
+}
+// ---------------- practice settings: island and ball cannon (from the dock, or live from the pause menu)
+let pracLive = false;
+function openPractice(live){ pracLive = !!live; renderPractice(); show('prac'); }
+function renderPractice(){
+  const P = practice, seg = (k, label, note) => `<div class="prow"><h3 class="h">${label}</h3>${segHtml('p_' + k, PRAC_OPTS[k], P[k])}${note ? `<p class="gfxnote">${note}</p>` : ''}</div>`;
+  const tog = (k, label, note) => `<label class="tog"><input type="checkbox" id="p_${k}" ${P[k] ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>${label}</b><small>${note}</small></span></label>`;
+  $('pracWrap').innerHTML = `
+    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Practice</h2><span class="slots">BALL CANNON · NO XP</span></div><button class="btn small" id="pracGoTop" type="button">${pracLive ? 'Apply' : 'Start'}</button></div>
+    ${pracLive ? '' : `<div class="card pset"><div class="prow"><h3 class="h">Island</h3>${segHtml('p_island', ISLANDS.map(i => [i.id, i.name]), practiceIsland)}<p class="gfxnote">Colors only for now: every island shares the placeholder dock court.</p></div></div>`}
+    <div class="card pset">
+      ${seg('feed', 'Cannon feeds', 'Mix plays all of them: serves from behind the far baseline, drives and lobs deep, drops and dinks into your kitchen.')}
+      ${seg('place', 'Placement')}
+      ${seg('spin', 'Spin')}
+      ${seg('pace', 'Pace')}
+      ${seg('rate', 'Time between balls')}
+      ${seg('opp', 'Across the net', 'Cannon only scores a point for every return that lands in.')}
+    </div>
+    <div class="card pset"><h3 class="h">Reading the ball</h3>
+      ${tog('marker', 'Landing marker', 'A ring where the ball will bounce: gold when it lands in, red when it\'s going out')}
+      ${tog('height', 'Height line', 'In 3D, a thin line from the ball down to its shadow')}
+    </div>
+    <div class="btns"><button class="btn" id="pracGo" type="button">${pracLive ? 'Apply and resume' : 'Start practice'}</button><button class="btn ghost" id="pracBack" type="button">${pracLive ? 'Back to the pause menu' : 'Back to the dock'}</button></div>`;
+  for (const k of Object.keys(PRAC_OPTS)) $('p_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { practice[k] = b.dataset.v; savePractice(); $('p_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+  for (const k of ['marker', 'height']) $('p_' + k).onchange = e => { practice[k] = e.target.checked; savePractice(); };
+  if (!pracLive) $('p_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('p_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
+  const go = () => { if (pracLive && G && !G.attract) { G.cfg = { ...practice }; syncPracLabels(); paused = false; show(null); toast('Settings applied', '', 1000, 'small'); } else startPractice(practiceIsland); };
+  const back = () => { if (pracLive && G && !G.attract) { paused = true; preparePause(); show('pause'); } else { renderHub(); show('hub'); } };
+  $('pracGo').onclick = go; $('pracGoTop').onclick = go; $('pracBack').onclick = back;
+}
+function syncPracLabels(){
+  const cannonOnly = G.cfg.opp === 'none';
+  $('objText').textContent = cannonOnly ? 'Practice · return the cannon\'s feeds' : 'Practice · keep the rally going';
+  $('hSub').textContent = cannonOnly ? 'RETURNS IN' : 'PICKLE PIRATES'; $('aSub').textContent = cannonOnly ? 'MISSED' : 'STAND-IN CREW';
 }
 function startAttract(){ newMatch(practiceIsland, true); resize(); }
 // ---------------- feel tuning panel (` key or the pause menu); the game keeps running while it's open
@@ -126,6 +158,7 @@ $('btnPause').onclick = () => setPaused(!paused);
 $('btnResume').onclick = () => setPaused(false);
 $('btnRestart').onclick = () => { paused = false; startPractice(G ? G.island.id : practiceIsland); };
 $('btnTune').onclick = () => toggleTune(true);
+$('btnPracSet').onclick = () => openPractice(true);
 $('btnPauseCtrls').onclick = () => openControls('pause');
 applyA11y();
 $('btnQuit').onclick = () => { paused = false; renderHub(); show('hub'); startAttract(); };

@@ -79,7 +79,7 @@ const playing = () => G && !G.attract && !paused && G.state !== 'end';
 function pressShot(p, kind){
   if (!playing()) return;
   const pl = humanPl(); if (!pl) return;
-  hitBall(pl, kind, readAim(p));
+  hitBall(pl, kind, readAim(p), actionHeld(p, 'top') ? 'top' : actionHeld(p, 'slice') ? 'slice' : null);
 }
 function pressBooty(p = 0){ if (!playing()) return; toast('No booty yet', 'Power-ups wash up in milestone 9', 1200, 'small'); }
 cv.addEventListener('pointerdown', e => {
@@ -147,11 +147,13 @@ function padConfirm(){
   const vis = id => $(id) && !$(id).hidden;
   if (vis('ctrls')) return;
   if (vis('pause')) return setPaused(false);
+  if (vis('prac')) return $('pracGo').click();
   if (vis('hub')) { const c = $('btnPractice'); if (c) c.click(); }
 }
 function padBack(){
   const vis = id => $(id) && !$(id).hidden;
   if (vis('ctrls')) return $('ctrlsDone').click();
+  if (vis('prac')) return $('pracBack').click();
   if (vis('pause')) return setPaused(false);
 }
 function pollPad(){

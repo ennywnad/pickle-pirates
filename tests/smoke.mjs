@@ -27,8 +27,21 @@ for (const gfx of ['classic', 'med']) {
   const att = await page.evaluate(() => { const S = window.__sim; S.step(600); return { attract: S.G.attract, score: S.G.score.home + S.G.score.away, hits: S.G.best }; });
   if (!att.attract || att.score + att.hits === 0) fail(`${gfx}: attract rally did not run (${JSON.stringify(att)})`);
 
-  // practice: the cannon feeds, the ball bounces on the near side
+  // practice settings: dinks only, cannon only, then start
   await tap('#btnPractice');
+  await page.waitForSelector('#prac:not([hidden])', { timeout: 5000 });
+  await tap('#p_feed button[data-v="dink"]');
+  await tap('#p_opp button[data-v="none"]');
+  await tap('#pracGo');
+  await page.waitForTimeout(1500);
+  const dk = await page.evaluate(() => { const S = window.__sim, G = S.G; for (let i = 0; i < 240 && !G.ball.live; i++) S.step(1); const kind = G.ball.lastKind, pr = S.predict(G.ball, 3, 1/120, 1000); return { kind, land: pr.first && pr.first.y, opp: G.cfg.opp }; });
+  if (dk.kind !== 'feed:dink' || !(dk.land > 22 && dk.land < 29.5) || dk.opp !== 'none') fail(`${gfx}: dink feed did not land in the near kitchen (${JSON.stringify(dk)})`);
+  // back to the mix with the stand-in crew, from the pause menu
+  await page.keyboard.press('KeyP');
+  await tap('#btnPracSet');
+  await tap('#p_feed button[data-v="mix"]');
+  await tap('#p_opp button[data-v="cpu"]');
+  await tap('#pracGo');
   await page.waitForTimeout(gfx === 'classic' ? 2500 : 5000);
   const st = await page.evaluate(() => { const G = window.__sim.G; return { attract: G.attract, mode: G.mode, state: G.state, live: G.ball.live, z: G.ball.z }; });
   if (st.attract || st.mode !== 'practice') fail(`${gfx}: practice not running (${JSON.stringify(st)})`);

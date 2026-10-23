@@ -18,6 +18,12 @@ function interceptFor(pl, B){
 }
 function cpuPlayer(pl, dt){
   const B = G.ball, ai = pl.ai, back = pl.team === 'home' ? 1 : -1;
+  if (G.cfg.opp === 'none' && !pl.human && pl.team === 'away') {   // cannon only: the stand-in leans on the far post and watches
+    const dx = -3.2 - pl.x, dy = NETY - 3 - pl.y, d = hyp(dx, dy);
+    movePlayer(pl, d > 0.3 ? dx/d : 0, d > 0.3 ? dy/d : 0, dt);
+    if (d < 0.5) pl.face = Math.atan2(G.ball.y - pl.y, G.ball.x - pl.x);
+    return;
+  }
   ai.think -= dt;
   const incoming = B.live && B.lastBy !== pl.team && (B.lastBy || G.feedTo === pl.team);   // a shot from the other side, or the cannon's feed
   if (ai.think <= 0) {

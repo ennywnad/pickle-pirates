@@ -204,8 +204,10 @@ async function init(){
   const blobTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const rg = g.createRadialGradient(32,32,0,32,32,32); rg.addColorStop(0,'rgba(0,0,0,.6)'); rg.addColorStop(0.6,'rgba(0,0,0,.3)'); rg.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(0,0,64,64); return canvasTex(c, false); })();
   const blobMat = new THREE.MeshBasicNodeMaterial({ map:blobTex, transparent:true, depthWrite:false, color:0x000000 });
   const ballBlob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2), blobMat); ballBlob.renderOrder = 1; dyn.add(ballBlob);
-  const landU = uniform(0);
-  const landMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.2, 1.5, 0.25), transparent:true, depthWrite:false }); landMat.opacityNode = landU;
+  const landU = uniform(0), landCol = uniform(new THREE.Vector3(2.2, 1.5, 0.25));
+  const landMat = new THREE.MeshBasicNodeMaterial({ transparent:true, depthWrite:false }); landMat.colorNode = landCol; landMat.opacityNode = landU;
+  // height line: ball down to its shadow
+  const hLine = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.6, 1.6, 1.5), transparent:true, opacity:0.45, depthWrite:false })); dyn.add(hLine);
   const landing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.62, 32).rotateX(-Math.PI/2), landMat); landing.renderOrder = 2; dyn.add(landing);
   const TRAIL_N = 14;
   const trailMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(BALL_VIS*0.8, 0), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.0, 1.85, 0.6), transparent:true, opacity:0.45, depthWrite:false }), TRAIL_N); trailMesh.frustumCulled = false; trailMesh.count = 0; dyn.add(trailMesh);
@@ -414,11 +416,15 @@ async function init(){
       ball.rotation.x += B.vy*dt*0.6; ball.rotation.z -= B.vx*dt*0.6;
       W(B.x, B.y, 0.05, ballBlob.position); const sc = Math.max(0.25, 0.9 - B.z*0.06); ballBlob.scale.set(sc, 1, sc);
     }
-    { const tr = B.trail, n = Math.min(TRAIL_N, tr.length), fast = Math.hypot(B.vx, B.vy, B.vz) > 30; let c = 0;
+    { const tr = B.trail, n = Math.min(TRAIL_N, tr.length), fast = Math.hypot(B.vx, B.vy, B.vz) > 45; let c = 0;
       if (fast) for (let i = 0; i < n; i++) { const [x, y, z] = tr[tr.length - 1 - i]; tmpM.compose(W(x, y, z, tmpV), tmpQ.identity(), tmpS.setScalar(Math.max(0.05, 1 - i/n))); trailMesh.setMatrixAt(c++, tmpM); }
       trailMesh.count = c; trailMesh.instanceMatrix.needsUpdate = true; }
     landing.visible = !!G.landing;
-    if (G.landing) { W(G.landing.x, G.landing.y, 0.06, landing.position); landU.value = 0.55 + 0.35*Math.sin(t*10); }
+    if (G.landing) { W(G.landing.x, G.landing.y, 0.06, landing.position); landU.value = 0.55 + 0.35*Math.sin(t*10); if (G.landing.in) landCol.value.set(2.2, 1.5, 0.25); else landCol.value.set(2.6, 0.5, 0.3); }
+    hLine.visible = ball.visible && !!G.cfg.height && B.z > 0.4;
+    if (hLine.visible) { W(B.x, B.y, 0.05, hLine.position); hLine.scale.set(1, Math.max(0.01, B.z - BALL_VIS - 0.05), 1); }
+    // the cannon moves to wherever it fires from, and kicks back on each shot
+    { const C = G.cannon, dir = C.y < NETY ? 1 : -1; W(C.x, C.y - dir*(1.4 + C.kick*0.6), 0, cannon.position); cannon.rotation.y = dir > 0 ? 0 : Math.PI; }
     { let n = 0; for (const p of G.parts) { if (n >= PART_MAX) break; tmpM.compose(W(p.x, p.y, p.z, tmpV), tmpQ.identity(), tmpS.setScalar(p.s*(p.life/p.max))); partMesh.setMatrixAt(n++, tmpM); } partMesh.count = n; partMesh.instanceMatrix.needsUpdate = true; }
     if (R3.cut) { R3.cut = false; camCut = true; }
     updateCamera(G, dt);

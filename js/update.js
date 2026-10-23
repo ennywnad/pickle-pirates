@@ -32,5 +32,6 @@ function update(dt){
   }
   // landing marker for the live ball (where it bounces next)
   G.landing = null;
-  if (B.live && B.z > 0.3) { const pr = predict(B, 2.5, 1/60, 1000); if (pr.first) G.landing = pr.first; }
+  if (G.cfg.marker && B.live && B.z > 0.3) { const pr = predict(B, 2.5, 1/120, 1000); if (pr.first) { G.landing = pr.first; G.landing.in = landedIn(pr.first.x, pr.first.y); } }
+  G.cannon.kick = Math.max(0, G.cannon.kick - dt*3);
 }

@@ -13,20 +13,30 @@ const saveA11y = () => { try { localStorage.setItem('pickle-a11y', JSON.stringif
 // ---------------- feel tuning (live sliders; saved in this browser)
 // [key, label, min, max, step, default, unit]
 const TUNE_DEF = [
-  ['Ball', [
+  ['Ball flight', [
     ['gravity', 'Gravity', 20, 45, 0.5, 32.2, 'ft/s²'],
-    ['drag', 'Air drag', 0, 0.03, 0.0005, 0.012, ''],
-    ['magnus', 'Spin curve', 0, 0.004, 0.0001, 0.0012, ''],
-    ['bounce', 'Bounce height', 0.4, 0.85, 0.01, 0.64, ''],
-    ['skid', 'Speed kept on the bounce', 0.5, 1, 0.01, 0.78, ''],
+    ['cd', 'Drag coefficient (outdoor ball ≈ 0.31, indoor ≈ 0.45)', 0, 0.7, 0.01, 0.31, ''],
+    ['lift', 'Spin lift (CL per unit of spin)', 0, 0.6, 0.005, 0.195, ''],
+    ['spinDecay', 'Spin lost per second', 0, 1, 0.02, 0.2, ''],
+  ]],
+  ['Bounce and net', [
+    ['bounce', 'Bounce (restitution)', 0.4, 0.8, 0.01, 0.63, ''],
+    ['grip', 'Court grip (friction)', 0.05, 1, 0.01, 0.45, ''],
+    ['tape', 'Net tape bounce', 0, 0.7, 0.01, 0.25, ''],
+  ]],
+  ['Shot shapes', [
+    ['serveSpeed', 'Serve speed', 25, 60, 1, 42, 'mph'],
+    ['driveSpeed', 'Drive speed', 25, 65, 1, 46, 'mph'],
+    ['driveSpin', 'Drive topspin', 0, 2500, 50, 1200, 'rpm'],
+    ['dinkClear', 'Dink clears the net by', 0.2, 3, 0.05, 1.0, 'ft'],
+    ['dropClear', 'Drop clears the net by', 0.3, 5, 0.05, 1.1, 'ft'],
+    ['lobApex', 'Lob peaks at', 10, 30, 0.5, 19, 'ft'],
+    ['sliceSpin', 'Slice backspin', 0, 2000, 50, 700, 'rpm'],
   ]],
   ['Footwork', [
     ['runSpeed', 'Run speed', 6, 24, 0.5, 14, 'ft/s'],
     ['runAccel', 'Acceleration', 20, 160, 5, 70, ''],
     ['reach', 'Paddle reach', 1.5, 5, 0.1, 3.2, 'ft'],
-  ]],
-  ['Practice', [
-    ['cannonRate', 'Ball cannon delay', 0.4, 4, 0.1, 1.2, 's'],
   ]],
 ];
 const TUNE = {};
@@ -34,12 +44,28 @@ for (const [, items] of TUNE_DEF) for (const [k, , , , , d] of items) TUNE[k] = 
 try { const t = JSON.parse(localStorage.getItem('pickle-tune') || 'null'); if (t) for (const k in t) if (k in TUNE && typeof t[k] === 'number') TUNE[k] = t[k]; } catch(e) {}
 const saveTune = () => { try { const ch = {}; for (const [, items] of TUNE_DEF) for (const [k, , , , , d] of items) if (TUNE[k] !== d) ch[k] = TUNE[k]; localStorage.setItem('pickle-tune', JSON.stringify(ch)); } catch(e) {} };
 
+// ---------------- practice: the ball cannon (saved per browser)
+const PRAC_OPTS = {
+  feed:  [['mix','Mix'],['serve','Serves'],['drive','Drives'],['drop','Drops'],['dink','Dinks'],['lob','Lobs']],
+  place: [['random','Anywhere'],['fore','Forehand'],['back','Backhand'],['body','At me']],
+  spin:  [['none','Flat'],['top','Topspin'],['slice','Slice'],['random','Random']],
+  pace:  [['slow','Slow'],['normal','Normal'],['fast','Fast']],
+  rate:  [['fast','Quick'],['normal','Normal'],['slow','Relaxed']],
+  opp:   [['cpu','Stand-in crew returns'],['none','Cannon only']],
+};
+const practiceDef = () => ({ feed:'mix', place:'random', spin:'none', pace:'normal', rate:'normal', opp:'cpu', marker:true, height:true });
+let practice = practiceDef();
+try { const pr = JSON.parse(localStorage.getItem('pickle-practice') || 'null'); if (pr && typeof pr === 'object') for (const k in practice) if (k in pr && (typeof pr[k] === typeof practice[k]) && (!PRAC_OPTS[k] || PRAC_OPTS[k].some(o => o[0] === pr[k]))) practice[k] = pr[k]; } catch(e) {}
+const savePractice = () => { try { localStorage.setItem('pickle-practice', JSON.stringify(practice)); } catch(e) {} };
+const FEED_DELAY = { fast:0.6, normal:1.4, slow:2.4 }, PACE = { slow:0.85, normal:1, fast:1.15 };
+
 // mode: 'attract' (CPU vs CPU behind the menus) or 'practice' (you on the near side, CPU across the net, the ball cannon restarts rallies)
 function newMatch(islandId, attract){
   const isl = ISLANDS.find(i => i.id === islandId) || ISLANDS[0];
   G = { island:isl, theme:THEMES[isl.id], attract:!!attract, mode: attract ? 'attract' : 'practice', state:'feed', stT:1.0, time:0,
     score:{ home:0, away:0 }, rally:0, best:0, shotN:0, feedTo:'home', lastCall:null,
-    ball:mkBall(), landing:null, parts:[], pops:[], shake:0 };
+    ball:mkBall(), landing:null, parts:[], pops:[], shake:0,
+    cfg: attract ? { ...practiceDef(), opp:'cpu', marker:false } : { ...practice }, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 } };
   G.players = [mkPlayer('home', HOME.species, !attract), mkPlayer('away', isl.opp.species, false)];
 }
 const humanPl = () => G && !G.attract ? G.players.find(p => p.human) || null : null;
