@@ -45,7 +45,7 @@ window.__sim = {
   get G(){ return G; }, HOME, SPECIES, THEMES,
   C:{ CW, CL, NETY, KD, NET_H_SIDE, NET_H_MID, POST_OUT, BALL_R, PL_R, netH },
   stageW: () => cw, stageH: () => ch,
-  gfxPref: () => gfxPref, gfxEngine, on3DStatus: () => refreshGfx(),
+  gfxPref: () => gfxPref, gfxEngine, on3DStatus: () => refreshGfx(), viewFlip,
   notice: m => { if (G && !G.attract) toast('3D view', m, 2600, 'small'); },
   forceClassic: m => { gfxPref = 'classic'; $('gl').hidden = true; refreshGfx(); if (G && !G.attract) toast('Classic view', m, 3200, 'small'); }
 };

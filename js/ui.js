@@ -12,6 +12,10 @@ function renderHub(){
       <span class="num">P</span>
       <span class="cinfo"><span class="arena">PRACTICE · BALL CANNON</span><span class="ct">Practice</span><span class="co">The cannon feeds serves, drives, drops, dinks and lobs. Hit them back over the net and keep the rally going.</span></span>
       <span class="lock" style="color:var(--hazard)">Set up</span></button>
+    <button class="chal prac" type="button" id="btnGame">
+      <span class="num">1v1</span>
+      <span class="cinfo"><span class="arena">SINGLES · FULL RULES</span><span class="ct">Singles game</span><span class="co">You against the stand-in crew: serves, the kitchen, the two-bounce rule, side-out scoring, switching ends.</span></span>
+      <span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">THE CAREER · v1.0</span><span class="ct">Voyage</span><span class="co">One match per island, objectives, stars and booty unlocks.</span></span><span class="lock">Coming later</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">SINGLES OR DOUBLES</span><span class="ct">Versus</span><span class="co">P1 vs P2, two players vs the CPU, or solo; games to 11, 15 or 21.</span></span><span class="lock">Coming later</span></button>
     <div class="card gfx"><h3 class="h">Sound</h3>
@@ -30,7 +34,7 @@ function renderHub(){
       <div class="savebtns"><button class="btn ghost small" id="saveCopy" type="button">Copy my save code</button><button class="btn ghost small" id="saveLoad" type="button">Load code</button></div>
       <p class="gfxnote" id="saveMsg" aria-live="polite"></p></div>
     <p class="foot" id="padNote">${padNoteText()}</p>
-    <p class="foot ver">Pickle Pirates ${GAME_VERSION} · <a href="https://github.com/ennywnad/pickle-pirates" target="_blank" rel="noopener">source</a></p>`;
+    <p class="foot ver">Pickle Pirates ${GAME_VERSION} · <a href="https://github.com/ennywnad/pickle-pirates/blob/main/CHANGELOG.md" target="_blank" rel="noopener">what's new</a> · <a href="https://github.com/ennywnad/pickle-pirates" target="_blank" rel="noopener">source</a></p>`;
   document.querySelectorAll('#gfxSeg button').forEach(b => b.onclick = () => setGfx(b.dataset.g));
   document.querySelectorAll('#engSeg button').forEach(b => b.onclick = () => setEngine(b.dataset.e));
   $('sndOn').onchange = e => setMuted(!e.target.checked);
@@ -53,10 +57,11 @@ function renderHub(){
     $('saveMsg').textContent = `Loaded: ${save.plays} practice session${save.plays === 1 ? '' : 's'}.`;
   };
   $('btnPractice').onclick = () => openPractice(false);
+  $('btnGame').onclick = () => openGameSetup();
 }
 function show(which){
-  for (const id of ['hub','pause','ctrls','prac']) $(id).hidden = id !== which;
-  app.classList.toggle('menu', which === 'hub' || (which === 'prac' && !pracLive));
+  for (const id of ['hub','pause','ctrls','prac','gameset','results']) $(id).hidden = id !== which;
+  app.classList.toggle('menu', which === 'hub' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive));
   musicSheet(which);
   if (which) $(which).scrollTop = 0;
   requestAnimationFrame(resize);
@@ -100,13 +105,17 @@ function renderPractice(){
       ${seg('rate', 'Time between balls')}
       ${seg('opp', 'Across the net', 'Cannon only scores a point for every return that lands in.')}
     </div>
+    <div class="card pset"><h3 class="h">Rules</h3>
+      ${tog('kitchen', 'Kitchen rule', 'Volleying with a foot in the kitchen, or stepping in right after a volley, is a fault')}
+      ${tog('twoBounce', 'Two-bounce rule', 'The serve and the return must bounce before they\'re hit')}
+    </div>
     <div class="card pset"><h3 class="h">Reading the ball</h3>
       ${tog('marker', 'Landing marker', 'A ring where the ball will bounce: gold when it lands in, red when it\'s going out')}
       ${tog('height', 'Height line', 'In 3D, a thin line from the ball down to its shadow')}
     </div>
     <div class="btns"><button class="btn" id="pracGo" type="button">${pracLive ? 'Apply and resume' : 'Start practice'}</button><button class="btn ghost" id="pracBack" type="button">${pracLive ? 'Back to the pause menu' : 'Back to the dock'}</button></div>`;
   for (const k of Object.keys(PRAC_OPTS)) $('p_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { practice[k] = b.dataset.v; savePractice(); $('p_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
-  for (const k of ['marker', 'height']) $('p_' + k).onchange = e => { practice[k] = e.target.checked; savePractice(); };
+  for (const k of ['marker', 'height', 'kitchen', 'twoBounce']) $('p_' + k).onchange = e => { practice[k] = e.target.checked; savePractice(); };
   if (!pracLive) $('p_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('p_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
   const go = () => { if (pracLive && G && !G.attract) { G.cfg = { ...practice }; syncPracLabels(); paused = false; show(null); toast('Settings applied', '', 1000, 'small'); } else startPractice(practiceIsland); };
   const back = () => { if (pracLive && G && !G.attract) { paused = true; preparePause(); show('pause'); } else { renderHub(); show('hub'); } };
@@ -118,6 +127,57 @@ function syncPracLabels(){
   $('hSub').textContent = cannonOnly ? 'RETURNS IN' : 'PICKLE PIRATES'; $('aSub').textContent = cannonOnly ? 'MISSED' : 'STAND-IN CREW';
 }
 function startAttract(){ newMatch(practiceIsland, true); resize(); }
+// ---------------- singles game: setup, start, results
+function openGameSetup(){
+  const C = gameCfg, tog = (k, label, note) => `<label class="tog"><input type="checkbox" id="g_${k}" ${C[k] ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>${label}</b><small>${note}</small></span></label>`;
+  $('gameWrap').innerHTML = `
+    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Singles game</h2><span class="slots">YOU VS THE STAND-IN CREW</span></div><button class="btn small" id="gameGoTop" type="button">Start</button></div>
+    <div class="card pset">
+      <div class="prow"><h3 class="h">Island</h3>${segHtml('g_island', ISLANDS.map(i => [i.id, i.name]), practiceIsland)}</div>
+      <div class="prow"><h3 class="h">Game to</h3>${segHtml('g_to', GAME_OPTS.to, C.to)}<p class="gfxnote">Win by 2. Ends switch when the first side reaches 6 (8 in a game to 15, 11 in a game to 21).</p></div>
+      <div class="prow"><h3 class="h">Scoring</h3>${segHtml('g_scoring', GAME_OPTS.scoring, C.scoring)}<p class="gfxnote">Side-out: only the serving side scores, and losing a rally passes the serve. Rally: every rally scores.</p></div>
+    </div>
+    <div class="card pset"><h3 class="h">Rules</h3>
+      ${tog('kitchen', 'Kitchen rule', 'Volleying with a foot in the kitchen, or stepping in right after a volley, is a fault')}
+      ${tog('twoBounce', 'Two-bounce rule', 'The serve and the return must bounce before they\'re hit')}
+    </div>
+    <div class="card pset"><h3 class="h">Reading the ball</h3>
+      ${tog('marker', 'Landing marker', 'Off by default in games')}
+      ${tog('height', 'Height line', 'In 3D, a thin line from the ball down to its shadow')}
+    </div>
+    <div class="btns"><button class="btn" id="gameGo" type="button">Start the game</button><button class="btn ghost" id="gameBack" type="button">Back to the dock</button></div>`;
+  for (const k of ['to', 'scoring']) $('g_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { gameCfg[k] = k === 'to' ? Number(b.dataset.v) : b.dataset.v; saveGameCfg(); $('g_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+  for (const k of ['kitchen', 'twoBounce', 'marker', 'height']) $('g_' + k).onchange = e => { gameCfg[k] = e.target.checked; saveGameCfg(); };
+  $('g_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('g_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
+  $('gameGo').onclick = $('gameGoTop').onclick = () => startGame();
+  $('gameBack').onclick = () => { renderHub(); show('hub'); };
+  show('gameset');
+}
+function startGame(){
+  ensureAudio();
+  newMatch(practiceIsland, false, 'game');
+  Object.keys(hudCache).forEach(k => delete hudCache[k]);
+  $('aAbbr').textContent = G.island.opp.abbr; $('aSw').style.background = G.island.opp.shirt; $('aSw').style.boxShadow = `inset 0 -3px 0 ${G.island.opp.trim}`;
+  save.plays++; persist();
+  show(null); paused = false; renderCtrlBar();
+  setTimeout(resize, 30);
+  band('intro');
+  toast(`First to ${G.match.to}`, `${teamName(G.match.server)} serve first`, 2000, 'small');
+  wake();
+}
+function showResults(){
+  const S = G.match, won = S.winner === 'home', st = G.stats;
+  const faults = Object.entries(st.faults).filter(([k]) => !['double bounce', 'winner', 'ace', 'in'].includes(k)).map(([k, n]) => `${CALL_TEXT[k].replace('!', '').toLowerCase()} ${n}`).join(', ');
+  $('resCard').innerHTML = `
+    <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · GAME TO ${S.to}</p><h2>${won ? 'Victory!' : 'Sunk!'}</h2></div>
+    <div class="final"><div><div class="n">${S.pts.home}</div><div class="who">${HOME.abbr}</div></div><div class="dash">–</div><div><div class="n">${S.pts.away}</div><div class="who">${G.island.opp.abbr}</div></div></div>
+    <dl class="xprows"><div><dt>Rallies</dt><dd>${S.rallies}</dd></div><div><dt>Side outs</dt><dd>${S.sideOuts}</dd></div><div><dt>Longest rally</dt><dd>${st.longest} shots</dd></div><div><dt>Aces</dt><dd>${st.aces}</dd></div>${faults ? `<div><dt>Faults</dt><dd>${faults}</dd></div>` : ''}</dl>
+    <div class="btns"><button class="btn" id="resAgain" type="button">Rematch</button><button class="btn ghost" id="resHub" type="button">Back to the dock</button></div>`;
+  $('resAgain').onclick = () => startGame();
+  $('resHub').onclick = () => { renderHub(); show('hub'); startAttract(); };
+  show('results');
+  if (won) sfx('level');
+}
 // ---------------- feel tuning panel (` key or the pause menu); the game keeps running while it's open
 function buildTunePanel(){
   let el = $('tune');
@@ -147,7 +207,12 @@ function toggleTune(on){
   const el = $('tune'); el.hidden = on == null ? !el.hidden : !on;
   if (!el.hidden && paused && G && !G.attract) setPaused(false);
 }
-function preparePause(){ $('pauseInfo').textContent = `${G.island.name} · ${G.score.home}–${G.score.away} · best rally ${G.best}`; }
+function preparePause(){
+  const game = G.mode === 'game';
+  $('pauseInfo').textContent = game ? `${G.island.name} · ${scoreCall(G.match)} · game to ${G.match.to}` : `${G.island.name} · ${G.score.home}–${G.score.away} · best rally ${G.best}`;
+  $('btnPracSet').hidden = game;
+  $('btnRestart').textContent = game ? 'Restart game' : 'Restart practice';
+}
 function setPaused(p){
   if (!G || G.attract) return;
   paused = p;
@@ -156,7 +221,7 @@ function setPaused(p){
 }
 $('btnPause').onclick = () => setPaused(!paused);
 $('btnResume').onclick = () => setPaused(false);
-$('btnRestart').onclick = () => { paused = false; startPractice(G ? G.island.id : practiceIsland); };
+$('btnRestart').onclick = () => { paused = false; if (G && G.mode === 'game') startGame(); else startPractice(G ? G.island.id : practiceIsland); };
 $('btnTune').onclick = () => toggleTune(true);
 $('btnPracSet').onclick = () => openPractice(true);
 $('btnPauseCtrls').onclick = () => openControls('pause');

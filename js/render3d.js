@@ -218,6 +218,10 @@ async function init(){
   reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.7, 0.85, 32).rotateX(-Math.PI/2), retMat));
   for (const a of [0, Math.PI/2, Math.PI, Math.PI*1.5]) { const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.12).rotateX(-Math.PI/2), retMat); bar.position.set(Math.cos(a)*1.25, 0, Math.sin(a)*1.25); bar.rotation.y = -a; reticle.add(bar); }
   reticle.renderOrder = 2; dyn.add(reticle);
+  // kitchen warning: a red wash over your kitchen when a volley from there would fault
+  const kwU = uniform(0);
+  const kwMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.4, 0.35, 0.2), transparent:true, depthWrite:false }); kwMat.opacityNode = kwU;
+  const kitchenWarn = new THREE.Mesh(new THREE.PlaneGeometry(CW, KD).rotateX(-Math.PI/2), kwMat); kitchenWarn.position.y = 0.04; kitchenWarn.renderOrder = 1; dyn.add(kitchenWarn);
   const TRAIL_N = 14;
   const trailMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(BALL_VIS*0.8, 0), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.0, 1.85, 0.6), transparent:true, opacity:0.45, depthWrite:false }), TRAIL_N); trailMesh.frustumCulled = false; trailMesh.count = 0; dyn.add(trailMesh);
   const PART_MAX = 80;
@@ -304,11 +308,13 @@ async function init(){
 
   // ------------------------------------------------ camera: behind the near baseline, like TV tennis
   const camS = { px:0, py:30, pz:60, vx:0, vy:0, vz:0, tx:0, ty:0, tz:0, wx:0, wy:0, wz:0 };
-  let orbitA = 0, aspect = 1, camCut = true;
+  let orbitA = 0, aspect = 1, camCut = true, lastFlip = 1;
   function spring(cur, vel, target, k, dt){ const c = 2*Math.sqrt(k); const a = k*(target - cur) - c*vel; vel += a*dt; return [cur + vel*dt, vel]; }
   const _cf = new THREE.Vector3(), _cr = new THREE.Vector3();
   function updateCamera(G, dt){
-    const B = G.ball, bx = B.z > -1 ? B.x - CW/2 : 0, bz = B.z > -1 ? B.y - NETY : 0;
+    const flip = S.viewFlip() ? -1 : 1;   // after the ends switch the camera sits behind the other baseline
+    if (flip !== lastFlip) { lastFlip = flip; camCut = true; }
+    const B = G.ball, bx = B.z > -1 ? (B.x - CW/2)*flip : 0, bz = B.z > -1 ? (B.y - NETY)*flip : 0;
     let tx, ty, tz, px, py, pz;
     if (G.attract) {
       orbitA += dt*0.06; const R = 44;
@@ -322,6 +328,7 @@ async function init(){
       tx = clampN(bx*0.25, -4, 4); ty = 0; tz = clampN(bz*0.12, -3, 3) - (portrait ? 1 : 3);
       px = tx*0.6; py = d*Math.sin(pitch); pz = tz + d*Math.cos(pitch);
     }
+    if (flip < 0) { tx = -tx; tz = -tz; px = -px; pz = -pz; }
     const kk = G.attract ? 6 : 14;
     if (camCut) { camCut = false; Object.assign(camS, { tx, ty, tz, px, py, pz, wx:0, wy:0, wz:0, vx:0, vy:0, vz:0 }); }
     [camS.tx, camS.wx] = spring(camS.tx, camS.wx, tx, kk, dt); [camS.ty, camS.wy] = spring(camS.ty, camS.wy, ty, kk, dt); [camS.tz, camS.wz] = spring(camS.tz, camS.wz, tz, kk, dt);
@@ -338,6 +345,7 @@ async function init(){
     R3.basis = { rx:_cr.x, ry:_cr.z, fx:_cf.x, fy:_cf.z };
     key.position.set(camS.tx + 18, 70, camS.tz + 26); key.target.position.set(camS.tx, 0, camS.tz); key.target.updateMatrixWorld();
   }
+  const isNearS = tm => tm === S.G.near;
   const clampN = (v, a, b) => v < a ? a : v > b ? b : v;
   const _pv = new THREE.Vector3();
   R3.project = (x, y, h) => { _pv.set(x - CW/2, h, y - NETY).project(cam); return [(_pv.x + 1)/2*R3.cw, (1 - _pv.y)/2*R3.ch, _pv.z < 1]; };
@@ -428,6 +436,8 @@ async function init(){
       if (h) { const v = figs[G.players.indexOf(h)].v; W(v.x, v.z, 0.05, reachRing.position); reachRing.scale.setScalar(TUNE.reach);
         const live = ballFor(h, G.ball) && contactQ(h, G.ball.x, G.ball.y, G.ball.z, G.ball.bounces > 0);
         if (live) { reachCol.value.set(2.2, 1.5, 0.25); reachA.value = 0.9; } else if (h.queue) { reachCol.value.set(2.2, 1.5, 0.25); reachA.value = 0.45 + 0.25*Math.sin(t*12); } else { reachCol.value.set(1.4, 1.35, 1.2); reachA.value = 0.28; } }
+      kitchenWarn.visible = !!(h && G.kitchenWarn);
+      if (kitchenWarn.visible) { kitchenWarn.position.z = (isNearS(h.team) ? KD/2 : -KD/2); kwU.value = 0.3 + 0.15*Math.sin(t*14); }
       reticle.visible = !!G.aimPreview;
       if (G.aimPreview) { W(G.aimPreview.x, G.aimPreview.y, 0.07, reticle.position); reticle.rotation.y = t*0.8; } }
     // ball, its shadow, trail and landing marker
@@ -446,6 +456,7 @@ async function init(){
     hLine.visible = ball.visible && !!G.cfg.height && B.z > 0.4;
     if (hLine.visible) { W(B.x, B.y, 0.05, hLine.position); hLine.scale.set(1, Math.max(0.01, B.z - BALL_VIS - 0.05), 1); }
     // the cannon moves to wherever it fires from, and kicks back on each shot
+    cannon.visible = G.mode !== 'game';   // stowed for games
     { const C = G.cannon, dir = C.y < NETY ? 1 : -1; W(C.x, C.y - dir*(1.4 + C.kick*0.6), 0, cannon.position); cannon.rotation.y = dir > 0 ? 0 : Math.PI; }
     { let n = 0; for (const p of G.parts) { if (n >= PART_MAX) break; tmpM.compose(W(p.x, p.y, p.z, tmpV), tmpQ.identity(), tmpS.setScalar(p.s*(p.life/p.max))); partMesh.setMatrixAt(n++, tmpM); } partMesh.count = n; partMesh.instanceMatrix.needsUpdate = true; }
     if (R3.cut) { R3.cut = false; camCut = true; }

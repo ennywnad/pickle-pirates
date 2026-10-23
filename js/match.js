@@ -66,22 +66,42 @@ const PRAC_OPTS = {
   rate:  [['fast','Quick'],['normal','Normal'],['slow','Relaxed']],
   opp:   [['cpu','Stand-in crew returns'],['none','Cannon only']],
 };
-const practiceDef = () => ({ feed:'mix', place:'random', spin:'none', pace:'normal', rate:'normal', opp:'cpu', marker:true, height:true });
+const practiceDef = () => ({ feed:'mix', place:'random', spin:'none', pace:'normal', rate:'normal', opp:'cpu', marker:true, height:true, kitchen:true, twoBounce:true });
 let practice = practiceDef();
 try { const pr = JSON.parse(localStorage.getItem('pickle-practice') || 'null'); if (pr && typeof pr === 'object') for (const k in practice) if (k in pr && (typeof pr[k] === typeof practice[k]) && (!PRAC_OPTS[k] || PRAC_OPTS[k].some(o => o[0] === pr[k]))) practice[k] = pr[k]; } catch(e) {}
 const savePractice = () => { try { localStorage.setItem('pickle-practice', JSON.stringify(practice)); } catch(e) {} };
 const FEED_DELAY = { fast:0.6, normal:1.4, slow:2.4 }, PACE = { slow:0.85, normal:1, fast:1.15 };
 
-// mode: 'attract' (CPU vs CPU behind the menus) or 'practice' (you on the near side, CPU across the net, the ball cannon restarts rallies)
-function newMatch(islandId, attract){
+// ---------------- singles game settings (saved per browser)
+const GAME_OPTS = { to:[[11,'11'],[15,'15'],[21,'21']], scoring:[['sideout','Side-out (standard)'],['rally','Rally scoring']] };
+const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true });
+let gameCfg = gameDef();
+try { const g = JSON.parse(localStorage.getItem('pickle-game') || 'null'); if (g && typeof g === 'object') for (const k in gameCfg) if (k in g && typeof g[k] === typeof gameCfg[k]) gameCfg[k] = g[k]; } catch(e) {}
+const saveGameCfg = () => { try { localStorage.setItem('pickle-game', JSON.stringify(gameCfg)); } catch(e) {} };
+
+// mode 'practice': you on the near side, the ball cannon restarts every rally, the stand-in (or nobody) across the net.
+// mode 'game': a singles game under the full rules. Attract mode plays games CPU vs CPU behind the menus.
+function newMatch(islandId, attract, mode){
   const isl = ISLANDS.find(i => i.id === islandId) || ISLANDS[0];
-  G = { island:isl, theme:THEMES[isl.id], attract:!!attract, mode: attract ? 'attract' : 'practice', state:'feed', stT:1.0, time:0,
-    score:{ home:0, away:0 }, rally:0, best:0, shotN:0, aimPreview:null, cpuSkill: attract ? 0.8 : 0.7, feedTo:'home', lastCall:null,
-    ball:mkBall(), landing:null, parts:[], pops:[], shake:0,
-    cfg: attract ? { ...practiceDef(), opp:'cpu', marker:false } : { ...practice }, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 } };
+  mode = attract ? 'game' : mode || 'practice';
+  const cfg = attract ? { ...gameDef(), opp:'cpu' } : mode === 'game' ? { ...gameCfg, opp:'cpu' } : { kitchen:true, twoBounce:true, ...practice };
+  G = { island:isl, theme:THEMES[isl.id], attract:!!attract, mode, state:'feed', stT:1.0, time:0,
+    near:'home', hits:0, score:{ home:0, away:0 }, rally:0, best:0, shotN:0, aimPreview:null, cpuSkill: attract ? 0.8 : 0.7, feedTo:'home', lastCall:null,
+    ball:mkBall(), landing:null, parts:[], pops:[], shake:0, cfg, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 }, stats:{ rallies:0, longest:0, aces:0, faults:{} } };
   G.players = [mkPlayer('home', HOME.species, !attract), mkPlayer('away', isl.opp.species, false)];
+  if (mode === 'game') {
+    G.match = newScore({ to:cfg.to, scoring:cfg.scoring, server: Math.random() < 0.5 ? 'home' : 'away' });
+    G.score = G.match.pts;
+    G.cannon.y = -40;   // the cannon is stowed for games
+    startPoint();
+  }
 }
 const humanPl = () => G && !G.attract ? G.players.find(p => p.human) || null : null;
 const other = tm => tm === 'home' ? 'away' : 'home';
-const sideOf = y => y > NETY ? 'home' : 'away';
-const baseY = tm => tm === 'home' ? CL : 0;
+// which team plays the near half (y > NETY); swaps when the ends change
+const isNear = tm => tm === (G ? G.near : 'home');
+const sideOf = y => y > NETY ? (G ? G.near : 'home') : other(G ? G.near : 'home');
+const baseY = tm => isNear(tm) ? CL : 0;
+const backDir = tm => isNear(tm) ? 1 : -1;   // the y direction away from the net, for this team
+// the views stay behind the human: after the ends switch they look from the other baseline
+const viewFlip = () => { const h = humanPl(); return !!h && !isNear(h.team); };

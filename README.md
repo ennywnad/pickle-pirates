@@ -6,14 +6,15 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–3 of 11 are done:
+Milestones 1–4 of 11 are done. What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
 - **The ball cannon:** Practice feeds serves, drives, drops, dinks and lobs, with your choice of placement, spin, pace and timing.
-- **Hitting:** press a shot as the ball comes and the game times the swing. Footwork comes with a move-to-ball assist, split steps and lunges, and you can aim or let auto-aim pick a spot.
+- **Hitting:** press a shot as the ball comes and the game times the swing, with a move-to-ball assist, split steps, lunges and aim.
+- **Rules and scoring:** full singles games under the 2026 rulebook: serving order, the kitchen, the two-bounce rule, side-out or rally scoring, switching ends.
 
-Scoring, the rules engine and the real CPU come next.
+The real CPU opponent comes next.
 
 | # | Milestone | Done when |
 |---|-----------|-----------|
@@ -55,6 +56,22 @@ You choose the shot and where it goes; the game swings at the best moment.
 
 Timing grades (perfect, early, late, stretch) pop up over your player. The ring at your feet lights up when the ball is in reach, and the reticle shows where a manually aimed shot is headed.
 
+### Rules the game enforces
+
+From the 2026 official rulebook (USA Pickleball text). The kitchen and two-bounce rules can be switched off in Practice and in a singles game.
+
+| Rule | What the game does | Rulebook |
+|---|---|---|
+| Scoring | Side-out by default (only the server scores); rally scoring as an option; games to 11, 15 or 21, win by 2 | 4.A, 4.B, 14.A |
+| Serve position | Right court on the server's even score, left on odd; receiver diagonally across | 4.B |
+| Serve | Must land in the diagonal service court; the kitchen line is short, other lines are in | 7.A–7.E |
+| Two-bounce | The serve and the return must bounce before they're hit | 10.A |
+| Kitchen | No volleying with a foot in the kitchen or on its line, or stepping in right after a volley | 11.A |
+| Faults | Out, net, short serve, wrong court, post, double bounce | 10.B, 11.A |
+| Ends | Switch when the first side reaches 6 (8 in a game to 15, 11 in a game to 21) | 21.B |
+
+`tests/rules.mjs` checks each rule; `tests/game.mjs` plays full games and checks every serve and point.
+
 ## Ball physics
 
 The ball is tuned to published pickleball measurements, and `tests/ball.mjs` checks it against them on every push:
@@ -76,7 +93,7 @@ It's static files with no build step: three.js r180 is vendored under `vendor/th
 
 ```sh
 npm run serve        # http://localhost:8123
-npm install && npm test   # ball physics and hitting checks, then the Playwright smoke test against the running server
+npm install && npm test   # ball, rules, hitting and full-game checks, then the Playwright smoke test against the running server
 ```
 
 Add `?debug` to the address for test hooks on `window.__sim`.
@@ -91,7 +108,8 @@ js/audio.js       mixer, crowd, sound effects, music cues
 js/match.js       match state, tuning sliders, accessibility
 js/ball.js        ball flight, spin, bounces, net, line calls, launch solvers
 js/shots.js       contact window, auto-timed swing, shot quality and errors, aim
-js/rules.js       rally referee (placeholder) and the ball cannon
+js/rules.js       the rules engine: scoring, serving, two-bounce, kitchen, ends (pure, tested on its own)
+js/referee.js     runs points: serving, faults and calls, side outs, switching ends, the ball cannon
 js/players.js     footwork, move-to-ball assist, the stand-in CPU (placeholder)
 js/input.js       remappable keys, controllers, touch, controls screen
 js/update.js      per-frame step

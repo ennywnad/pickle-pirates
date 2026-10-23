@@ -1,89 +1,75 @@
-// Pickle Pirates · Rally referee (placeholder) and the ball cannon that restarts rallies
-// Milestone 4 replaces the referee with the full rules engine (serving order, two-bounce rule, kitchen, scoring, ends).
+// Pickle Pirates · Rules engine: scoring, serving, the two-bounce rule, the kitchen and ends.
+// Pure functions over a score object and court positions, so tests/rules.mjs can check every rule without a page.
+// Follows the 2026 official rulebook (USA Pickleball text): traditional side-out scoring by default (4.A, 4.B),
+// rally scoring as an option (14.A, provisional). Singles for now; doubles' server rotation arrives with milestone 7.
 'use strict';
-const CALL_COL = { out:'#ff5a3c', net:'#ff5a3c', 'double bounce':'#ffc23a', in:'#74d38f', winner:'#74d38f', close:'#74d38f' };
-function call(text, x, y, kind, small){
-  G.pops.push({ text:text.toUpperCase() + '!', x, y, life:small ? 0.8 : 1.1, max:small ? 0.8 : 1.1, size:small ? 14 : 18, color:CALL_COL[kind] || '#ffc23a' });
-  if (!small) G.lastCall = kind;
+const GAME_TO = [11, 15, 21];
+const SWITCH_AT = { 11:6, 15:8, 21:11 };          // ends change when the first side reaches this score (21.B)
+const RULE_GRACE = 0.02;                          // the contact patch: touching a line counts as touching it
+const FOOT_R = 0.35;                              // a foot touching the kitchen line is in the kitchen
+const MOMENTUM_T = 0.5;                           // after a volley, carried into the kitchen within this long = fault
+
+function newScore(opt = {}){
+  const to = GAME_TO.includes(opt.to) ? opt.to : 11;
+  return { to, winBy:2, scoring: opt.scoring === 'rally' ? 'rally' : 'sideout', server: opt.server || 'home',
+    pts:{ home:0, away:0 }, switchAt:SWITCH_AT[to], switched:false, over:false, winner:null, rallies:0, sideOuts:0 };
 }
-// the rally ends; `loser` made the error
-function endRally(loser, kind, x, y){
-  const B = G.ball;
-  if (!B.live) return;
-  B.live = false;
-  call(kind, x, y, kind);
-  const winner = other(loser);
-  G.score[winner]++;
-  if (!G.attract) { if (winner === 'home') { sfx('cheer'); if (kind !== 'in') band('won', 0.3); } else { sfx('aww'); } }
-  G.state = 'dead'; G.stT = FEED_DELAY[G.cfg.rate] + 0.6;
-  G.feedTo = G.attract ? other(G.feedTo) : 'home';
-  G.rally = 0;
+const otherTeam = tm => tm === 'home' ? 'away' : 'home';
+// singles: the server serves from the right court when their own score is even, the left when it's odd (4.B)
+const serverCourt = S => S.pts[S.server] % 2 === 0 ? 'right' : 'left';
+// the score call: server's score first (singles: two numbers)
+const scoreCall = S => `${S.pts[S.server]}–${S.pts[otherTeam(S.server)]}`;
+// a rally is over: who won it. Returns what happened, for the referee to announce.
+function awardRally(S, winner){
+  if (S.over) return { scored:false, sideOut:false, switchEnds:false, gameOver:true };
+  S.rallies++;
+  let scored = false, sideOut = false;
+  if (S.scoring === 'rally') { S.pts[winner]++; scored = true; if (winner !== S.server) { S.server = winner; sideOut = true; } }
+  else if (winner === S.server) { S.pts[winner]++; scored = true; }   // side-out scoring: only the serving side scores
+  else { S.server = winner; sideOut = true; }
+  if (sideOut) S.sideOuts++;
+  const lead = S.pts[winner] - S.pts[otherTeam(winner)];
+  const gameOver = scored && S.pts[winner] >= S.to && lead >= S.winBy;
+  if (gameOver) { S.over = true; S.winner = winner; }
+  let switchEnds = false;
+  if (!gameOver && !S.switched && Math.max(S.pts.home, S.pts.away) >= S.switchAt) { S.switched = true; switchEnds = true; }
+  return { scored, sideOut, switchEnds, gameOver };
 }
-// ball event hook for the live ball
-function onBallEvent(e, B, vin){
-  if (e === 'bounce') {
-    sfx('bounce', clamp(vin/20, 0.2, 1));
-    for (let i=0;i<5;i++) G.parts.push({ x:B.x, y:B.y, z:0.1, vx:rand(-3,3), vy:rand(-3,3), vz:rand(1,3), life:0.4, max:0.4, s:rand(0.15,0.3), c:'#e8e0c8' });
-    if (!B.live) return;
-    const side = sideOf(B.y), hitter = B.lastBy;
-    if (!hitter) { if (++B.bounces >= 2) endRally(side, 'double bounce', B.x, B.y); return; }   // a feed from the cannon: one free bounce
-    if (side === hitter) return endRally(hitter, 'net', B.x, B.y);           // never got over
-    B.bounces++;
-    if (B.bounces === 1) {
-      if (!landedIn(B.x, B.y)) return endRally(hitter, 'out', B.x, B.y);
-      if (G.cfg.opp === 'none' && side === 'away') return endRally('away', 'in', B.x, B.y);   // cannon only: a return that lands in scores
-      if (lineMargin(B.x, B.y) < 0.3) call('in', B.x, B.y, 'close', true);   // close to a line: show the call
-    }
-    if (B.bounces >= 2) return endRally(side, 'double bounce', B.x, B.y);
-  } else if (e === 'net') { sfx('net'); G.shake = Math.max(G.shake, 0.3); }
-  else if (e === 'tape') sfx('net', 0.5);
-  else if (e === 'post') sfx('bounce', 1);
+// one point from winning (and it's theirs to win: in side-out scoring only the server can score)
+function gamePoint(S){
+  for (const tm of ['home', 'away']) {
+    const a = S.pts[tm] + 1, b = S.pts[otherTeam(tm)];
+    if (a >= S.to && a - b >= S.winBy && (S.scoring === 'rally' || S.server === tm)) return tm;
+  }
+  return null;
 }
 
-// ---------------- ball cannon: feeds the receiving side a serve, drive, drop, dink or lob
-const FEED_MIX = [['serve', 2], ['drive', 3], ['drop', 2], ['dink', 2], ['lob', 1]];
-function pickFeed(){ const tot = FEED_MIX.reduce((a, f) => a + f[1], 0); let r = Math.random()*tot; for (const [k, w] of FEED_MIX) { if ((r -= w) < 0) return k; } return 'drive'; }
-function feedBall(to){
-  const B = G.ball, cfg = G.cfg, kind = cfg.feed === 'mix' ? pickFeed() : cfg.feed;
-  const far = to === 'home' ? 1 : -1;                     // +1: the cannon sits on the far (away) side
-  const yFar = d => to === 'home' ? d : CL - d;           // depth from the cannon's baseline
-  const yNear = d => to === 'home' ? CL - d : d;          // depth from the receiver's baseline
-  const pl = G.players.find(p => p.team === to);
-  // where the cannon fires from
-  let from;
-  if (kind === 'serve') { const sx = Math.random() < 0.5 ? 4 : CW - 4; from = { x:sx, y:yFar(-0.8), z:1.6 }; }
-  else if (kind === 'dink') from = { x:clamp(pl.x + rand(-3, 3), 3, CW - 3), y:yFar(NETY - KD - 0.6), z:1.2 };
-  else from = { x:CW/2 + rand(-5, 5), y:yFar(0.6), z:2.5 };
-  // where it lands
-  let tx = rand(2, CW - 2), ty;
-  if (kind === 'serve') { tx = from.x < CW/2 ? rand(CW/2 + 1.5, CW - 1.5) : rand(1.5, CW/2 - 1.5); ty = yNear(rand(2, 9)); }
-  else if (kind === 'drive') ty = yNear(rand(3, 10));
-  else if (kind === 'lob') ty = yNear(rand(1.5, 5));
-  else ty = yNear(rand(NETY - KD + 0.6, NETY - 1.5));   // drops and dinks: into the receiver's kitchen
-  if (pl && kind !== 'serve') {
-    const hand = to === 'home' ? 1 : -1;                  // the home player's forehand is +x (facing the net)
-    if (cfg.place === 'fore') tx = pl.x + hand*rand(2.2, 3.6);
-    else if (cfg.place === 'back') tx = pl.x - hand*rand(2.2, 3.6);
-    else if (cfg.place === 'body') tx = pl.x + rand(-0.6, 0.6);
-    tx = clamp(tx, 0.8, CW - 0.8);
-  }
-  const spin = cfg.spin === 'none' ? 0 : cfg.spin === 'top' ? 1 : cfg.spin === 'slice' ? -1 : pick([-1, 0, 1]);
-  const spinAmt = spin > 0 ? { serve:600, drive:TUNE.driveSpin, drop:500, dink:300, lob:800 }[kind] : spin < 0 ? TUNE.sliceSpin : 0;
-  const v = launchFor(kind, from, tx, ty, { speedK:PACE[cfg.pace], spin:spin*spinAmt*RPM });
-  Object.assign(B, from, v, { live:true, bounces:0, lastBy:null, lastKind:'feed:' + kind, still:0, trail:[] });
-  Object.assign(G.cannon, from, { kick:1, kind });
-  G.shotN++; sfx('drive', 0.7);
+// ---------------- court geometry, with either team on either half (near = the half where y > NETY)
+// a player facing the net from the near half has +x on their right; from the far half, −x.
+// service courts by the receiver's own right/left: the receiver stands diagonally across from the server.
+function serviceBox(receiverNear, court){
+  const right = receiverNear ? court === 'right' : court === 'left';   // "right" for a near-side player is x > CW/2
+  const x0 = right ? CW/2 : 0, x1 = right ? CW : CW/2;
+  return receiverNear ? { x0, x1, y0:NETY + KD, y1:CL } : { x0, x1, y0:0, y1:NETY - KD };
 }
-// called every frame while the rally is live
-function rallyWatch(dt){
-  const B = G.ball;
-  if (!B.live) return;
-  if (Math.abs(B.x - CW/2) > 40 || B.y < -24 || B.y > CL + 24) {
-    const cx = clamp(B.x, 0, CW), cy = clamp(B.y, 0, CL);
-    if (B.bounces) return endRally(B.lastBy ? other(B.lastBy) : G.feedTo, 'winner', cx, cy);   // bounced in, then got away
-    return endRally(B.lastBy || G.feedTo, 'out', cx, cy);
-  }
-  const slow = hyp(B.vx, B.vy, B.vz) < 2 && B.z < 0.5;
-  B.still = slow ? B.still + dt : 0;
-  if (B.still > 0.5) endRally(B.lastBy ? sideOf(B.y) : G.feedTo, sideOf(B.y) === B.lastBy ? 'net' : 'double bounce', B.x, B.y);
+// where a served ball first lands: 'in', 'short' (on or inside the kitchen line), or 'out' (long, wide, wrong court)
+function serveResult(x, y, receiverNear, court){
+  const b = serviceBox(receiverNear, court), g = RULE_GRACE;
+  const pastKitchen = receiverNear ? y > b.y0 + g : y < b.y1 - g;       // the kitchen line is part of the kitchen
+  const inBox = x >= b.x0 - g && x <= b.x1 + g && (receiverNear ? y <= b.y1 + g : y >= b.y0 - g);
+  if (inBox && pastKitchen) return 'in';
+  const inKitchenSide = x >= b.x0 - g && x <= b.x1 + g && (receiverNear ? y > NETY && y <= b.y0 + g : y < NETY && y >= b.y1 - g);
+  return inKitchenSide ? 'short' : 'out';
 }
+// where the server and receiver stand for a serve from `court`
+function servePositions(serverNear, court){
+  const sRight = serverNear ? court === 'right' : court === 'left';
+  const sx = sRight ? CW*0.75 : CW*0.25, rx = CW - sx;   // the receiver is diagonally across
+  return { server:{ x:sx, y: serverNear ? CL + 0.9 : -0.9 }, receiver:{ x:rx, y: serverNear ? -1.2 : CL + 1.2 } };
+}
+// the two-bounce rule (10.A): the serve and the return must bounce. strokeIdx counts the serve as 0.
+const twoBounceFault = (strokeIdx, volley) => volley && strokeIdx <= 2;
+// standing in (or on the line of) the kitchen, within the sidelines
+const inKitchenZone = (x, y) => Math.abs(y - NETY) < KD + FOOT_R && x > -FOOT_R && x < CW + FOOT_R;
+// a volley while touching the kitchen, or carried into it by the volley's momentum (11.A)
+const kitchenFault = (volley, inKitchen) => !!volley && !!inKitchen;

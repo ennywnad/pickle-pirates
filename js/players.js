@@ -1,7 +1,7 @@
 // Pickle Pirates · Footwork: running, the split step, lunges, the move-to-ball assist, and the stand-in CPU
 // The real CPU (positioning, shot choice, difficulty tiers) arrives with milestone 5 in js/ai.js.
 'use strict';
-const BOUNDS = { home:{ y0:NETY + 0.6, y1:CL + 8 }, away:{ y0:-8, y1:NETY - 0.6 } };
+const BOUNDS = { near:{ y0:NETY + 0.6, y1:CL + 8 }, far:{ y0:-8, y1:NETY - 0.6 } };
 function movePlayer(pl, ix, iy, dt){
   for (const k of ['split', 'burst', 'lunge']) if (pl[k] > 0) pl[k] = Math.max(0, pl[k] - dt);
   // a split step lands into a quick first step; a lunge has to recover before you can run again
@@ -10,7 +10,7 @@ function movePlayer(pl, ix, iy, dt){
   const dvx = tvx - pl.vx, dvy = tvy - pl.vy, dm = hyp(dvx, dvy);
   if (dm > a) { pl.vx += dvx/dm*a; pl.vy += dvy/dm*a; } else { pl.vx = tvx; pl.vy = tvy; }
   pl.x = clamp(pl.x + pl.vx*dt, -6, CW + 6);
-  const b = BOUNDS[pl.team]; pl.y = clamp(pl.y + pl.vy*dt, b.y0, b.y1);
+  const b = BOUNDS[isNear(pl.team) ? 'near' : 'far']; pl.y = clamp(pl.y + pl.vy*dt, b.y0, b.y1);
   if (pl.y === b.y0 || pl.y === b.y1) pl.vy = 0;
   if (hyp(pl.vx, pl.vy) > 2 && pl.swing <= 0) pl.face = Math.atan2(pl.vy, pl.vx);
   else if (pl.swing <= 0 && hyp(pl.vx, pl.vy) < 1) pl.face += (Math.atan2(NETY - pl.y, 0) - pl.face)*Math.min(1, dt*4);   // ready position: face the net
@@ -24,7 +24,7 @@ function runTime(pl, d){
 // where to stand to take the incoming ball: the earliest point on its path that's at a good height, follows the
 // two-bounce rule, and that the player can get to in time. Returns { x, y (body), bx, by, bz (ball), t } or null.
 function contactSpot(pl, B){
-  const pr = predict(B, 2.6, 1/120, 3), hand = handOf(pl), back = pl.team === 'home' ? 1 : -1;
+  const pr = predict(B, 2.6, 1/120, 3), hand = handOf(pl), back = backDir(pl.team);
   let fallback = null;
   for (const p of pr.pts) {
     if (sideOf(p.y) !== pl.team) continue;
@@ -33,6 +33,7 @@ function contactSpot(pl, B){
     if (p.z < 0.5 || p.z > 6) continue;
     // stand a little to the side of the ball (forehand) and a touch behind it
     const sx = p.x - hand*1.5, sy = p.y + back*0.5;
+    if (!bounced && G.cfg.kitchen !== false && inKitchenZone(sx, sy)) continue;   // never plan a volley from the kitchen
     const reachT = runTime(pl, hyp(sx - pl.x, sy - pl.y) - 0.3) + 0.08;
     const good = p.z >= 1.1 && p.z <= 4.2;
     const spot = { x:clamp(sx, -5, CW + 5), y:sy, bx:p.x, by:p.y, bz:p.z, t:p.t };
@@ -63,7 +64,7 @@ function humanMove(pl, dt){
     // between shots: with the stick centered, drift back to a ready spot (kitchen line if you're up, else the baseline)
     if (!plant && TUNE.assist > 0 && hyp(ix, iy) < 0.15) {
       // between points the receiver waits at the baseline (serves and returns must bounce); mid-rally, hold the kitchen line if you're up
-      const up = B.live && !!B.lastBy && G.rally >= 2 && Math.abs(pl.y - NETY) <= KD + 3, rx = CW/2 + (B.live ? (B.x - CW/2)*0.25 : 0), ry = pl.team === 'home' ? (up ? NETY + KD + 0.6 : CL - 1.2) : (up ? NETY - KD - 0.6 : 1.2);
+      const up = B.live && !!B.lastBy && G.hits >= 3 && Math.abs(pl.y - NETY) <= KD + 3, rx = CW/2 + (B.live ? (B.x - CW/2)*0.25 : 0), ry = isNear(pl.team) ? (up ? NETY + KD + 0.6 : CL - 1.2) : (up ? NETY - KD - 0.6 : 1.2);
       const dx = rx - pl.x, dy = ry - pl.y, d = hyp(dx, dy);
       if (d > 0.6) { const k = TUNE.assist*0.7*Math.min(1, d/3); ix = dx/d*k; iy = dy/d*k; }
     }
@@ -72,9 +73,9 @@ function humanMove(pl, dt){
 }
 // the stand-in CPU: runs to the contact spot, presses a shot at a slightly random moment, recovers toward the middle
 function cpuPlayer(pl, dt){
-  const B = G.ball, ai = pl.ai, back = pl.team === 'home' ? 1 : -1;
+  const B = G.ball, ai = pl.ai, back = backDir(pl.team);
   if (G.cfg.opp === 'none' && !pl.human && pl.team === 'away') {   // cannon only: the stand-in leans on the far post and watches
-    const dx = -3.2 - pl.x, dy = NETY - 3 - pl.y, d = hyp(dx, dy);
+    const dx = -3.2 - pl.x, dy = NETY + backDir(pl.team)*3 - pl.y, d = hyp(dx, dy);
     movePlayer(pl, d > 0.3 ? dx/d : 0, d > 0.3 ? dy/d : 0, dt);
     if (d < 0.5) pl.face = Math.atan2(B.y - pl.y, B.x - pl.x);
     return;

@@ -13,11 +13,11 @@ const sandbox = {
   localStorage: { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } },
   console, Math, JSON, Object, Array, Number, String, Set, Map,
   // stand-ins for the page-side modules
-  sfx(){}, band(){}, toast(){}, humans: () => 1,
+  sfx(){}, band(){}, toast(){}, humans: () => 1, startAttract(){}, showResults(){},
   BOT: { input:[0, 0], aim:[0, 0], plant:false }, readInput: () => sandbox.BOT.input, readAim: () => sandbox.BOT.aim, actionHeld: (p, a) => a === 'plant' && sandbox.BOT.plant,
 };
 vm.createContext(sandbox);
-for (const f of ['js/core.js', 'js/match.js', 'js/ball.js', 'js/shots.js', 'js/rules.js', 'js/players.js', 'js/update.js'])
+for (const f of ['js/core.js', 'js/match.js', 'js/ball.js', 'js/rules.js', 'js/shots.js', 'js/referee.js', 'js/players.js', 'js/update.js'])
   vm.runInContext(readFileSync(new URL(f, root), 'utf8'), sandbox, { filename: f });
 const run = src => vm.runInContext(src, sandbox);
 
@@ -78,12 +78,12 @@ function session({ opp, feed = 'mix', seconds, lead, kinds = ['drive', 'soft', '
 // 5. shot types: a high ball near the net becomes a smash; soft is a dink at the kitchen and a drop from the back
 {
   const r = run(`(() => {
-    newMatch('brine', false); G.state = 'play'; G.rally = 2; const pl = G.players[0], B = G.ball;
+    newMatch('brine', false); G.state = 'play'; G.hits = 3; const pl = G.players[0], B = G.ball;
     const at = (x, y, z, bounced) => Object.assign(B, { x, y, z, vx:0, vy:8, vz:-2, sx:0, sy:0, sz:0, live:true, lastBy:'away', bounces: bounced ? 1 : 0 });
-    pl.x = 10; pl.y = 27; at(11.2, 26.8, 6.2, false); hitBall(pl, 'drive', null); const smash = G.ball.lastKind;
-    pl.x = 10; pl.y = 29.5; at(11.2, 29.3, 1.6, true); hitBall(pl, 'soft', null); const dink = G.ball.lastKind;
-    pl.x = 10; pl.y = 41; at(11.2, 40.8, 2.2, true); hitBall(pl, 'soft', null); const drop = G.ball.lastKind;
-    G.rally = 0; pl.x = 10; pl.y = 41; at(11.2, 40.8, 2.2, false); const volleyServe = hitBall(pl, 'drive', null);
+    pl.x = 10; pl.y = 30; at(11.2, 29.8, 6.2, false); hitBall(pl, 'drive', null); const smash = G.ball.lastKind;   // just outside the kitchen
+    G.hits = 3; G.ball.live = true; pl.x = 10; pl.y = 29.5; at(11.2, 29.3, 1.6, true); hitBall(pl, 'soft', null); const dink = G.ball.lastKind;
+    G.hits = 3; pl.x = 10; pl.y = 41; at(11.2, 40.8, 2.2, true); hitBall(pl, 'soft', null); const drop = G.ball.lastKind;
+    G.hits = 1; pl.x = 10; pl.y = 41; at(11.2, 40.8, 2.2, false); const volleyServe = hitBall(pl, 'drive', null);
     return { smash, dink, drop, volleyServe };
   })()`);
   check('high ball at the net is smashed', r.smash === 'smash', r.smash);
@@ -94,7 +94,7 @@ function session({ opp, feed = 'mix', seconds, lead, kinds = ['drive', 'soft', '
 {
   const r = run(`(() => { let left = 0, right = 0;
     for (let i = 0; i < 40; i++) { for (const [ax, tag] of [[-1, 'l'], [1, 'r']]) {
-      newMatch('brine', false); G.state = 'play'; G.rally = 2; const pl = G.players[0], B = G.ball; pl.x = 10; pl.y = 40;
+      newMatch('brine', false); G.state = 'play'; G.hits = 3; const pl = G.players[0], B = G.ball; pl.x = 10; pl.y = 40;
       Object.assign(B, { x:11.2, y:39.8, z:2.5, vx:0, vy:6, vz:-1, sx:0, sy:0, sz:0, live:true, lastBy:'away', bounces:1 });
       hitBall(pl, 'drive', [ax, 0]); const pr = predict(G.ball, 3, 1/120, 1000);
       if (pr.first && (tag === 'l' ? pr.first.x < CW/2 : pr.first.x > CW/2)) tag === 'l' ? left++ : right++; } }

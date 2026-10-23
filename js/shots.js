@@ -6,8 +6,8 @@
 const SHOT_SOUND = { drive:'drive', smash:'drive', dink:'paddle', drop:'paddle', lob:'paddle', serve:'drive', pop:'paddle' };
 const SHOT_NAME = { drive:'Drive', smash:'Smash', dink:'Dink', drop:'Drop', lob:'Lob', pop:'Mishit' };
 // the first two shots of a rally (serve and return) must bounce before they're hit
-const mustBounce = () => G.rally < 2;
-const handOf = pl => pl.team === 'home' ? 1 : -1;   // the forehand side, in court x, for a player facing the net
+const mustBounce = () => G.cfg.twoBounce !== false && G.hits <= 2;
+const handOf = pl => isNear(pl.team) ? 1 : -1;   // the forehand side, in court x, for a player facing the net
 
 // how well can `pl` hit a ball at (x, y, z)? 0 = out of reach. bounced: has it bounced on this side yet?
 function contactQ(pl, x, y, z, bounced, px = pl.x, py = pl.y){
@@ -51,7 +51,8 @@ function shotTick(pl, dt){
   if (Q.hold && Q.kind === 'drive') Q.power = Math.min(1, Q.power + dt/TUNE.holdTime);
   const B = G.ball;
   if (ballFor(pl, B)) {
-    const now = contactQ(pl, B.x, B.y, B.z, B.bounces > 0);
+    let now = contactQ(pl, B.x, B.y, B.z, B.bounces > 0);
+    if (now && now.volley && !pl.human && G.cfg.kitchen !== false && inKitchenZone(pl.x, pl.y)) now = null;   // the CPU lets it bounce rather than fault
     if (now) {
       const ahead = bestAhead(pl, B);
       // swing now unless a clearly better contact is coming before the press runs out
@@ -89,8 +90,8 @@ function strike(pl, Q, c){
   const from = { x:B.x, y:B.y, z:Math.max(B.z, 0.3) };
   if (q < 0.25 && Math.random() < 0.6) {   // mishit: frames it into the net or floats a sitter
     kind = 'pop';
-    if (Math.random() < 0.45) { tx = B.x + rand(-2, 2); ty = NETY + (pl.team === 'home' ? 1.5 : -1.5); }
-    else { tx = rand(3, CW - 3); ty = pl.team === 'home' ? rand(NETY - 12, NETY - 5) : rand(NETY + 5, NETY + 12); }
+    if (Math.random() < 0.45) { tx = B.x + rand(-2, 2); ty = NETY + backDir(pl.team)*1.5; }
+    else { tx = rand(3, CW - 3); ty = isNear(pl.team) ? rand(NETY - 12, NETY - 5) : rand(NETY + 5, NETY + 12); }
   }
   const v = launchFor(kind, from, tx, ty, { spin:spinFor(kind, Q.mod), speedK:powerK*(1 + gauss()*0.04*spread) });
   Object.assign(B, v, { z:from.z, bounces:0, lastBy:pl.team, lastKind:kind, still:0 });
@@ -99,13 +100,14 @@ function strike(pl, Q, c){
   if (c.lunge) { pl.lunge = 0.45; pl.lungeSide = c.side; }
   // the other side split-steps as the ball is struck
   if (opp) { opp.split = 0.18; opp.burst = 0.5; }
-  G.rally++; G.best = Math.max(G.best, G.rally); G.shotN++;
+  G.rally++; G.best = Math.max(G.best, G.rally); G.shotN++; G.hits++;
   G.lastShot = { team:pl.team, kind, q, grade:tq.grade, volley:c.volley, power:Q.power };
   sfx(SHOT_SOUND[kind] || 'paddle', kind === 'pop' ? 0.5 : 1);
   if (kind === 'pop') grade(pl, 'mishit');
   else if (c.lunge) grade(pl, 'stretch', 'STRETCH');
   else grade(pl, tq.grade);
   if (kind === 'smash' && !G.attract) call('smash', B.x, B.y, 'winner', true);
+  strokeRules(pl, c);   // two-bounce and kitchen
   return true;
 }
 // spin modifiers held while hitting: 'top' rolls it over, 'slice' cuts under
@@ -118,7 +120,7 @@ function spinFor(kind, mod){
 const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
 // where the shot goes. depth = feet in front of the far baseline. aim = [x, y] in court directions; centered = auto-aim
 function shotTarget(pl, kind, aim, opp){
-  const far = other(pl.team), s = far === 'away' ? 1 : -1;
+  const s = isNear(pl.team) ? 1 : -1;   // +1: shooting at the far half
   const base = { drive:[3, 7], smash:[6, 13], dink:[16, 20.5], drop:[15.6, 18.6], lob:[1.8, 4.5], serve:[3, 9], pop:[8, 14] }[kind] || [4, 8];
   let d = rand(base[0], base[1]), x;
   if (aim && (aim[0] || aim[1])) {
@@ -133,18 +135,18 @@ function shotTarget(pl, kind, aim, opp){
     x = ox < CW/2 ? rand(CW/2 + 1.5, CW - 2) : rand(2, CW/2 - 1.5);
     if (kind === 'dink') x = clamp(pl.x + rand(-6, 6), 2.5, CW - 2.5);
   }
-  return { x, y: far === 'away' ? d : CL - d };
+  return { x, y: isNear(pl.team) ? d : CL - d };
 }
 // where the shot would go if struck now (for the aim reticle)
 function aimPreview(pl){
   const Q = pl.queue, aim = Q ? Q.aim : null;
   if (!aim || !(aim[0] || aim[1])) return null;
-  const far = other(pl.team), kind = Q ? (Q.kind === 'soft' ? (Math.abs(pl.y - NETY) <= KD + 3 ? 'dink' : 'drop') : Q.kind) : 'drive';
-  const mid = { drive:5, smash:9.5, dink:18.2, drop:17.1, lob:3.1 }[kind] || 5, s = far === 'away' ? 1 : -1;
+  const kind = Q ? (Q.kind === 'soft' ? (Math.abs(pl.y - NETY) <= KD + 3 ? 'dink' : 'drop') : Q.kind) : 'drive';
+  const mid = { drive:5, smash:9.5, dink:18.2, drop:17.1, lob:3.1 }[kind] || 5, s = isNear(pl.team) ? 1 : -1;
   let x = CW/2 + aim[0]*(CW/2), d = mid + aim[1]*s*(kind === 'dink' || kind === 'drop' ? 2.5 : 5);
   const safeX = clamp(x, 2, CW - 2), safeD = clamp(d, kind === 'dink' || kind === 'drop' ? NETY - KD + 0.8 : 1.8, NETY - 1.2);
   x += (safeX - x)*TUNE.aimAssist; d += (safeD - d)*TUNE.aimAssist;
-  return { x, y: far === 'away' ? d : CL - d };
+  return { x, y: isNear(pl.team) ? d : CL - d };
 }
 // for the old callers: hit right now if the ball is in reach (tests and debug)
 function hitBall(pl, kind, aim, mod){

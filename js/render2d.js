@@ -12,7 +12,9 @@ function resize(){
   OX = cw/2 - CW/2*scale; OY = ch/2 - CL/2*scale;
   buildCourt();
 }
-const sx = x => OX + x*scale, sy = (y, z = 0) => OY + y*scale - z*scale*0.55;
+// court -> screen; after the ends switch the court is drawn from the other end, so you always play from the bottom
+let FLIP = false;
+const sx = x => OX + (FLIP ? CW - x : x)*scale, sy = (y, z = 0) => OY + (FLIP ? CL - y : y)*scale - z*scale*0.55;
 // static layer: water, deck, court, kitchen, lines
 function buildCourt(){
   const T = (G && G.theme) || THEMES.brine;
@@ -56,7 +58,7 @@ function drawPlayer(pl, t){
   ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(sx(pl.x), sy(pl.y) + r*0.3, r*1.1, r*0.5, 0, 0, 7); ctx.fill();
   // paddle: ready in front, swinging across on the side the ball was on
   const sw = pl.swing > 0 ? (1 - pl.swing/0.28) : 0, side = (pl.swing > 0 ? pl.swingSide : 1)*hand*(pl.team === 'home' ? 1 : -1);
-  const pa = pl.face + side*(0.9 - sw*1.8), px = x + Math.cos(pa)*r*1.5, py = y - r*0.6 + Math.sin(pa)*r*1.5*0.6;
+  const pa = pl.face + (FLIP ? Math.PI : 0) + side*(0.9 - sw*1.8), px = x + Math.cos(pa)*r*1.5, py = y - r*0.6 + Math.sin(pa)*r*1.5*0.6;
   ctx.fillStyle = '#3a2a1a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(px, py, r*0.45, r*0.55, pa, 0, 7); ctx.fill(); ctx.stroke();
   // body
@@ -102,6 +104,7 @@ function drawBall(){
   ctx.fillStyle = 'rgba(80,70,10,.55)'; for (const [ox, oy] of [[-0.35,-0.3],[0.3,-0.25],[0,0.2],[-0.3,0.35],[0.35,0.3]]) { ctx.beginPath(); ctx.arc(bx + ox*r, by + oy*r, r*0.13, 0, 7); ctx.fill(); }
 }
 function drawCannon(){
+  if (G.mode === 'game') return;   // stowed for games
   const C = G.cannon, x = sx(C.x), y = sy(C.y), r = scale*0.9, dir = C.y < NETY ? 1 : -1, k = C.kick*scale*0.4;
   ctx.fillStyle = '#6b4520'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.rect(x - r, y - r*0.7 - dir*k, r*2, r*1.4); ctx.fill(); ctx.stroke();
@@ -118,12 +121,15 @@ function render(now){
   if (!courtC.width || courtC.width !== cv.width) buildCourt();
   ctx.clearRect(0, 0, cw, ch);
   if (!G) return;
+  FLIP = viewFlip();
   const sh = A11Y.rm ? 0 : G.shake*4;
   ctx.save(); if (sh) ctx.translate((Math.random()-0.5)*sh, (Math.random()-0.5)*sh);
   ctx.drawImage(courtC, 0, 0, cw, ch);
+  // the kitchen glows red when a volley from where you stand would fault
+  if (G.kitchenWarn) { const h = humanPl(), y0 = isNear(h.team) ? NETY : NETY - KD; ctx.fillStyle = `rgba(255,70,50,${0.22 + 0.12*Math.sin(t*14)})`; const ya = sy(y0), yb = sy(y0 + KD); ctx.fillRect(sx(FLIP ? CW : 0), Math.min(ya, yb), CW*scale, Math.abs(yb - ya)); }
   for (const p of G.parts) { ctx.fillStyle = p.c; ctx.globalAlpha = p.life/p.max; ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y, p.z), Math.max(1, p.s*scale), 0, 7); ctx.fill(); } ctx.globalAlpha = 1;
   // far side first, then the net, then the near side, so overlaps read right
-  const far = G.players.filter(p => p.y <= NETY), near = G.players.filter(p => p.y > NETY), ballFar = G.ball.y <= NETY;
+  const top = y => FLIP ? y > NETY : y <= NETY, far = G.players.filter(p => top(p.y)), near = G.players.filter(p => !top(p.y)), ballFar = top(G.ball.y);
   drawCannon();
   { const h = humanPl(); if (h) drawReach(h, t); if (G.aimPreview) drawReticle(sx(G.aimPreview.x), sy(G.aimPreview.y), scale*0.9); }
   for (const p of far) drawPlayer(p, t);
@@ -149,6 +155,13 @@ const setT = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).text
 function updateHud(){
   if (!G || G.attract) return;
   setT('sH', String(G.score.home)); setT('sA', String(G.score.away));
-  setT('clk', `RALLY ${G.rally}`);
-  setT('objProg', `Best rally ${G.best}`);
+  if (G.mode !== 'game') { setT('clk', `RALLY ${G.rally}`); setT('objProg', `Best rally ${G.best}`); return; }
+  const S = G.match, mine = humanPl(), gp = gamePoint(S);
+  setT('clk', scoreCall(S));
+  setT('arenaShort', `GAME TO ${S.to}${S.scoring === 'rally' ? ' · RALLY' : ''}`);
+  setT('hSub', S.server === 'home' ? '● SERVING' : HOME.name.toUpperCase());
+  setT('aSub', S.server === 'away' ? '● SERVING' : G.island.opp.name.toUpperCase());
+  const yours = G.state === 'serve' && mine && S.server === mine.team;
+  setT('objText', yours ? 'Your serve · press Drive, Soft or Lob' : gp ? `Game point · ${teamName(gp)}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
+  setT('objProg', G.state === 'play' ? `Rally ${G.rally}` : `Server ${S.server === 'home' ? HOME.abbr : G.island.opp.abbr} · ${serverCourt(S)} court`);
 }

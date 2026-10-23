@@ -45,7 +45,7 @@ const held = (prof, a) => !!prof && (binds[prof][a] || []).some(c => keys.has(c)
 function orient(v){
   const R3 = window.__r3d;
   if (R3 && R3.active && R3.basis && (v[0] || v[1])) { const b = R3.basis, m0 = hyp(v[0], v[1]); let x = v[0]*b.rx + (-v[1])*b.fx, y = v[0]*b.ry + (-v[1])*b.fy; const m = hyp(x, y); if (m > 1e-6) { x *= m0/m; y *= m0/m; } return [x, y]; }
-  return v;
+  return G && viewFlip() ? [-v[0], -v[1]] : v;   // classic view drawn from the other end
 }
 function readInputRaw(p = 0){
   const d = devicesFor(p);
@@ -80,6 +80,7 @@ const playing = () => G && !G.attract && !paused && G.state !== 'end';
 function pressShot(p, kind){
   if (!playing()) return;
   const pl = humanPl(); if (!pl) return;
+  if (G.state === 'serve' && G.match && G.match.server === pl.team) { doServe(pl, kind, readAim(p)); return; }
   queueShot(pl, kind, { hold: kind === 'drive', aim: readAim(p), mod: actionHeld(p, 'top') ? 'top' : actionHeld(p, 'slice') ? 'slice' : null });
 }
 function releaseDrive(p){ const pl = humanPl(); if (pl) releaseShot(pl); }
@@ -153,12 +154,16 @@ function padConfirm(){
   if (vis('ctrls')) return;
   if (vis('pause')) return setPaused(false);
   if (vis('prac')) return $('pracGo').click();
+  if (vis('gameset')) return $('gameGo').click();
+  if (vis('results')) return $('resAgain').click();
   if (vis('hub')) { const c = $('btnPractice'); if (c) c.click(); }
 }
 function padBack(){
   const vis = id => $(id) && !$(id).hidden;
   if (vis('ctrls')) return $('ctrlsDone').click();
   if (vis('prac')) return $('pracBack').click();
+  if (vis('gameset')) return $('gameBack').click();
+  if (vis('results')) return $('resHub').click();
   if (vis('pause')) return setPaused(false);
 }
 function pollPad(){

@@ -18,7 +18,7 @@ function frame(t){
 }
 
 async function wake(){ try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch(e) { wakeLock = null; } }
-document.addEventListener('visibilitychange', () => { if (document.hidden) { if (G && !G.attract && !paused) setPaused(true); } else if (G && !G.attract) wake(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { if (G && !G.attract && !paused && G.state !== 'end') setPaused(true); } else if (G && !G.attract) wake(); });
 document.addEventListener('pointerdown', ensureAudio, { once:true });
 
 new ResizeObserver(resize).observe(stage);
