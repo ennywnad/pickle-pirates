@@ -1,0 +1,54 @@
+name: Test and deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    # Playwright's image ships Chromium and its system libraries, so there's no slow browser install.
+    # Keep the tag in step with the "playwright" version in package.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependencies
+        run: npm install --no-audit --no-fund
+      - name: Serve the site and run the smoke test
+        run: |
+          node tests/serve.mjs 8123 &
+          sleep 1
+          npm test
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Bundle the site
+        run: |
+          mkdir _site
+          cp -r index.html css js assets vendor _site/
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
