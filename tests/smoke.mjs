@@ -242,6 +242,22 @@ for (const gfx of ['classic', 'med']) {
   if (!rp.on || !rp.tag || !rp.held || !rp2.off || !rp2.tagOff) fail(`${gfx}: the instant replay did not play and skip (${JSON.stringify({ ...rp, ...rp2 })})`);
   await page.evaluate(() => { G.players[0].human = true; renderHub(); show('hub'); });
 
+  // v1.1: Fight mode. The dock card opens the fleet, a boarding duel starts on your rowboat's deck, and sinking their
+  // ship takes it: the next fight is on the sloop
+  await page.evaluate(() => { save.fleet = { ship:0, fights:0, wins:0 }; persist(); renderHub(); show('hub'); });
+  await tap('#btnFight');
+  await tap('#fightGo');
+  const fc = await page.evaluate(() => ({ isle: !document.getElementById('isle').hidden, text: document.getElementById('isleCard').textContent, island: G.island.id, hull: G.fight && G.fight.max }));
+  if (!fc.isle || !/Boarding duel/.test(fc.text) || fc.island !== 'ship_rowboat' || !fc.hull) fail(`${gfx}: the fight did not start on the rowboat (${JSON.stringify({ ...fc, text: fc.text.slice(0, 80) })})`);
+  await tap('#isleGo');
+  await page.evaluate(() => { const S = window.__sim, G = S.G; G.players[0].human = false; G.players[0].tier = 'captain'; G.fight.hull.away = 1;
+    for (let i = 0; i < 60*900 && G.state !== 'end'; i++) S.step(1); });
+  await page.waitForTimeout(400);
+  const fr = await page.evaluate(() => ({ won: G.match.winner, ship: fleetShip(), title: document.querySelector('#resCard h2').textContent, hull: !document.getElementById('aHull').hidden }));
+  if (fr.won === 'home' && (fr.ship !== 1 || !/yours/.test(fr.title))) fail(`${gfx}: sinking their ship did not take it (${JSON.stringify(fr)})`);
+  await page.evaluate(() => { save.fleet = { ship:0, fights:0, wins:0 }; persist(); });
+  await tap('#resHub');
+
   // v0.7: the Voyage. The dock card opens the map, the first island sails with its objective on the island card, and
   // a won match records its stars and offers the next island
   await tap('#btnVoyage');

@@ -2,6 +2,43 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v1.1.0 · Fight mode (milestone 12 complete) · 2026-10-24
+
+Boarding duels for the other crew's ship. The plan left the design of the fight open. This release builds its recommended option: a match where every rally won fires a broadside, and the first ship to sink loses.
+
+**How a fight works**
+- **The format:** singles, and every rally scores. The usual rules apply: the kitchen, two bounces and faults.
+- **Nobody plays to 11.** Every rally you win fires a broadside into their hull.
+- **Double broadsides:** a rally of 12 shots or more, an ace, or a smash winner fires a double broadside. That takes 2 off the hull instead of 1.
+- **Winning:** the first ship to sink loses. Sink theirs and she's yours.
+- **Hull pips:** the scoreboard shows each ship's hull as a row of pips. A pip flashes red when it's hit.
+- **Broadside effects:** smoke, splashes and splinters along the half that was hit, a muzzle flash from the rival ship lying alongside, and a cannon boom.
+
+**The fleet**
+
+| Ship | Hull | Held by | Level |
+|---|---|---|---|
+| Rowboat (you start here) | 6 | — | — |
+| The Salty Sloop | 8 | Barnacle Boys | Deckhand |
+| The Black Brig (brigantine) | 10 | Skeleton Scallywags | Bosun |
+| The Kraken's Crown (galleon) | 12 | Squid Squad | Captain |
+
+- **Your deck:** you always fight on your own ship's deck. Each ship has its own:
+  - The rowboat is lashed to a raft, with oars out.
+  - The sloop has one mast.
+  - The brigantine has two masts and four cannons.
+  - The galleon has three masts and six cannons.
+- **Your flag:** your crew's colors fly from the masthead.
+- **Your next fight:** take a ship and your next fight is on her deck, with her bigger hull.
+- **Full fleet:** once you hold the galleon, fights become defending her against each crew in turn.
+- **Booty:** booty is on in fights. Island hazards are off; the broadsides are the hazard.
+
+**Where to find it**
+- **Fight** on the dock opens your fleet: the next prize and the ships you've sailed.
+- The island card before a fight explains the rules.
+- The results card says whether she's yours.
+- How to play explains Fight mode, and save codes carry your fleet.
+
 ## v1.0.0 · The Davy's Locker Cup (milestone 11 complete) · 2026-10-24
 
 Version 1.0. A new player can go from the dock to the Davy's Locker Cup: the Voyage (v0.7), instant replays and stats (v0.8), and phone and accessibility polish (v0.9). This release finishes the sound pack and the finale.

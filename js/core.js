@@ -79,6 +79,11 @@ const THEMES = {
   volcano:{ court:'#2a2a30', kitchen:'#3a3a44', out:'#1a1414', line:'#ffd0a0', water:'#2a1410', deck:'#241a18', sky:'#ff8a50', accent:'#ff6a1a' },
   kraken: { court:'#3a5a7a', kitchen:'#4a6c90', out:'#6b5030', line:'#f0f4ff', water:'#0c3550', deck:'#6b5030', sky:'#7aa0c8', accent:'#c78cff' },
   ghost:  { court:'#2c4a55', kitchen:'#3a5c68', out:'#22343a', line:'#c8fff0', water:'#0a2228', deck:'#22343a', sky:'#3a5058', accent:'#a8f0e0' },
+  // Fight mode: the decks of the ships you sail (fight.js)
+  ship_rowboat: { court:'#3f6f5a', kitchen:'#4c8268', out:'#7a5a3a', line:'#f4f0e4', water:'#0f4c6a', deck:'#8a6a44', sky:'#a8d8ec', accent:'#ffc23a' },
+  ship_sloop:   { court:'#2f5f7f', kitchen:'#3a7296', out:'#6b4a2a', line:'#f4f0e4', water:'#0e4a6e', deck:'#7a5432', sky:'#b4dcef', accent:'#5fd0ff' },
+  ship_brig:    { court:'#5a2f2f', kitchen:'#6e3a38', out:'#3a2a20', line:'#f2e6d0', water:'#103e5a', deck:'#4a3220', sky:'#d8b890', accent:'#ec3b4f' },
+  ship_galleon: { court:'#34386a', kitchen:'#424880', out:'#5a3a20', line:'#f4ecd4', water:'#0c3a58', deck:'#6b4520', sky:'#f0c890', accent:'#ffcf6a' },
   locker: { court:'#14406a', kitchen:'#1c5284', out:'#0c2a44', line:'#dff6ff', water:'#06223a', deck:'#0c2a44', sky:'#0a3050', accent:'#5fd0ff' }
 };
 const SPECIES = {
@@ -112,7 +117,7 @@ function resolveCrews(homeId, awayId, isl){
 // ---------------- progression and save
 const SKEY = 'pickle-pirates-save';
 const LIFE_KEYS = ['games', 'wins', 'rallies', 'longest', 'won', 'winners', 'aces', 'errors', 'kitchen', 'booty', 'bestRun'];
-const defSave = () => ({ xp:0, stars:{}, plays:0, v:1, record:{}, seenHow:false, life:{} });   // record: { tier: { w, l } } from finished singles games
+const defSave = () => ({ xp:0, stars:{}, plays:0, v:1, record:{}, seenHow:false, life:{}, fleet:{ ship:0, fights:0, wins:0 } });   // record: { tier: { w, l } } from finished singles games
 function normSave(s){
   const o = { ...defSave(), ...s };
   o.xp = Math.max(0, Number(o.xp)||0);
@@ -121,6 +126,7 @@ function normSave(s){
   o.record = {};
   for (const t of ['deckhand', 'bosun', 'captain']) { const r = s && s.record && s.record[t]; o.record[t] = { w:Math.max(0, Number(r && r.w)||0), l:Math.max(0, Number(r && r.l)||0) }; }
   o.seenHow = !!(s && s.seenHow);
+  o.fleet = { ship:Math.min(3, Math.max(0, Number(s && s.fleet && s.fleet.ship) | 0)), fights:Math.max(0, Number(s && s.fleet && s.fleet.fights) || 0), wins:Math.max(0, Number(s && s.fleet && s.fleet.wins) || 0) };   // Fight mode: the ship you sail
   o.life = {}; for (const k of LIFE_KEYS) o.life[k] = Math.max(0, Number(s && s.life && s.life[k]) || 0);   // lifetime stats (your crew's side)
   return o;
 }
@@ -128,7 +134,7 @@ let save = normSave({});
 try { const s = JSON.parse(localStorage.getItem(SKEY) || 'null'); if (s && typeof s.xp === 'number') save = normSave(s); } catch(e) {}
 let muted = false;
 try { muted = localStorage.getItem('pickle-mute') === '1'; } catch(e) {}
-const GAME_VERSION = 'v1.0.0';
+const GAME_VERSION = 'v1.1.0';
 // save codes: "PKP1." + base64url(JSON)
 function exportSave(){ const j = JSON.stringify({ ...save, updatedAt:Date.now() }); return 'PKP1.' + btoa(unescape(encodeURIComponent(j))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function importSave(code){

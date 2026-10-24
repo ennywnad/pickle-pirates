@@ -16,6 +16,7 @@ function renderHub(){
       <p class="rec" id="hubRec">${recordLine()}</p>
       <div class="btns row"><button class="btn ghost" id="btnPlay" type="button">Play</button></div>
     </div>
+    ${fightCardHtml()}
     <button class="chal prac" type="button" id="btnPractice">
       <span class="num">P</span>
       <span class="cinfo"><span class="arena">PRACTICE · BALL CANNON</span><span class="ct">Practice</span><span class="co">The cannon feeds serves, drives, drops, dinks and lobs. Hit them back over the net and keep the rally going.</span></span>
@@ -78,6 +79,7 @@ function renderHub(){
   $('btnGame').onclick = () => openGameSetup();
   $('btnLog').onclick = () => openLog('hub');
   $('btnVoyage').onclick = () => save.seenHow ? openVoyage() : openHow('voyage');
+  $('btnFight').onclick = () => openFight();
 }
 // ---------------- Voyage: the dock card, the map of the seven legs, starting a leg
 const starRow = (s, cls = '') => `<span class="starrow ${cls}">${s.map(b => `<i class="${b ? 'on' : ''}">★</i>`).join('')}</span>`;
@@ -118,14 +120,41 @@ function openVoyage(){
   $('voyBack').onclick = $('voyBackTop').onclick = () => { renderHub(); show('hub'); };
   show('voyage');
 }
+// ---------------- Fight mode: the dock card, the fleet sheet, starting a boarding duel
+function fightCardHtml(){
+  const F = nextFight(), mine = SHIPS[fleetShip()];
+  return `<button class="chal fightcard" type="button" id="btnFight"><span class="num">${svg('hz_cannon')}</span><span class="cinfo"><span class="arena">FIGHT · WIN THEIR SHIP · YOU SAIL A ${mine.name.toUpperCase()}</span><span class="ct">Fight</span>
+    <span class="co">${F.defend ? `You hold the whole fleet. Defend your galleon against ${crewById(F.crew).name}.` : `Board ${F.prize.title}, held by the ${crewById(F.crew).name}. Sink her in a boarding duel and she's yours.`}</span></span><span class="lock" style="color:var(--hazard)">${fleetShip() + 1} of ${SHIPS.length}</span></button>`;
+}
+function openFight(){
+  const mine = fleetShip(), F = nextFight(), c = crewById(F.crew);
+  const ships = SHIPS.map((S, i) => `<div class="hzrow small${i > mine ? ' locked' : ''}"><span class="ic">${svg(i <= mine ? 'anchor' : 'lock')}</span><div><b>${S.name}${i === mine ? ' · yours' : i < mine ? ' · sailed' : ''}</b><p>${S.deck}. Hull ${S.hull}.${S.crew ? ` Held by the ${crewById(S.crew).name} (${TIER_NAMES[S.tier]}).` : ''}</p></div></div>`).join('');
+  $('fightWrap').innerHTML = `
+    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Fight</h2><span class="slots">BOARDING DUELS · YOU SAIL A ${SHIPS[mine].name.toUpperCase()}</span></div><button class="btn small ghost" id="fightBackTop" type="button">Dock</button></div>
+    <div class="card feat">
+      <div class="feathead"><p class="eyebrow">${F.defend ? 'DEFEND YOUR GALLEON' : `THE PRIZE · ${F.prize.name.toUpperCase()} · HULL ${F.prize.hull}`} · ${TIER_NAMES[F.tier].toUpperCase()}</p><h2 class="ct">${F.defend ? 'They\'re coming for her' : `Board ${F.prize.title}`}</h2>
+        <p class="gfxnote">vs the ${c.name}, on your own deck (${SHIPS[mine].deck.toLowerCase()}, hull ${SHIPS[mine].hull}).</p></div>
+      <ul class="stars"><li class="on"><i>⚓</i>Singles, every rally scores, the usual rules (kitchen, two bounces, faults).</li><li class="on"><i>⚓</i>Every rally you win fires a broadside into their hull. A rally of ${FIGHT_DOUBLE}+ shots, an ace or a smash winner fires a double.</li><li class="on"><i>⚓</i>Sink their ship before they sink yours${F.defend ? '' : ', and she\'s yours: your next fight is on her deck, with her bigger hull'}.</li></ul>
+      <div class="btns row"><button class="btn" id="fightGo" type="button">${F.defend ? 'Defend her' : 'Board her!'}</button></div>
+    </div>
+    <div class="card how"><h3 class="h">Your fleet</h3><div class="hzgrid">${ships}</div><p class="gfxnote">Fights won: ${save.fleet.wins} of ${save.fleet.fights}.</p></div>
+    <div class="btns"><button class="btn ghost" id="fightBack" type="button">Back to the dock</button></div>`;
+  $('fightGo').onclick = () => startFight();
+  $('fightBack').onclick = $('fightBackTop').onclick = () => { renderHub(); show('hub'); };
+  show('fight');
+}
+function startFight(){
+  const F = nextFight();
+  startGame(fightOver(F), { fight:F, crews:{ home:'pickle', away:F.crew } });
+}
 function startVoyage(i){
   const L = voyLeg(i); if (!L || !voyOpen(i)) return;
   practiceIsland = L.island; try { localStorage.setItem('pickle-practice-island', L.island); } catch(e) {}
   startGame(voyOver(L), { voyage:i });
 }
 function show(which){
-  for (const id of ['hub','pause','ctrls','prac','gameset','results','howto','isle','logbook','voyage']) $(id).hidden = id !== which;
-  app.classList.toggle('menu', which === 'hub' || which === 'voyage' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive) || ((which === 'howto' || which === 'logbook') && howFrom !== 'pause'));
+  for (const id of ['hub','pause','ctrls','prac','gameset','results','howto','isle','logbook','voyage','fight']) $(id).hidden = id !== which;
+  app.classList.toggle('menu', which === 'hub' || which === 'voyage' || which === 'fight' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive) || ((which === 'howto' || which === 'logbook') && howFrom !== 'pause'));
   if (typeof setPadFocus === 'function') setPadFocus(null);
   musicSheet(which);
   if (which) $(which).scrollTop = 0;
@@ -282,6 +311,8 @@ function openHow(from){
       <p>Win a rally of 6 shots or more and your crew gets a <b>booty</b> crate (one at a time): press Booty ${touch ? '' : K('E', 'B')} to use it. Neither hazards nor booty ever change the rules. The <b>Logbook</b> on the dock explains every hazard and power-up.</p>
       <h3 class="h">The Voyage</h3>
       <p>The career: one match on each of the seven islands, ending with the Davy's Locker Cup. Each match has three stars: win it, meet the island's objective (shown before the match and on the scoreboard), and win by ${VOYAGE_MARGIN} or more. Winning opens the next island, and stars unlock more power-ups.</p>
+      <h3 class="h">Fight</h3>
+      <p>Boarding duels for the other crew's ship. You start in a rowboat. Every rally you win fires a broadside into their hull; the first ship to sink loses. Sink theirs and she's yours: a sloop, then a brigantine, then a galleon, each with a bigger hull, and your next fight is on her deck.</p>
       <h3 class="h">The crew levels</h3>
       <p><b>Deckhand</b> is slow and pops up dinks. <b>Bosun</b> comes to the net and punishes high balls. <b>Captain</b> reads everything early. Practice with the ball cannon any time from the dock.</p>
     </div>
@@ -347,22 +378,23 @@ function startGame(over = lastOver, opts = lastOpts, again = false){
 // ---------------- the island card: where you are, who you're playing, and what the island's hazard does
 function hazRow(kind, sea, small){ const h = hazInfo(kind, sea); return `<div class="hzrow${small ? ' small' : ''}"><span class="ic">${svg(h.icon)}</span><div><b>${h.name}</b><p>${small ? h.tip + '.' : h.desc}</p></div></div>`; }
 function showIsle(){
-  const I = G.island, n = ISLANDS.indexOf(I) + 1, vs = G.view === 'side', two = humansAll().length > 1, H = G.haz;
+  const I = G.island, n = ISLANDS.indexOf(I) + 1, where = G.fight ? `FIGHT · ${I.court.toUpperCase()}` : `ISLAND ${n} OF ${ISLANDS.length} · ${I.court.toUpperCase()}`, vs = G.view === 'side', two = humansAll().length > 1, H = G.haz;
   const C = G.crew, sw = c => `<i style="background:${c.shirt};box-shadow:inset 0 -4px 0 ${c.trim}"></i>`;
   const crewLine = vs ? `P1 (${C.home.name}) vs P2 (${C.away.name})${G.match.doubles ? ' · each with a CPU partner' : ''}` : `${two ? 'P1 + P2' : 'You'}, the ${C.home.name}, vs ${/^(The|Rival|Dill|Davy)\b/.test(C.away.name) ? '' : 'the '}${C.away.name} · ${tierOf(awayLead()).name} level`;
-  const haz = !H ? `<p class="gfxnote">Island hazard off for this game.</p>`
+  const haz = G.fight ? `<div class="hzrow"><span class="ic">${svg('hz_cannon')}</span><div><b>Boarding duel</b><p>Every rally you win fires a broadside into their hull; a rally of ${FIGHT_DOUBLE}+ shots, an ace or a smash winner fires a double. Your hull: ${G.fight.max.home}. Theirs: ${G.fight.max.away}. The first ship to sink loses${G.fight.defend ? '' : `, and if it's theirs, ${G.fight.prize.title} is yours`}.</p></div></div>`
+    : !H ? `<p class="gfxnote">Island hazard off for this game.</p>`
     : H.sea ? `<p class="gfxnote">The Locker changes hazard every three rallies, cycling through the seabed versions of all six:</p><div class="hzgrid">${HAZ_ROTATION.map(k => hazRow(k, true, true)).join('')}</div>`
     : hazRow(H.kind, false);
   $('isleCard').innerHTML = `
-    <div><p class="eyebrow">ISLAND ${n} OF ${ISLANDS.length} · ${I.court.toUpperCase()} · ${G.match.doubles ? 'DOUBLES' : 'SINGLES'} TO ${G.match.to}</p><h2>${I.name}</h2></div>
+    <div><p class="eyebrow">${where} · ${G.match.doubles ? 'DOUBLES' : 'SINGLES'}${G.fight ? '' : ` TO ${G.match.to}`}</p><h2>${I.name}</h2></div>
     <div class="vs">${sw(C.home)}${sw(C.away)}<span>${crewLine}</span></div>
     ${G.voyage ? `<h3 class="h">${G.voyage.cup ? 'The Davy\'s Locker Cup' : `Voyage · island ${G.voyage.leg + 1} of ${VOYAGE.length}`}</h3><ul class="stars">${[STAR_NAMES[0], G.voyage.obj.text + '. ' + G.voyage.obj.tip, STAR_NAMES[2]].map((t, k) => `<li class="${voyStars(G.voyage.island)[k] ? 'on' : ''}"><i>★</i>${t}</li>`).join('')}</ul>` : ''}
-    <h3 class="h">The hazard</h3>${haz}
+    <h3 class="h">${G.fight ? 'The fight' : 'The hazard'}</h3>${haz}
     ${G.booty ? `<div class="hzrow small"><span class="ic">${svg('bt_treasure')}</span><div><b>Booty is on</b><p>Win a rally of ${BOOTY_RALLY}+ shots for a power-up crate, then press Booty (${bootyKey('home')}) to use it.${G.voyage ? ` In this match: ${G.voyage.pool.map(k => BOOTY[k].name).join(', ')}.` : ''}</p></div></div>` : ''}
-    <div class="btns"><button class="btn" id="isleGo" type="button">Set sail</button><button class="btn ghost" id="isleBack" type="button">${G.voyage ? 'Back to the Voyage map' : 'Back to the dock'}</button></div>
+    <div class="btns"><button class="btn" id="isleGo" type="button">Set sail</button><button class="btn ghost" id="isleBack" type="button">${G.voyage ? 'Back to the Voyage map' : G.fight ? 'Back to your fleet' : 'Back to the dock'}</button></div>
     <p class="hint">${matchMedia('(pointer: coarse)').matches ? '' : 'Enter or A to start · Esc or B to go back'}</p>`;
   $('isleGo').onclick = setSail;
-  $('isleBack').onclick = () => { const voy = !!G.voyage; paused = false; startAttract(); if (voy) openVoyage(); else { renderHub(); show('hub'); } };
+  $('isleBack').onclick = () => { const voy = !!G.voyage, fight = !!G.fight; paused = false; startAttract(); if (voy) openVoyage(); else if (fight) openFight(); else { renderHub(); show('hub'); } };
   paused = true; show('isle');
 }
 function setSail(){
@@ -380,21 +412,22 @@ function showResults(){
   const rec = save.record[tier] || (save.record[tier] = { w:0, l:0 }), firstWin = counts && won && rec.w === 0;
   if (counts) { if (won) rec.w++; else rec.l++; persist(); }
   if (!vs && hum.some(s => s.team === 'home')) addLife(won);   // lifetime stats for your crew
-  const R = G.voyage ? voyFinish() : null;
+  const R = G.voyage ? voyFinish() : null, FR = G.fight ? fightFinish() : null;
   const next = counts && !R ? AI_ORDER[AI_ORDER.indexOf(tier) + 1] : null;
   const winnerP = vs ? hum.find(s => s.team === S.winner) : null;
-  const title = vs ? `P${winnerP ? winnerP.pad + 1 : 1} wins!` : R && R.cup ? 'The Cup is yours!' : won ? 'Victory!' : 'Sunk!';
+  const title = vs ? `P${winnerP ? winnerP.pad + 1 : 1} wins!` : R && R.cup ? 'The Cup is yours!' : FR && FR.took ? 'She\'s yours!' : won ? 'Victory!' : 'Sunk!';
   const sub = vs ? 'P1 VS P2' : `VS ${tierOf(awayLead()).name.toUpperCase()}${hum.length > 1 ? ' · P1 + P2' : ''}`;
   $('resCard').innerHTML = `
-    <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · ${S.doubles ? 'DOUBLES' : 'SINGLES'} TO ${S.to} · ${sub}</p><h2>${title}</h2></div>
+    <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · ${G.fight ? 'BOARDING DUEL' : `${S.doubles ? 'DOUBLES' : 'SINGLES'} TO ${S.to}`} · ${sub}</p><h2>${title}</h2></div>
     <div class="final"><div><div class="n">${S.pts.home}</div><div class="who">${teamAbbr('home')}</div></div><div class="dash">–</div><div><div class="n">${S.pts.away}</div><div class="who">${teamAbbr('away')}</div></div></div>
     <dl class="xprows"><div><dt>Rallies</dt><dd>${S.rallies}</dd></div><div><dt>Side outs</dt><dd>${S.sideOuts}</dd></div><div><dt>Longest rally</dt><dd>${st.longest} shots</dd></div></dl>
     ${statsTableHtml()}
-    ${R ? voyResultHtml(R) : ''}
+    ${R ? voyResultHtml(R) : ''}${FR ? fightResultHtml(FR) : ''}
     ${counts ? `<p class="rec">${firstWin ? `<b class="new">First win over the ${TIER_NAMES[tier]}!</b> ` : ''}Your record vs the ${TIER_NAMES[tier]}: ${rec.w}–${rec.l}</p>` : ''}
-    <div class="btns">${R ? (R.next !== null ? `<button class="btn" id="resNext" type="button">Sail to ${voyLegName(R.next)}</button><button class="btn ghost" id="resAgain" type="button">Play it again</button>` : `<button class="btn" id="resAgain" type="button">${won ? 'Play it again' : 'Try again'}</button>`) + `<button class="btn ghost" id="resMap" type="button">Voyage map</button>`
+    <div class="btns">${FR ? `<button class="btn" id="resAgain" type="button">${FR.won ? (FR.fleet ? 'Fight again' : 'Board the next ship') : 'Try again'}</button><button class="btn ghost" id="resFleet" type="button">Your fleet</button>` : R ? (R.next !== null ? `<button class="btn" id="resNext" type="button">Sail to ${voyLegName(R.next)}</button><button class="btn ghost" id="resAgain" type="button">Play it again</button>` : `<button class="btn" id="resAgain" type="button">${won ? 'Play it again' : 'Try again'}</button>`) + `<button class="btn ghost" id="resMap" type="button">Voyage map</button>`
       : won && next ? `<button class="btn" id="resNext" type="button">Try the ${TIER_NAMES[next]}</button><button class="btn ghost" id="resAgain" type="button">Rematch</button>` : `<button class="btn" id="resAgain" type="button">Rematch</button>`}<button class="btn ghost" id="resHub" type="button">Back to the dock</button></div>`;
-  $('resAgain').onclick = () => startGame(lastOver, lastOpts, true);
+  $('resAgain').onclick = FR ? () => startFight() : () => startGame(lastOver, lastOpts, true);
+  if ($('resFleet')) $('resFleet').onclick = () => { startAttract(); openFight(); };
   if ($('resNext')) $('resNext').onclick = R ? () => startVoyage(R.next) : () => { gameCfg.tier = next; saveGameCfg(); startGame(lastOver, lastOpts, true); };
   if ($('resMap')) $('resMap').onclick = () => { startAttract(); openVoyage(); };
   $('resHub').onclick = () => { renderHub(); show('hub'); startAttract(); };
@@ -425,6 +458,11 @@ function addLife(won){
   L.games++; if (won) L.wins++; L.rallies += G.match.rallies; L.longest = Math.max(L.longest, G.stats.longest);
   for (const k of ['won', 'winners', 'aces', 'errors', 'kitchen', 'booty']) L[k] += h[k];
   L.bestRun = Math.max(L.bestRun, h.bestRun); persist();
+}
+function fightResultHtml(FR){
+  const F = G.fight;
+  return `<div class="voyres"><p class="rec">${FR.took ? `<b class="new">${F.prize.title.replace(/^the /, 'The ')} is yours!</b> Your next fight is on her deck, with a hull of ${FR.ship.hull}.` : FR.won ? '<b class="new">Your galleon holds!</b>' : `${F.prize.title.replace(/^the /, 'The ')} got away. Your hull took ${F.shots.away} hits.`}</p>
+    <p class="rec">Broadsides landed: ${F.shots.home} · taken: ${F.shots.away} · fights won ${save.fleet.wins} of ${save.fleet.fights}</p></div>`;
 }
 const voyLegName = i => { const L = VOYAGE[i]; return L.cup ? 'the Cup' : ISLANDS.find(x => x.id === L.island).name; };
 // the stars from this match, what's new, and any power-ups the new stars unlocked

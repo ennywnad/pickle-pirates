@@ -317,6 +317,9 @@ function updateHud(){
   // the instant replay tag
   { const R = G && G.replay, el = $('rtag'); if (el.hidden !== !R) el.hidden = !R; if (R) { setT('rtagSub', `${R.title} · ${R.sub}`); setT('rtagHint', matchMedia('(pointer: coarse)').matches ? 'Tap to skip' : 'Press any shot button to skip'); } }
   if (!G || G.attract) return;
+  // Fight mode: each ship's hull
+  { const F = G.fight; for (const [tm, id] of [['home', 'hHull'], ['away', 'aHull']]) { const el = $(id); if (el.hidden !== !F) el.hidden = !F;
+      if (F) setH(id, `<b>HULL</b>${Array.from({ length:F.max[tm] }, (_, i) => `<i class="${i < F.hull[tm] ? 'on' : ''}${F.lastHit && F.lastHit.team === tm && G.time - F.lastHit.t < 0.6 && i >= F.hull[tm] && i < F.hull[tm] + F.lastHit.dmg ? ' hit' : ''}"></i>`).join('')}`); } }
   // booty held by each crew, and the touch button for P1's crew
   { const Y = G.booty, hb = Y && Y.held.home, ab = Y && Y.held.away, me = humanPl(), mine = Y && me && Y.held[me.team];
     const chip = k => k ? svg('bt_' + k) + `<span>${BOOTY_SHORT[k].toUpperCase()}</span>` : '';
@@ -328,13 +331,13 @@ function updateHud(){
   const S = G.match, gp = gamePoint(S), srv = serverPl(), two = humansAll().length > 1, vs = G.view === 'side';
   setT('clk', scoreCall(S));
   const who = vs ? 'P1 VS P2' : tierOf(awayLead()).name.toUpperCase();
-  setT('arenaShort', `TO ${S.to}${S.scoring === 'rally' ? ' · RALLY' : ''}${S.doubles ? ' · DOUBLES' : ''} · ${who}`);
+  setT('arenaShort', `${G.fight ? 'BOARDING DUEL' : `TO ${S.to}`}${S.scoring === 'rally' && !G.fight ? ' · RALLY' : ''}${S.doubles ? ' · DOUBLES' : ''} · ${who}`);
   const mark = S.doubles && S.scoring === 'sideout' ? `● SERVING · ${S.serverNum}` : '● SERVING';
   setT('hSub', S.server === 'home' ? mark : teamName('home').toUpperCase());
   setT('aSub', S.server === 'away' ? mark : teamName('away').toUpperCase());
   const yours = G.state === 'serve' && srv && srv.human;
   const whose = !yours ? '' : two ? `P${srv.pad + 1} to serve` : 'Your serve';
-  setT('objText', yours ? `${whose} · press Drive, Soft or Lob` : gp ? `Game point · ${teamName(gp)}` : G.voyage && Math.floor(G.time/7) % 2 === 0 ? `★ ${G.voyage.obj.text} · ${voyProgressText()}` : G.haz ? `${G.island.name} · ${HAZ_NAME[G.haz.kind]}: ${HAZ_TIP[G.haz.kind].toLowerCase()}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
+  setT('objText', yours ? `${whose} · press Drive, Soft or Lob` : G.fight ? `Boarding duel · ${G.fight.defend ? 'defend your galleon' : `sink ${G.fight.prize.title} to take her`}` : gp ? `Game point · ${teamName(gp)}` : G.voyage && Math.floor(G.time/7) % 2 === 0 ? `★ ${G.voyage.obj.text} · ${voyProgressText()}` : G.haz ? `${G.island.name} · ${HAZ_NAME[G.haz.kind]}: ${HAZ_TIP[G.haz.kind].toLowerCase()}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
   const srvName = srv ? (srv.human ? (two ? `P${srv.pad + 1}` : 'you') : `${teamAbbr(srv.team)}${S.doubles ? ' ' + (srv.slot + 1) : ''}`) : '';
   setT('objProg', G.state === 'play' ? `Rally ${G.rally}` : `Server ${srvName} · ${serverCourt(S)} court`);
 }

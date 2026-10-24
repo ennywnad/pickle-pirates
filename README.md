@@ -6,7 +6,7 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–11 of 12 are done: v1.0 is live, from the dock to the Davy's Locker Cup. Fight mode (milestone 12) is still to be designed. What changed in each version is in the [changelog](CHANGELOG.md).
+All 12 milestones are done: v1.0 took the game from the dock to the Davy's Locker Cup, and v1.1 added Fight mode. What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.

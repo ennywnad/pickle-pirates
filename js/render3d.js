@@ -835,6 +835,47 @@ async function init(){
       fish.forEach((f, i) => { const a = t*(0.15 + (i % 3)*0.05) + i*0.7, r = 26 + i*3; f.position.set(Math.cos(a)*r, 6 + (i % 4)*3 + Math.sin(t + i)*0.6, Math.sin(a)*r*0.7 - 10); f.rotation.y = -a; });
       bubbles.forEach(q => { const y = ((t*q.s + q.o) % 30) - 1; q.b.position.set(q.x + Math.sin(t*2 + q.o)*0.4, y, q.z); }); };
   }
+  // Fight mode: the deck of the ship you sail. The court is lashed onto it; the hull runs along both sides, masts and
+  // sails stand beyond the far baseline (never in front of the camera), and the rival ship lies alongside to starboard.
+  function shipSet(id, o){
+    const g = new THREE.Group(); sets['ship_' + id] = g;
+    const wood = o.hullCol, sail = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(o.sail), side:THREE.DoubleSide });
+    for (const sx of [-1, 1]) {
+      const side = hull(DECK_L + 10, o.low ? 3 : 6, 1.4, wood); side.rotation.y = Math.PI/2; side.position.set(sx*(DECK_W/2 + 1.6), o.low ? -3.2 : -5.5, 0); g.add(side);
+      for (let i = 0; i < o.cannons/2; i++) { const c = new THREE.Group(), z = -DECK_L/2 + 6 + i*(DECK_L - 12)/Math.max(1, o.cannons/2 - 1);
+        const barrel = mk(new THREE.CylinderGeometry(0.35, 0.5, 2.6, 12), celMat('#2a2a30'), 1.1); barrel.rotation.z = sx*Math.PI/2; barrel.position.set(sx*0.6, 1.1, 0); c.add(barrel);
+        const car = mk(new THREE.BoxGeometry(1.6, 0.7, 1.2), celMat('#6b4520'), 1.06); car.position.y = 0.45; c.add(car);
+        c.position.set(sx*(DECK_W/2 - 1.6), 0, o.cannons === 2 ? -6 + i*12 : z); g.add(c); }
+      if (o.oars) for (let i = 0; i < 3; i++) { const oar = mk(new THREE.CylinderGeometry(0.15, 0.15, 9, 6), celMat('#a07848'), 1.1); oar.rotation.z = sx*1.2; oar.position.set(sx*(DECK_W/2 + 4), 0.2, -8 + i*8); g.add(oar);
+        const blade = mk(new THREE.BoxGeometry(0.2, 2.2, 0.9), celMat('#a07848'), 1.08); blade.position.set(sx*(DECK_W/2 + 7.5), -1.4, -8 + i*8); g.add(blade); }
+    }
+    const spots = [[0, -DECK_L/2 - 4, 30], [-7, -DECK_L/2 - 2, 24], [7, -DECK_L/2 - 2, 24]].slice(0, o.masts);
+    if (o.masts === 2) { spots[0][0] = -6; spots[1] = [6, -DECK_L/2 - 3, 26]; }
+    for (const [x, z, h] of spots) { const m = mast(h, true, sail); m.position.set(x, 0, z); g.add(m); }
+    // the flag: your crew's colors (painted when the match starts)
+    const flagC = document.createElement('canvas'); flagC.width = 96; flagC.height = 64;
+    const flagTex = canvasTex(flagC), flag = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 3, 8, 2), new THREE.MeshBasicNodeMaterial({ map:flagTex, side:THREE.DoubleSide }));
+    const top = o.masts ? 31 : 9, fx = o.masts === 2 ? -6 : 0; flag.position.set(fx + 2.3, top, -DECK_L/2 - (o.masts ? 4 : 0) + (o.masts ? 0 : -2)); g.add(flag);
+    if (!o.masts) { const pole = mk(new THREE.CylinderGeometry(0.15, 0.15, 10, 6), celMat('#4a3420'), 1.1); pole.position.set(0, 4.5, -DECK_L/2 - 2); g.add(pole); }
+    g.userData.paintFlag = (shirt, trim) => { const c = flagC.getContext('2d'); c.fillStyle = shirt; c.fillRect(0, 0, 96, 64); c.fillStyle = trim; c.fillRect(0, 26, 96, 12);
+      c.fillStyle = '#f3ead2'; c.beginPath(); c.arc(30, 32, 11, 0, 7); c.fill(); c.fillStyle = shirt; c.beginPath(); c.arc(26, 30, 2.6, 0, 7); c.arc(34, 30, 2.6, 0, 7); c.fill(); flagTex.needsUpdate = true; };
+    // the rival ship alongside, to starboard: a dark hull and two masts, with a gun port flash when a broadside fires
+    const rival = new THREE.Group(); const rh = hull(DECK_L + 20, 7, 12, '#3a2618'); rh.rotation.y = -Math.PI/2; rh.position.y = -4; rival.add(rh);
+    for (const [z, h] of [[-12, 26], [10, 22]]) { const m = mast(h, true, new THREE.MeshBasicNodeMaterial({ color:new THREE.Color('#d8ccb0'), side:THREE.DoubleSide })); m.position.set(0, 2, z); m.rotation.y = Math.PI/2; rival.add(m); }
+    const flash = new THREE.Mesh(new THREE.SphereGeometry(1.6, 10, 8), glow(2.8, 1.6, 0.6)); flash.visible = false; flash.position.set(-7, 1, 0); rival.add(flash);
+    rival.position.set(DECK_W/2 + 48, 0, -24); g.add(rival);
+    const puffs = []; for (let i = 0; i < 5; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(1.5, 10, 8), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.2, 1.2, 1.2), transparent:true, opacity:0, depthWrite:false })); g.add(p); puffs.push(p); }
+    setTicks['ship_' + id] = t => {
+      g.rotation.z = Math.sin(t*0.6)*0.006; rival.position.y = Math.sin(t*0.8 + 1)*0.4;   // a gentle swell
+      const H = S.G && S.G.fight && S.G.fight.lastHit, u = H ? S.G.time - H.t : 9;
+      flash.visible = u < 0.15; flash.position.z = H ? (H.team === S.G.near ? 12 : -12) : 0;
+      puffs.forEach((p, i) => { const k = u - i*0.05; p.material.opacity = k > 0 && k < 1.5 ? 0.6*(1 - k/1.5) : 0; p.position.set(DECK_W/2 + 40 - k*4, 2 + k*3 + i*0.6, (H && H.team === S.G.near ? 12 : -12) + (i - 2)*2.5); p.scale.setScalar(1 + k*2); });
+    };
+  }
+  shipSet('rowboat', { hullCol:'#7a5a3a', sail:'#f2e8cc', masts:0, cannons:0, low:true, oars:true });
+  shipSet('sloop',   { hullCol:'#3f5a72', sail:'#f2e8cc', masts:1, cannons:2 });
+  shipSet('brig',    { hullCol:'#2a2226', sail:'#d8d0c0', masts:2, cannons:4 });
+  shipSet('galleon', { hullCol:'#5a3a20', sail:'#f4e4b8', masts:3, cannons:6 });
   for (const g of Object.values(sets)) { g.visible = false; scene.add(g); }
 
   // ------------------------------------------------ post: ink edges, bloom, halftone, vignette
@@ -962,6 +1003,7 @@ async function init(){
     if (G.island.id !== lastTheme) applyTheme(G);
     harbor.visible = G.island.id === 'brine';
     for (const [id, g] of Object.entries(sets)) g.visible = id === G.island.id;
+    if (sets[G.island.id] && sets[G.island.id].userData.paintFlag && G.crew) sets[G.island.id].userData.paintFlag(G.crew.home.shirt, G.crew.home.trim);
     buildFigures(G);
   }
   const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpV = new THREE.Vector3(), tmpS = new THREE.Vector3();

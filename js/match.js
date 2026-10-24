@@ -98,7 +98,7 @@ function vsSeats(c){
 // opts: { format:'singles'|'doubles', seats:[{ team, slot, pad }], crews:{ home, away } } names the human players (by
 // default P1 plays home slot 0) and the crews (by default the Pickle Pirates against the island's own crew).
 function newMatch(islandId, attract, mode, opts = {}){
-  const isl = ISLANDS.find(i => i.id === islandId) || ISLANDS[0];
+  const isl = !attract && opts.fight ? fightIsland(opts.fight) : ISLANDS.find(i => i.id === islandId) || ISLANDS[0];   // a fight is on your ship's deck
   mode = attract ? 'game' : mode || 'practice';
   const cfg = attract ? { ...gameDef(), opp:'cpu' } : mode === 'game' ? { ...gameCfg, opp:'cpu' } : { kitchen:true, twoBounce:true, ...practice };
   G = { island:isl, theme:THEMES[isl.id], attract:!!attract, mode, state:'feed', stT:1.0, time:0,
@@ -126,6 +126,7 @@ function newMatch(islandId, attract, mode, opts = {}){
   newBooty();     // booty crates (booty.js)
   if (mode === 'game') {
     G.match = newScore({ to:cfg.to, scoring:cfg.scoring, doubles, server: Math.random() < 0.5 ? 'home' : 'away' });
+    G.fight = null; if (!attract && opts.fight) newFight(opts.fight);   // a boarding duel (fight.js)
     G.score = G.match.pts;
     G.cannon.y = -40;   // the cannon is stowed for games
     startPoint();

@@ -46,6 +46,7 @@ function endRally(loser, kind, x, y){
 }
 function endPoint(winner, kind){
   const S = G.match, wasServer = S.server, res = awardRally(S, winner);
+  if (G.fight) fightRally(winner, kind, res);   // Fight mode: a broadside, and maybe a sinking (fight.js)
   if (!G.attract) {
     const teams = new Set(humansAll().map(p => p.team)), mine = teams.size === 1 ? { team:[...teams][0] } : null;
     if (!mine || winner === mine.team) { sfx('cheer'); if (res.scored && !res.gameOver) band('won', 0.4); }
@@ -56,7 +57,7 @@ function endPoint(winner, kind){
   }
   G.state = 'dead'; G.stT = 1.7; G.pendingSwitch = res.switchEnds;
   if (!res.gameOver && S.rallies % 4 === 0) G.swab = { t:0, y:rand(5, CL - 5), dir:Math.random() < 0.5 ? 1 : -1 };   // the deck swabber mops a stripe
-  if (res.gameOver) { G.state = 'over'; G.stT = 2.2; announce('Game!', `${teamName(winner)} win ${S.pts[winner]}–${S.pts[other(winner)]}`, 2200); return; }
+  if (res.gameOver) { G.state = 'over'; G.stT = 2.2; if (G.fight) announce('Sunk!', `${teamName(other(winner))}' ship goes down`, 2200); else announce('Game!', `${teamName(winner)} win ${S.pts[winner]}–${S.pts[other(winner)]}`, 2200); return; }
   if (res.sideOut) announce('Side out', `${teamName(S.server)} to serve`, 1200);
   else if (res.secondServer) announce('Second server', `${scoreCall(S)}`, 1100);
   else if (res.scored) { const gp = gamePoint(S); if (gp) announce('Game point', `${teamName(gp)} · ${scoreCall(S)}`, 1400); }

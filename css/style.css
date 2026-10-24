@@ -394,3 +394,13 @@ body:not(.rm) .rtag b{animation:rblink 1s steps(2) infinite}
 .confetti i{position:absolute;top:-20px;width:9px;height:14px;border-radius:2px;opacity:.95;animation:confall linear infinite}
 @keyframes confall{0%{transform:translateY(-20px) rotate(0)}100%{transform:translateY(110vh) rotate(720deg)}}
 body.rm .confetti{display:none}
+/* Fight mode: hull pips on the scoreboard */
+.hullbar{display:inline-flex;align-items:center;gap:2px;margin-top:3px}
+.hullbar b{font:400 9px/1 var(--block);letter-spacing:.06em;color:var(--muted);margin-right:3px}
+.hullbar i{width:7px;height:10px;border-radius:2px;background:var(--line);border:1px solid var(--line-hi)}
+.hullbar i.on{background:#b8834a;border-color:#e0b070}
+.hullbar i.hit{background:var(--blood);border-color:var(--blood)}
+@media (max-width:480px){.hullbar b{display:none}.hullbar i{width:5px;height:8px}}
+.chal.fightcard{border-color:var(--blood)}
+.chal.fightcard .num{color:var(--blood);border-color:var(--blood)}
+.chal.fightcard .num svg{width:24px;height:24px}
