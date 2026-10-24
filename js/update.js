@@ -19,11 +19,14 @@ function update(dt){
     const pl = G.players[p];
     if (pl.swing > 0) pl.swing = Math.max(0, pl.swing - dt);
     if (setting || (serving && G.match && (pl.team === G.match.server || !pl.human))) { pl.vx *= 0.8; pl.vy *= 0.8; continue; }   // a CPU receiver waits in place too
-    if (pl.human) { humanMove(pl, dt); if (pl.queue) { const a = readAim(0); if (a[0] || a[1]) pl.queue.aim = a; } }
+    if (pl.human) { humanMove(pl, dt); if (pl.queue) { const a = readAim(pl.pad); if (a[0] || a[1]) pl.queue.aim = a; } }
     else aiPlayer(pl, dt);
     shotTick(pl, dt);
   }
-  { const h = humanPl(); G.aimPreview = h ? aimPreview(h) : null; G.kitchenWarn = h ? kitchenWarn(h) : false; }
+  refreshTaker(dt);
+  // reading aids for each human: the aim reticle and the kitchen warning
+  G.aids = humansAll().map(h => ({ pl:h, aim:aimPreview(h), warn:kitchenWarn(h) }));
+  G.aimPreview = G.aids[0] ? G.aids[0].aim : null; G.kitchenWarn = G.aids[0] ? G.aids[0].warn : false;
   kitchenWatch(dt);
 
   // ball

@@ -4,10 +4,9 @@ function renderOverlay3D(R3){
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cw,ch);
   if (!G) return;
   for (const p of G.pops) { const [px, py, ok] = R3.project(p.x, p.y, p.lift ? p.lift + 2.5 : 5); if (ok) drawPop(p, px, py); }
-  { const h = humanPl(); if (h && h.queue) { const [px, py, ok] = R3.project(h.x, h.y, 6.4); if (ok) drawQueue(h, px, py); } }
-  // off-screen arrow for the human player
-  const pl = humanPl();
-  if (pl) {
+  for (const h of humansAll()) { const [px, py, ok] = R3.project(h.x, h.y, 6.4); if (ok) { if (h.queue) drawQueue(h, px, py); else drawTag(h, px, py); } }
+  // off-screen arrow for each human player
+  for (const pl of humansAll()) {
     const [px, py] = R3.project(pl.x, pl.y, 0);
     if (py < 8 || py > ch - 8 || px < 4 || px > cw - 4) { const ex = clamp(px, 16, cw - 16), ey = clamp(py, 16, ch - 16), a = Math.atan2(py - ey, px - ex); ctx.save(); ctx.translate(ex, ey); ctx.rotate(a); ctx.fillStyle = '#ffc23a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(-7, -9); ctx.lineTo(-7, 9); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore(); }
   }

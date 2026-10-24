@@ -334,15 +334,21 @@ async function init(){
   const reachCol = uniform(new THREE.Vector3(1, 1, 1)), reachA = uniform(0.3);
   const reachMat = new THREE.MeshBasicNodeMaterial({ transparent:true, depthWrite:false }); reachMat.colorNode = reachCol; reachMat.opacityNode = reachA;
   const reachRing = new THREE.Mesh(new THREE.RingGeometry(0.95, 1, 48).rotateX(-Math.PI/2), reachMat); reachRing.renderOrder = 2; dyn.add(reachRing);
+  // P2's ring (two-player games) in P2's color
+  const reachCol2 = uniform(new THREE.Vector3(0.4, 1.6, 2.4)), reachA2 = uniform(0.3);
+  const reachMat2 = new THREE.MeshBasicNodeMaterial({ transparent:true, depthWrite:false }); reachMat2.colorNode = reachCol2; reachMat2.opacityNode = reachA2;
+  const reachRing2 = new THREE.Mesh(reachRing.geometry, reachMat2); reachRing2.renderOrder = 2; dyn.add(reachRing2);
   const retMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(0.5, 1.9, 2.6), transparent:true, opacity:0.9, depthWrite:false });
   const reticle = new THREE.Group();
   reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.7, 0.85, 32).rotateX(-Math.PI/2), retMat));
   for (const a of [0, Math.PI/2, Math.PI, Math.PI*1.5]) { const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.12).rotateX(-Math.PI/2), retMat); bar.position.set(Math.cos(a)*1.25, 0, Math.sin(a)*1.25); bar.rotation.y = -a; reticle.add(bar); }
   reticle.renderOrder = 2; dyn.add(reticle);
+  const reticle2 = reticle.clone(); dyn.add(reticle2);
   // kitchen warning: a red wash over your kitchen when a volley from there would fault
   const kwU = uniform(0);
   const kwMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.4, 0.35, 0.2), transparent:true, depthWrite:false }); kwMat.opacityNode = kwU;
   const kitchenWarn = new THREE.Mesh(new THREE.PlaneGeometry(CW, KD).rotateX(-Math.PI/2), kwMat); kitchenWarn.position.y = 0.04; kitchenWarn.renderOrder = 1; dyn.add(kitchenWarn);
+  const kitchenWarn2 = kitchenWarn.clone(); dyn.add(kitchenWarn2);
   const TRAIL_N = 14;
   const trailMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(BALL_VIS*0.8, 0), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.0, 1.85, 0.6), transparent:true, opacity:0.45, depthWrite:false }), TRAIL_N); trailMesh.frustumCulled = false; trailMesh.count = 0; dyn.add(trailMesh);
   const PART_MAX = 80;
@@ -487,6 +493,13 @@ async function init(){
     if (G.attract) {
       orbitA += dt*0.06; const R = 44;
       tx = 0; ty = 1; tz = 0; px = Math.sin(orbitA)*R; py = 15; pz = Math.cos(orbitA)*R*1.15; cam.fov = 40;
+    } else if (G.view === 'side') {
+      // P1 against P2: a broadcast view from the side of the court, so neither end is favored
+      const portrait = aspect < 1.05, pitch = (portrait ? 58 : 33)*Math.PI/180; cam.fov = portrait ? 52 : 36;
+      const halfL = portrait ? 16 : 29, tanH = Math.tan(cam.fov*Math.PI/360)*aspect;
+      const d = clampN(halfL/tanH/Math.cos(pitch) + 16, 45, 130);
+      tx = 0; ty = 0; tz = clampN((B.z > -1 ? B.y - NETY : 0)*0.15, -4, 4);
+      px = d*Math.cos(pitch); py = d*Math.sin(pitch); pz = tz;
     } else {
       const portrait = aspect < 1.05;
       const pitch = (portrait ? 38 : 25)*Math.PI/180; cam.fov = portrait ? 50 : 36;
@@ -602,15 +615,19 @@ async function init(){
       if (f.claw) f.claw.rotation.y = Math.max(0, Math.sin(t*5 + i*2))*0.5;   // the crab's spare claw snaps
       f.pivot.rotation.x = (pl.swingKind === 'lob' || pl.swingKind === 'drop' || pl.swingKind === 'dink') && s > 0 ? -s*0.9 : pl.swingKind === 'smash' && s > 0 ? 1.4 - s*2.2 : 0;
     });
-    { const h = !G.attract && G.players.find(p => p.human);
-      reachRing.visible = !!h;
-      if (h) { const v = figs[G.players.indexOf(h)].v; W(v.x, v.z, 0.05, reachRing.position); reachRing.scale.setScalar(TUNE.reach);
-        const live = ballFor(h, G.ball) && contactQ(h, G.ball.x, G.ball.y, G.ball.z, G.ball.bounces > 0);
-        if (live) { reachCol.value.set(2.2, 1.5, 0.25); reachA.value = 0.9; } else if (h.queue) { reachCol.value.set(2.2, 1.5, 0.25); reachA.value = 0.45 + 0.25*Math.sin(t*12); } else { reachCol.value.set(1.4, 1.35, 1.2); reachA.value = 0.28; } }
-      kitchenWarn.visible = !!(h && G.kitchenWarn);
-      if (kitchenWarn.visible) { kitchenWarn.position.z = (isNearS(h.team) ? KD/2 : -KD/2); kwU.value = 0.3 + 0.15*Math.sin(t*14); }
-      reticle.visible = !!G.aimPreview;
-      if (G.aimPreview) { W(G.aimPreview.x, G.aimPreview.y, 0.07, reticle.position); reticle.rotation.y = t*0.8; } }
+    // each human's reach ring, kitchen warning and aim reticle (P1 gold, P2 blue)
+    { const aids = (!G.attract && G.aids) || [], rings = [[reachRing, reachCol, reachA, [2.2, 1.5, 0.25]], [reachRing2, reachCol2, reachA2, [0.4, 1.6, 2.4]]];
+      const warns = [kitchenWarn, kitchenWarn2], rets = [reticle, reticle2];
+      for (let k = 0; k < 2; k++) {
+        const a = aids[k], [ring, col, alpha, hot] = rings[k];
+        ring.visible = !!a; warns[k].visible = !!(a && a.warn); rets[k].visible = !!(a && a.aim);
+        if (!a) continue;
+        const h = a.pl, v = figs[G.players.indexOf(h)].v; W(v.x, v.z, 0.05, ring.position); ring.scale.setScalar(TUNE.reach);
+        const live = ballFor(h, G.ball) && contactQ(h, G.ball.x, G.ball.y, G.ball.z, G.ball.bounces > 0), hc = h.pad === 1 ? [0.4, 1.6, 2.4] : [2.2, 1.5, 0.25];
+        if (live) { col.value.set(...hc); alpha.value = 0.9; } else if (h.queue) { col.value.set(...hc); alpha.value = 0.45 + 0.25*Math.sin(t*12); } else { col.value.set(1.4, 1.35, 1.2); alpha.value = 0.28; }
+        if (a.warn) { warns[k].position.z = (isNearS(h.team) ? KD/2 : -KD/2); kwU.value = 0.3 + 0.15*Math.sin(t*14); }
+        if (a.aim) { W(a.aim.x, a.aim.y, 0.07, rets[k].position); rets[k].rotation.y = t*0.8; }
+      } }
     // ball, its shadow, trail and landing marker
     const B = G.ball;
     ball.visible = ballBlob.visible = B.z > -0.5;

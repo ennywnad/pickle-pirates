@@ -43,16 +43,17 @@ function endRally(loser, kind, x, y){
 function endPoint(winner, kind){
   const S = G.match, wasServer = S.server, res = awardRally(S, winner);
   if (!G.attract) {
-    const mine = G.players.find(p => p.human);
-    if (mine && winner === mine.team) { sfx('cheer'); if (res.scored && !res.gameOver) band('won', 0.4); }
+    const teams = new Set(humansAll().map(p => p.team)), mine = teams.size === 1 ? { team:[...teams][0] } : null;
+    if (!mine || winner === mine.team) { sfx('cheer'); if (res.scored && !res.gameOver) band('won', 0.4); }
     else { sfx('aww'); if (res.scored && !res.gameOver) band('lost', 0.3); }
-    if (res.gameOver) band(mine && winner === mine.team ? 'end' : 'lost', 0.5);
+    if (res.gameOver) band(!mine || winner === mine.team ? 'end' : 'lost', 0.5);
     else if (res.sideOut) sfx('bell');
     else if (res.switchEnds) band('noodle', 1.2);
   }
   G.state = 'dead'; G.stT = 1.7; G.pendingSwitch = res.switchEnds;
   if (res.gameOver) { G.state = 'over'; G.stT = 2.2; announce('Game!', `${teamName(winner)} win ${S.pts[winner]}–${S.pts[other(winner)]}`, 2200); return; }
   if (res.sideOut) announce('Side out', `${teamName(S.server)} to serve`, 1200);
+  else if (res.secondServer) announce('Second server', `${scoreCall(S)}`, 1100);
   else if (res.scored) { const gp = gamePoint(S); if (gp) announce('Game point', `${teamName(gp)} · ${scoreCall(S)}`, 1400); }
   if (res.switchEnds) { G.stT = 2.4; announce('Switch ends', `First to ${S.switchAt}`, 1600); }
   void wasServer;
@@ -61,11 +62,25 @@ const teamName = tm => tm === 'home' ? HOME.name : G.island.opp.name;
 
 // ---------------- serving
 // stand the server and receiver for the next serve; the ball goes to the server
+// the player serving now, and the one who must return it (doubles: the rules engine says which slot)
+const serverPl = () => { const S = G.match; return G.players.find(p => p.team === S.server && (!S.doubles || p.slot === S.srv)); };
+const receiverPl = () => { const S = G.match; return G.players.find(p => p.team !== S.server && (!S.doubles || p.slot === receiverSlot(S))); };
 function startPoint(){
-  const S = G.match, server = S.server, pos = servePositions(isNear(server), serverCourt(S));
-  G.state = 'set'; G.stT = 0.9; G.hits = 0; G.rally = 0; G.serveT = 0;
+  const S = G.match, server = S.server, court = serverCourt(S);
+  G.state = 'set'; G.stT = 0.9; G.hits = 0; G.rally = 0; G.serveT = 0; G.taker = null;
   Object.assign(G.ball, { live:false, z:-5, bounces:0, lastBy:null, lastKind:null, serve:null, trail:[] });
-  for (const pl of G.players) { const p = pl.team === server ? pos.server : pos.receiver; pl.setTo = { x:p.x, y:p.y }; pl.queue = null; pl.momentum = 0; pl.spot = null; if (!pl.human) aiNewPoint(pl); }
+  if (S.doubles) {
+    const pos = servePositionsD(isNear(server), court), srv = serverPl(), rec = receiverPl();
+    for (const pl of G.players) {
+      const p = pl === srv ? pos.server : pl === rec ? pos.receiver : pl.team === server ? pos.serverMate : pos.receiverMate;
+      pl.setTo = { x:p.x, y:p.y };
+      const right = isNear(pl.team) ? p.x > CW/2 : p.x < CW/2; pl.lane = right ? 'right' : 'left';   // the half they hold this point
+    }
+  } else {
+    const pos = servePositions(isNear(server), court);
+    for (const pl of G.players) { const p = pl.team === server ? pos.server : pos.receiver; pl.setTo = { x:p.x, y:p.y }; }
+  }
+  for (const pl of G.players) { pl.queue = null; pl.momentum = 0; pl.spot = null; if (!pl.human) aiNewPoint(pl); }
   G.pendingEnd = null;
 }
 // glide everyone to their spots, then wait for the serve
@@ -80,20 +95,20 @@ function serveSetup(dt){
   if (G.stT <= 0) {
     for (const pl of G.players) if (pl.setTo) { pl.x = pl.setTo.x; pl.y = pl.setTo.y; pl.vx = pl.vy = 0; pl.setTo = null; }
     G.state = 'serve'; G.serveT = 0;
-    const srv = G.players.find(p => p.team === G.match.server);
+    const srv = serverPl();
     if (srv && srv.human) G.yourServe = true;
   }
 }
 // hold the ball at the server's hip until they serve
 function holdServe(dt){
-  const srv = G.players.find(p => p.team === G.match.server), B = G.ball;
+  const srv = serverPl(), B = G.ball;
   G.serveT += dt;
   Object.assign(B, { x:srv.x + handOf(srv)*0.5, y:srv.y - backDir(srv.team)*0.6, z:1.6 + Math.sin(G.serveT*5)*0.05, vx:0, vy:0, vz:0, sx:0, sy:0, sz:0 });
   if (!srv.human && G.serveT > (G.attract ? 0.9 : 1.2)) aiServe(srv);
 }
 // serve: drive = a hard serve, soft = a slower deep one, lob = a high lob serve. aim picks the spot inside the service court.
 function doServe(pl, kind, aim, place){
-  if (G.state !== 'serve' || pl.team !== G.match.server) return false;
+  if (G.state !== 'serve' || pl !== serverPl()) return false;
   const S = G.match, court = serverCourt(S), recNear = !isNear(pl.team), box = serviceBox(recNear, court), B = G.ball;
   const deepY = recNear ? box.y1 : box.y0, dir = recNear ? -1 : 1;   // dir: from the receiver's baseline toward the net
   let tx = (box.x0 + box.x1)/2 + rand(-2.6, 2.6), depth = rand(2, 7);
@@ -112,7 +127,8 @@ function doServe(pl, kind, aim, place){
   const v = kind === 'lob' ? launchFor('lob', from, tx, ty, { arcK:0.7 }) : launchFor('serve', from, tx, ty, { speedK: kind === 'soft' ? 0.78 : 1 });
   Object.assign(B, from, v, { live:true, bounces:0, lastBy:pl.team, lastKind:'serve', serve:{ court, recNear }, still:0, trail:[] });
   pl.swing = 0.28; pl.swingKind = 'serve'; pl.swingSide = 1;
-  const rec = G.players.find(p => p.team !== pl.team); if (rec) { rec.split = 0.18; rec.burst = 0.5; }
+  for (const r of oppsOf(pl)) { r.split = 0.18; r.burst = 0.5; }
+  G.taker = { team:other(pl.team), pl:receiverPl(), shotN:G.shotN + 1 };   // the receiver has to return the serve
   G.hits = 1; G.rally = 1; G.shotN++; G.state = 'play'; G.yourServe = false; G.stats.strokes++;
   sfx('drive', 0.9);
   return true;
@@ -185,7 +201,7 @@ const FEED_MIX = [['serve', 2], ['drive', 3], ['drop', 2], ['dink', 2], ['lob', 
 function pickFeed(){ const tot = FEED_MIX.reduce((a, f) => a + f[1], 0); let r = Math.random()*tot; for (const [k, w] of FEED_MIX) { if ((r -= w) < 0) return k; } return 'drive'; }
 function feedBall(to){
   const B = G.ball, cfg = G.cfg, kind = cfg.feed === 'mix' || !cfg.feed ? pickFeed() : cfg.feed;
-  G.pendingEnd = null; for (const pl of G.players) pl.momentum = 0;
+  G.pendingEnd = null; G.taker = null; for (const pl of G.players) pl.momentum = 0;
   const near = isNear(to);
   const yFar = d => near ? d : CL - d;           // depth from the cannon's baseline
   const yNear = d => near ? CL - d : d;          // depth from the receiver's baseline

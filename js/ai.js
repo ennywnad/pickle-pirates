@@ -29,7 +29,7 @@ function aiPlayer(pl, dt){
     if (d < 0.5) pl.face = Math.atan2(B.y - pl.y, B.x - pl.x);
     return;
   }
-  const incoming = ballFor(pl, B);
+  const incoming = mine(pl, B);   // doubles: only the partner taking this ball chases it; the other covers
   // a new ball on its way: roll this ball's read error, reaction and press timing
   if (incoming && ai.rollFor !== G.shotN) {
     ai.rollFor = G.shotN;
@@ -60,28 +60,41 @@ function aiPlayer(pl, dt){
   // press the shot a little before the ball arrives
   if (incoming && !pl.queue && pl.spot && ai.pressAt > 0 && pl.spot.t - (G.time - pl.spotAt) <= ai.pressAt) {
     const plan = chooseShot(pl, pl.spot);
-    const tired = clamp((G.hits - 24)/50, 0, 0.2);   // a very long rally wears on the crew: shots get looser
+    const tired = clamp((G.hits - 16)/40, 0, 0.25);   // a very long rally wears on the crew: shots get looser
     queueShot(pl, plan.kind, { skill:T.skill*(1 - tired), target:plan.target, mod:plan.mod, arcK:plan.arcK });
     ai.lastPlan = plan;
   }
 }
-// where to wait while the ball is on the other side: baseline or kitchen line, bisecting the other player's angles
+// where to wait while the ball is on the other side (or a partner is taking it): baseline or kitchen line, shading
+// toward the ball. Singles: across the middle. Doubles: in your own lane, both partners at the same depth.
 function readySpot(pl){
-  const ai = pl.ai, opp = G.players.find(p => p.team !== pl.team), B = G.ball;
-  // the server stays back until the return has bounced (two-bounce rule); otherwise come in when the plan says so
+  const ai = pl.ai, opps = oppsOf(pl), B = G.ball;
+  // the serving side stays back until the return has bounced (two-bounce rule); otherwise come in when the plan says so
   const serving = G.mode === 'game' && G.match && G.match.server === pl.team && G.hits <= 2;
   const up = ai.goNet && !serving;
   const depth = up ? KD + 0.8 : -1.0;
-  const ref = B.live && B.lastBy === pl.team ? B.x : opp ? opp.x : CW/2;   // the ball's heading over there: shade toward it
+  const nearOpp = opps.reduce((a, o) => !a || Math.abs(o.x - B.x) < Math.abs(a.x - B.x) ? o : a, null);
+  const ref = B.live ? B.x : nearOpp ? nearOpp.x : CW/2;   // shade toward the ball
+  if (G.format === 'doubles') { const lx = laneX(pl); return { x: clamp(lx + (ref - CW/2)*0.25, lx - 5, lx + 5), y: ownY(pl, depth) }; }
   return { x: clamp(CW/2 + (ref - CW/2)*0.38, 2, CW - 2), y: ownY(pl, depth) };
+}
+// partners move up or back together
+function teamNet(pl, v){ pl.ai.goNet = v; const m = mateOf(pl); if (m && !m.human) m.ai.goNet = v; }
+// the biggest gap across the other side: wide of either player, or down the middle between two
+function openX(pl){
+  const xs = oppsOf(pl).map(o => clamp(o.x, 0, CW)).sort((a, b) => a - b);
+  if (xs.length === 1) return xs[0] > CW/2 ? rand(1.8, 6.5) : rand(CW - 6.5, CW - 1.8);
+  const gaps = [[0, xs[0]], [xs[0], xs[1]], [xs[1], CW]].map(([a, b]) => ({ a, b, w:(b - a)*(a === 0 || b === CW ? 1.0 : 1.25) }));   // the middle is worth more: two players, one ball
+  const g = gaps.reduce((m, x) => x.w > m.w ? x : m);
+  return clamp((g.a + g.b)/2 + rand(-1.2, 1.2), 1.8, CW - 1.8);
 }
 // the shot for this ball: by contact height, where everyone is, and the tier's judgment
 function chooseShot(pl, spot){
-  const T = tierOf(pl), ai = pl.ai, opp = G.players.find(p => p.team !== pl.team);
-  const h = spot.bz, fromNet = Math.abs(spot.by - NETY), oppUp = opp && atNet(opp.team, opp.y);
+  const T = tierOf(pl), ai = pl.ai, opps = oppsOf(pl), upOpps = opps.filter(o => atNet(o.team, o.y));
+  const h = spot.bz, fromNet = Math.abs(spot.by - NETY), oppUp = upOpps.length > 0;
   const smart = Math.random() < T.iq, r = Math.random();
-  const open = () => opp && opp.x > CW/2 ? rand(1.8, 6.5) : rand(CW - 6.5, CW - 1.8);   // away from the other player
-  const feet = () => clamp((opp ? opp.x : CW/2) + rand(-1.5, 1.5), 1.5, CW - 1.5);
+  const open = () => openX(pl);   // away from the other player (doubles: the biggest gap)
+  const feet = () => { const o = upOpps.length ? pick(upOpps) : opps[0]; return clamp((o ? o.x : CW/2) + rand(-1.5, 1.5), 1.5, CW - 1.5); };
   const T_ = (x, depth) => ({ x: clamp(x, 1.2, CW - 1.2), y: oppY(pl, clamp(depth, 1, NETY - 0.8)) });
   let kind, target, mod = null, arcK = 1;
   const returnOfServe = G.mode === 'game' && G.hits === 1, third = G.mode === 'game' && G.hits === 2;
@@ -90,39 +103,44 @@ function chooseShot(pl, spot){
     kind = 'drive'; target = oppUp ? T_(feet(), NETY - KD - rand(0.5, 2.5)) : T_(open(), rand(3, 9)); mod = 'top';
   } else if (fromNet <= KD + 2) {
     // at the kitchen line: the longer the dink rally, the more tempting a speed-up gets
-    const pressure = clamp((G.rally - 6)/12, 0, 0.6);
-    ai.goNet = Math.random() < 0.4 + T.net*0.6;   // up here already: the better crews hold the line, the deckhand sometimes drifts back
-    if (h > NET_H_MID + 0.4 - pressure*0.6 && Math.random() < T.attack*(0.5 + pressure)) { kind = 'drive'; target = T_(feet(), NETY - KD - rand(0, 3)); }   // speed-up
+    const pressure = clamp((G.rally - 4)/10, 0, 0.7);
+    teamNet(pl, Math.random() < 0.4 + T.net*0.6);   // up here already: the better crews hold the line, the deckhand sometimes drifts back
+    if (h > NET_H_MID + 0.3 - pressure*0.8 && Math.random() < T.attack*(0.5 + pressure)) { kind = 'drive'; target = T_(feet(), NETY - KD - rand(0, 3)); }   // speed-up
     else if (oppUp && Math.random() < T.lob*0.6) { kind = 'lob'; target = T_(open(), rand(1.5, 4)); }
-    else { kind = 'soft'; target = T_(smart ? (r < 0.6 ? (pl.x < CW/2 ? rand(13, 18) : rand(2, 7)) : open()) : rand(3, 17), rand(16, 20.5)); arcK = Math.random() < T.popup ? 2.4 : 1; }
+    else { kind = 'soft'; target = T_(smart ? (r < 0.6 ? (pl.x < CW/2 ? rand(13, 18) : rand(2, 7)) : open()) : rand(3, 17), rand(16, 20.5)); arcK = Math.random() < T.popup + pressure*0.12 ? 2.4 : 1;   // a long dink rally wears on the touch too
+      if (Math.random() < (1 - T.skill)*0.5 + pressure*0.05) arcK = Math.random() < 0.5 ? -0.3 : 2.6; }   // a missed dink: into the tape, or a sitter
     if (!smart && Math.random() < 0.3) { kind = 'drive'; target = T_(rand(3, 17), rand(4, 10)); }   // a speed-up off a ball that's too low
   } else if (returnOfServe) {
     // the return: deep, then come in
     kind = 'drive'; target = T_(rand(3, 17), rand(T.deep[0], T.deep[1]));
-    ai.goNet = Math.random() < T.net;
+    teamNet(pl, Math.random() < T.net);
   } else if (oppUp) {
     // they're at the net and we're back: drop it in, lob over, or try to pass
-    if (smart && (third || r < 0.7)) { kind = 'soft'; target = T_(rand(3, 17), rand(15.6, 18.6)); arcK = Math.random() < T.popup ? 1.8 : 1; ai.goNet = Math.random() < T.net; }
+    if (smart && (third || r < 0.7)) { kind = 'soft'; target = T_(G.format === 'doubles' ? open() : rand(3, 17), rand(15.6, 18.6)); arcK = Math.random() < T.popup ? 1.8 : 1; teamNet(pl, Math.random() < T.net); }
     else if (Math.random() < T.lob*2) { kind = 'lob'; target = T_(open(), rand(1.5, 4)); }
     else { kind = 'drive'; target = T_(open(), rand(2, 8)); }
   } else {
     // both back: drive deep, or drop and come in
-    if (smart && r < 0.4) { kind = 'soft'; target = T_(rand(3, 17), rand(15.6, 18.6)); ai.goNet = Math.random() < T.net; }
-    else { kind = 'drive'; target = T_(open(), rand(T.deep[0], T.deep[1] + 2)); if (Math.random() < T.net*0.5) ai.goNet = true; }
+    if (smart && r < 0.4) { kind = 'soft'; target = T_(rand(3, 17), rand(15.6, 18.6)); teamNet(pl, Math.random() < T.net); }
+    else { kind = 'drive'; target = T_(open(), rand(T.deep[0], T.deep[1] + 2)); if (Math.random() < T.net*0.5) teamNet(pl, true); }
   }
   // lobbed or pushed back deep: give up the net for now
-  if (fromNet > 14 && G.ball.lastKind === 'lob') ai.goNet = false;
+  if (fromNet > 14 && G.ball.lastKind === 'lob') teamNet(pl, false);
   return { kind, target, mod, arcK };
 }
 // the CPU's serve: deep, mostly to the backhand side for the better tiers
 function aiServe(pl){
   const T = tierOf(pl), r = Math.random();
   const kind = pl.tier === 'deckhand' ? (r < 0.6 ? 'soft' : r < 0.9 ? 'drive' : 'lob') : r < 0.65 ? 'drive' : r < 0.92 ? 'soft' : 'lob';
-  const rec = G.players.find(p => p.team !== pl.team);
+  const rec = receiverPl();
   // the better tiers go deep to the backhand; the deckhand just gets it in
   const xk = T.iq > 0.8 ? -handOf(rec)*rand(0.3, 0.9) : rand(-0.6, 0.6), depth = rand(T.deep[0], T.deep[1]);
   pl.ai.goNet = false;
   return doServe(pl, kind, null, { xk, depth });
 }
 // a new point: forget the old plan
-function aiNewPoint(pl){ pl.ai.goNet = false; pl.ai.rollFor = -1; pl.ai.plan = null; }
+function aiNewPoint(pl){
+  pl.ai.rollFor = -1; pl.ai.plan = null;
+  // doubles: the receiver's partner starts at the kitchen line and stays there; everyone else starts back
+  pl.ai.goNet = G.match && G.match.doubles && pl.team !== G.match.server && pl !== receiverPl();
+}

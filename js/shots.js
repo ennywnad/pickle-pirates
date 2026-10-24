@@ -99,11 +99,12 @@ function strike(pl, Q, c){
   }
   const v = launchFor(kind, from, tx, ty, { spin:spinFor(kind, Q.mod), speedK:powerK*(1 + gauss()*0.04*spread), arcK:(Q.arcK || 1)*softSpray });
   Object.assign(B, v, { z:from.z, bounces:0, lastBy:pl.team, lastKind:kind, still:0 });
+  assignTaker(other(pl.team));   // who on the other side goes for it
   // body: face the shot, swing on the side the ball was on, lunge if stretched
   pl.face = Math.atan2(ty - pl.y, tx - pl.x); pl.swing = 0.28; pl.swingKind = kind; pl.swingSide = c.side;
   if (c.lunge) { pl.lunge = 0.45; pl.lungeSide = c.side; }
   // the other side split-steps as the ball is struck
-  if (opp) { opp.split = 0.18; opp.burst = 0.5; }
+  for (const o of oppsOf(pl)) { o.split = 0.18; o.burst = 0.5; }
   G.rally++; G.best = Math.max(G.best, G.rally);
   if (G.rally === 14 && G.mode === 'game') band('rally');   // a long rally: the band picks up
   G.shotN++; G.hits++; G.stats.strokes++;
@@ -137,7 +138,7 @@ function shotTarget(pl, kind, aim, opp){
   } else {
     // auto: away from the opponent, inside the lines
     const ox = opp ? opp.x : CW/2;
-    x = ox < CW/2 ? rand(CW/2 + 1.5, CW - 2) : rand(2, CW/2 - 1.5);
+    x = G.format === 'doubles' ? openX(pl) : ox < CW/2 ? rand(CW/2 + 1.5, CW - 2) : rand(2, CW/2 - 1.5);
     if (kind === 'dink') x = clamp(pl.x + rand(-6, 6), 2.5, CW - 2.5);
   }
   return { x, y: isNear(pl.team) ? d : CL - d };

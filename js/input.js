@@ -25,17 +25,17 @@ let capture = null;   // { profile, action } while the remap screen waits for a 
 const pads = new Map();   // gamepad index -> { g, prev, axes, raxes, name }
 let padBlocked = false;
 function padList(){ return [...pads.values()].sort((a, b) => a.g.index - b.g.index); }
-// which devices drive which player (two-player modes arrive with doubles at milestone 7)
-function humans(){ return G && !G.attract && (G.mode === 'coop' || G.mode === 'vs') ? 2 : 1; }
-function devicesFor(p){
-  const list = padList(), n = humans();
+// which devices drive which player: P1 and P2 split the keyboard, or each gets a controller
+function humans(){ return G && !G.attract ? Math.max(1, Math.min(2, humansAll().length)) : 1; }
+function devicesFor(p, n = humans()){
+  const list = padList();
   if (n === 1) return { kb:'kb', pads:list, touch:true };
   if (list.length >= 2) return p === 0 ? { kb:'kb', pads:[list[0]], touch:true } : { kb:null, pads:list.slice(1, 2) };
   if (list.length === 1) return p === 0 ? { kb:'kb', pads:[], touch:true } : { kb:null, pads:[list[0]] };
   return p === 0 ? { kb:'kb1', pads:[], touch:true } : { kb:'kb2', pads:[] };
 }
-function deviceLabel(p){
-  const d = devicesFor(p);
+function deviceLabel(p, n){
+  const d = devicesFor(p, n);
   if (d.pads.length) return d.kb ? `Keyboard + ${padName(d.pads[0])}` : padName(d.pads[0]);
   return d.kb === 'kb1' ? 'Left side of keyboard' : d.kb === 'kb2' ? 'Right side of keyboard' : 'Keyboard';
 }
@@ -81,11 +81,11 @@ const playing = () => G && !G.attract && !paused && G.state !== 'end';
 // a shot press waits for the best moment to swing (see shots.js); Drive keeps charging while held
 function pressShot(p, kind){
   if (!playing()) return;
-  const pl = humanPl(); if (!pl) return;
-  if (G.state === 'serve' && G.match && G.match.server === pl.team) { doServe(pl, kind, readAim(p)); return; }
+  const pl = humanFor(p); if (!pl) return;
+  if (G.state === 'serve' && G.match && pl === serverPl()) { doServe(pl, kind, readAim(p)); return; }
   queueShot(pl, kind, { hold: kind === 'drive', aim: readAim(p), mod: actionHeld(p, 'top') ? 'top' : actionHeld(p, 'slice') ? 'slice' : null });
 }
-function releaseDrive(p){ const pl = humanPl(); if (pl) releaseShot(pl); }
+function releaseDrive(p){ const pl = humanFor(p); if (pl) releaseShot(pl); }
 function pressBooty(p = 0){ if (!playing()) return; toast('No booty yet', 'Power-ups wash up in milestone 9', 1200, 'small'); }
 cv.addEventListener('pointerdown', e => {
   ensureAudio();
@@ -156,7 +156,7 @@ function padConfirm(){
   if (vis('ctrls')) return;
   if (vis('pause')) return setPaused(false);
   if (vis('prac')) return $('pracGo').click();
-  if (vis('gameset')) return $('gameGo').click();
+  if (vis('gameset')) return ($('gameGo') || $('vsGo')).click();
   if (vis('howto')) return $('howGo').click();
   if (vis('results')) return ($('resNext') || $('resAgain')).click();
   if (vis('hub')) { const c = $('btnPlay'); if (c) c.click(); }
@@ -165,7 +165,7 @@ function padBack(){
   const vis = id => $(id) && !$(id).hidden;
   if (vis('ctrls')) return $('ctrlsDone').click();
   if (vis('prac')) return $('pracBack').click();
-  if (vis('gameset')) return $('gameBack').click();
+  if (vis('gameset')) return ($('gameBack') || $('vsBack')).click();
   if (vis('results')) return $('resHub').click();
   if (vis('howto')) return $('howGo').click();
   if (vis('pause')) return setPaused(false);
@@ -240,6 +240,16 @@ try { ctrlBarOn = localStorage.getItem('pickle-ctrlbar') !== '0'; } catch(e) {}
 function ctrlItems(){
   const kbKeys = (prof, a) => (binds[prof][a] || []).map(keyName);
   const pl = padList();
+  // two players: each one's device and main keys
+  if (humans() > 1) {
+    const items = [];
+    for (const p of [0, 1]) {
+      const d = devicesFor(p), tag = `P${p + 1}`;
+      if (d.kb === 'kb1' || d.kb === 'kb2') { const k = a => kbKeys(d.kb, a)[0] || ''; items.push([[tag], d.kb === 'kb1' ? 'left keys' : 'right keys'], [[['up','left','down','right'].map(a => kbKeys(d.kb, a)[0]).join(' ')], 'Move'], [[k('drive')], 'Drive'], [[k('soft')], 'Soft'], [[k('lob')], 'Lob']); }
+      else items.push([[tag], d.pads.length ? padName(d.pads[0]) : 'Keyboard']);
+    }
+    return { src:'Two players', items };
+  }
   if (pl.length) { const L = padLabels(pl[0]), b = a => binds.pad[a].slice(0, 2).map(L.btn); return { src:L.name, items:[[[L.stick, L.dpad], 'Move'], [[L.rstick], 'Aim · centered = auto'], [b('drive'), 'Drive'], [b('soft'), 'Dink · drop'], [b('lob'), 'Lob'], [b('top'), 'Topspin'], [b('slice'), 'Slice'], [b('plant'), 'Plant'], [[L.start], 'Pause']] }; }
   if (matchMedia('(pointer:coarse)').matches) return { src:'Touch', items:[[['Left side'], 'Drag to move'], [['Hit'], 'Drive'], [['Soft'], 'Dink · drop'], [['Lob'], 'Lob']] };
   const k = a => kbKeys('kb', a).slice(0, 2);

@@ -42,6 +42,41 @@ function contactSpot(pl, B){
   }
   return fallback;
 }
+// ---------------- doubles: lanes and who takes the ball
+// the middle of the court half this player holds (singles: the whole width)
+function laneX(pl){
+  if (G.format !== 'doubles') return CW/2;
+  return (pl.lane === 'right') === isNear(pl.team) ? CW*0.73 : CW*0.27;   // a near player's right is +x, a far player's is −x
+}
+// is this ball this player's to chase? In doubles one partner takes each ball (G.taker); the other covers.
+function mine(pl, B){ return ballFor(pl, B) && (!G.taker || G.taker.team !== pl.team || G.taker.pl === pl); }
+// a new ball is coming to `team`: the partner who can get to a good contact spot with the least running takes it,
+// with a nudge toward whoever's lane the ball is in
+function takerCost(pl, B){
+  const sp = contactSpot(pl, B);
+  if (!sp) return { cost:99, sp:null };
+  return { cost: runTime(pl, hyp(sp.x - pl.x, sp.y - pl.y)) + Math.abs(sp.bx - laneX(pl))*0.035, sp };
+}
+function assignTaker(team){
+  const crew = crewOf(team);
+  if (crew.length < 2) { G.taker = { team, pl:crew[0], shotN:G.shotN, t:0 }; return; }
+  const B = G.ball, [a, b] = crew.map(p => takerCost(p, B));
+  let pick = a.cost <= b.cost ? crew[0] : crew[1];
+  if (a.cost >= 99 && b.cost >= 99) {   // nobody can get there cleanly: whoever is nearer where it lands
+    const pr = predict(B, 2.5, BALL_DT, 1e4), L = pr.first || B;
+    pick = hyp(crew[0].x - L.x, crew[0].y - L.y) <= hyp(crew[1].x - L.x, crew[1].y - L.y) ? crew[0] : crew[1];
+  }
+  G.taker = { team, pl:pick, shotN:G.shotN, t:0 };
+}
+// while the ball comes, look again a few times a second; hand it over only if the partner is clearly better placed
+function refreshTaker(dt){
+  const T = G.taker, B = G.ball;
+  if (!T || !B.live || B.lastBy === T.team || G.format !== 'doubles' || G.hits === 1) return;
+  T.t += dt; if (T.t < 0.25) return; T.t = 0;
+  const mate = mateOf(T.pl); if (!mate) return;
+  const cur = takerCost(T.pl, B).cost, alt = takerCost(mate, B).cost;
+  if (alt < cur - 0.25) T.pl = mate;
+}
 // keep assisted and CPU footwork out of the kitchen while a volley is coming or a volley's momentum is still on:
 // stop at the line, and back out if already in
 function kitchenGuard(pl, ix, iy){
@@ -55,10 +90,10 @@ function kitchenGuard(pl, ix, iy){
 }
 // the human: stick movement, blended with the move-to-ball assist unless Plant is held
 function humanMove(pl, dt){
-  let [ix, iy] = readInput(0);
-  const plant = actionHeld(0, 'plant'), B = G.ball;
+  let [ix, iy] = readInput(pl.pad);
+  const plant = actionHeld(pl.pad, 'plant'), B = G.ball;
   if (plant) { ix = 0; iy = 0; }
-  else if (TUNE.assist > 0 && ballFor(pl, B)) {
+  else if (TUNE.assist > 0 && mine(pl, B)) {
     pl.spotT -= dt;
     if (pl.spotT <= 0 || !pl.spot) { pl.spotT = 0.1; pl.spot = contactSpot(pl, B); }
     const sp = pl.spot;
@@ -71,13 +106,13 @@ function humanMove(pl, dt){
         const m = hyp(ix, iy); if (m > 1) { ix /= m; iy /= m; }
       }
     }
-    if (hyp(...readInput(0)) < 0.2) [ix, iy] = kitchenGuard(pl, ix, iy);   // the assist never walks you into a kitchen fault (the stick can)
+    if (hyp(...readInput(pl.pad)) < 0.2) [ix, iy] = kitchenGuard(pl, ix, iy);   // the assist never walks you into a kitchen fault (the stick can)
   } else {
     pl.spot = null;
     // between shots: with the stick centered, drift back to a ready spot (kitchen line if you're up, else the baseline)
     if (!plant && TUNE.assist > 0 && hyp(ix, iy) < 0.15) {
       // between points the receiver waits at the baseline (serves and returns must bounce); mid-rally, hold the kitchen line if you're up
-      const up = B.live && !!B.lastBy && G.hits >= 3 && Math.abs(pl.y - NETY) <= KD + 3, rx = CW/2 + (B.live ? (B.x - CW/2)*0.25 : 0), ry = isNear(pl.team) ? (up ? NETY + KD + 0.6 : CL - 1.2) : (up ? NETY - KD - 0.6 : 1.2);
+      const up = B.live && !!B.lastBy && G.hits >= 3 && Math.abs(pl.y - NETY) <= KD + 3, rx = laneX(pl) + (B.live ? (B.x - CW/2)*0.25 : 0), ry = isNear(pl.team) ? (up ? NETY + KD + 0.6 : CL - 1.2) : (up ? NETY - KD - 0.6 : 1.2);
       const dx = rx - pl.x, dy = ry - pl.y, d = hyp(dx, dy);
       if (d > 0.6) { const k = TUNE.assist*0.7*Math.min(1, d/3); ix = dx/d*k; iy = dy/d*k; }
     }

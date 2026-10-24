@@ -61,6 +61,58 @@ for (const [cfg, label] of [[{ to:11, scoring:'sideout' }, 'game to 11, side-out
   check(`${label}: ends switched once, at ${({ 11:6, 15:8 })[r.to]}`, r.switches === 1 && r.switchAt === ({ 11:6, 15:8 })[r.to], `${r.switches} switch at ${r.switchAt}`);
   check(`${label}: points end in real rallies, not only faults`, (r.kinds['double bounce'] || 0) + (r.kinds.ace || 0) + (r.kinds.winner || 0) > 0 && r.longest >= 4, `${JSON.stringify(r.kinds)}, longest rally ${r.longest}`);
 }
+// doubles: full CPU games, every serve checked against an independent referee's notebook of who stands where
+function playDoubles(cfg){
+  return run(`(() => {
+    Object.assign(gameCfg, ${JSON.stringify(cfg)});
+    newMatch('brine', false, 'game', { format:'doubles', seats:[] });
+    const S = G.match, errs = [], name = p => p.team[0] + p.slot;
+    // the notebook: positions by name, following the rule text (see tests/rules.mjs)
+    const pos = { home:{ right:'h0', left:'h1' }, away:{ right:'a0', left:'a1' } }, pts = { home:0, away:0 };
+    let team = S.server, server = pos[S.server].right, num = S.scoring === 'sideout' ? 2 : 1, serves = 0, returns = 0;
+    const swap = t => { const q = pos[t]; [q.right, q.left] = [q.left, q.right]; };
+    const os = doServe; doServe = (pl, kind, aim, place) => {
+      const court = pos[team].right === server ? 'right' : 'left', near = isNear(pl.team);
+      const right = near ? pl.x > CW/2 : pl.x < CW/2, behind = near ? pl.y > CL : pl.y < 0;
+      if (name(pl) !== server) errs.push('wrong server ' + name(pl) + ' (notebook ' + server + ') at ' + scoreCall(S));
+      if ((court === 'right') !== right) errs.push('server in the wrong court at ' + scoreCall(S));
+      if (!behind) errs.push('server not behind the baseline');
+      const call = pts[team] + '–' + pts[other(team)] + (S.scoring === 'sideout' ? '–' + num : '');
+      if (scoreCall(S) !== call) errs.push('score call ' + scoreCall(S) + ' (notebook ' + call + ')');
+      const rec = G.players.find(p => name(p) === pos[other(team)][court]), diag = Math.sign(rec.x - CW/2) === -Math.sign(pl.x - CW/2);
+      if (!diag) errs.push('receiver ' + name(rec) + ' not diagonally across');
+      serves++;
+      return os(pl, kind, aim, place);
+    };
+    const ost = strike; strike = (pl, Q, c) => {
+      if (G.hits === 1 && G.state === 'play') { returns++; const court = pos[team].right === server ? 'right' : 'left';
+        if (name(pl) !== pos[other(team)][court]) errs.push('the return was hit by ' + name(pl) + ', not the receiver ' + pos[other(team)][court]); }
+      return ost(pl, Q, c);
+    };
+    const ope = endPoint; endPoint = (w, kind) => {
+      if (w === team) { pts[w]++; swap(w); }
+      else if (S.scoring === 'rally') { pts[w]++; swap(w); team = w; server = pos[w].right; num = 1; }
+      else if (num === 1) { num = 2; server = server === pos[team].right ? pos[team].left : pos[team].right; }
+      else { team = w; server = pos[w].right; num = 1; }
+      ope(w, kind);
+      if (S.pts.home !== pts.home || S.pts.away !== pts.away) errs.push('score ' + S.pts.home + '–' + S.pts.away + ' vs notebook ' + pts.home + '–' + pts.away);
+    };
+    let t = 0, pointT = 0, lastHits = 0, quiet = 0, takers = 0, both = 0;
+    while (G.state !== 'end' && t < 60*60*60) { update(1/60); t++;
+      quiet = G.hits !== lastHits ? 0 : quiet + 1/60; lastHits = G.hits;
+      if (G.state === 'play' && G.ball.live && G.hits >= 2) { const crew = crewOf(other(G.ball.lastBy)); takers++;
+        if (crew.every(p => mine(p, G.ball))) both++; }
+      if (quiet > 20) { errs.push('a point stalled'); break; }
+      if (!isFinite(G.ball.x + G.ball.y + G.ball.z) || G.players.some(p => !isFinite(p.x + p.y))) { errs.push('NaN'); break; } }
+    return { pts:S.pts, winner:S.winner, over:S.over, rallies:S.rallies, errs:[...new Set(errs)], serves, returns, both, takers, longest:G.stats.longest, minutes:+(t/3600).toFixed(1), avg:G.stats.strokes/Math.max(1, S.rallies) };
+  })()`);
+}
+for (const [cfg, label] of [[{ to:11, scoring:'sideout', tier:'bosun' }, 'doubles to 11, side-out'], [{ to:11, scoring:'rally', tier:'captain' }, 'doubles to 11, rally scoring'], [{ to:11, scoring:'sideout', tier:'deckhand' }, 'doubles to 11, side-out, deckhands']]) {
+  const r = playDoubles(cfg), W = r.pts[r.winner], L = r.pts[r.winner === 'home' ? 'away' : 'home'];
+  check(`${label}: plays to a finish`, r.over && W >= 11 && W - L >= 2, `${r.winner} wins ${W}–${L} in ${r.rallies} rallies, ${r.minutes} sim min, ${r.avg.toFixed(1)} shots a rally, longest ${r.longest}`);
+  check(`${label}: every serve, server, court, receiver and score matched the notebook`, r.errs.length === 0, r.errs.slice(0, 4).join('; ') || `${r.serves} serves, ${r.returns} returns by the right receiver`);
+  check(`${label}: one partner goes for each ball`, r.both === 0, `${r.both} of ${r.takers} frames with both chasing`);
+}
 // kitchen faults in play: a volley from the kitchen, and stepping in right after a volley
 {
   const r = run(`(() => { const out = {};

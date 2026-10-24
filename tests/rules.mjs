@@ -92,5 +92,62 @@ const play = (opt, seq) => run(`(() => { const S = newScore(${JSON.stringify(opt
     out[to] = { at, n }; } return out; })()`);
   check('ends switch once, at 6 / 8 / 11', r[11].at === 6 && r[15].at === 8 && r[21].at === 11 && r[11].n === 1 && r[15].n === 1 && r[21].n === 1, JSON.stringify(r));
 }
+// ---------- doubles (4.B, 5.B, 6.B.2, 14 provisional)
+const dbl = (opt, seq) => run(`(() => { const S = newScore({ ...${JSON.stringify(opt)}, doubles:true }), out = [];
+  const snap = () => ({ call: scoreCall(S), server: S.server, srv: S.srv, court: serverCourt(S), rec: receiverSlot(S), num: S.serverNum, over: S.over });
+  out.push(snap());
+  for (const c of ${JSON.stringify(seq)}) { awardRally(S, c === 'h' ? 'home' : 'away'); out.push(snap()); }
+  return out; })()`);
+{
+  const r = dbl({}, 'hahh');
+  const want = [
+    ['0–0–2', 'home', 0, 'right', 0],   // the start: one server before the first side out, from the right court
+    ['1–0–2', 'home', 0, 'left', 1],    // scored: the server swaps to the left court and serves to the receiver diagonally across
+    ['0–1–1', 'away', 0, 'right', 1],   // side out: the away player in the right court serves; home's right court now holds slot 1
+    ['0–1–2', 'away', 1, 'left', 0],    // lost on serve: the partner serves, from where they stand
+    ['1–0–1', 'home', 1, 'right', 0],   // side out: home's right-court player (slot 1 at an odd score) serves first
+  ];
+  const got = r.map(x => [x.call, x.server, x.srv, x.court, x.rec]);
+  check('doubles: 0-0-2 start, server rotation, courts and receivers (hand-checked)', JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got));
+}
+// an independent referee's notebook: who stands where, by name, following the rule text step by step
+function notebook(scoring, seq){
+  const pos = { home:{ right:'h0', left:'h1' }, away:{ right:'a0', left:'a1' } }, pts = { home:0, away:0 };
+  let team = 'home', server = 'h0', num = scoring === 'sideout' ? 2 : 1;
+  const other = t => t === 'home' ? 'away' : 'home', swap = t => { const p = pos[t]; [p.right, p.left] = [p.left, p.right]; };
+  const snap = () => { const court = pos[team].right === server ? 'right' : 'left';
+    return [`${pts[team]}–${pts[other(team)]}` + (scoring === 'sideout' ? `–${num}` : ''), team, server, court, pos[other(team)][court]]; };
+  const out = [snap()];
+  for (const c of seq) {
+    const w = c === 'h' ? 'home' : 'away';
+    if (w === team) { pts[w]++; swap(w); }                                      // won on serve: point, the serving pair swaps
+    else if (scoring === 'rally') { pts[w]++; swap(w); team = w; server = pos[w].right; num = 1; }   // rally: they score and take the serve
+    else if (num === 1) { num = 2; server = server === pos[team].right ? pos[team].left : pos[team].right; }   // partner's turn
+    else { team = w; server = pos[w].right; num = 1; }                          // side out: right-court player serves first
+    out.push(snap());
+  }
+  return out;
+}
+for (const scoring of ['sideout', 'rally']) {
+  let rs = 12345 + scoring.length, bad = null, total = 0;
+  const rnd = () => (rs = (rs*16807) % 2147483647)/2147483647;
+  for (let g = 0; g < 300 && !bad; g++) {
+    let seq = ''; for (let i = 0; i < 60; i++) seq += rnd() < 0.5 ? 'h' : 'a';
+    const eng = dbl({ scoring }, seq), book = notebook(scoring, seq);
+    for (let i = 0; i < book.length; i++) {
+      const e = eng[i];
+      const ge = [e.call, e.server, (e.server === 'home' ? 'h' : 'a') + e.srv, e.court, (e.server === 'home' ? 'a' : 'h') + e.rec];
+      total++;
+      if (JSON.stringify(ge) !== JSON.stringify(book[i])) { bad = `game ${g} rally ${i}: engine ${JSON.stringify(ge)} vs notebook ${JSON.stringify(book[i])}`; break; }
+      if (e.over) break;   // the game is over; the notebook doesn't know to stop
+    }
+  }
+  check(`doubles ${scoring}: every serve matches the referee's notebook (300 random games)`, !bad, bad || `${total} serves checked`);
+}
+{
+  // a 60-rally sequence runs past game over; the notebook doesn't stop, so compare only up to the end of the game
+  const r = dbl({}, 'h'.repeat(11));
+  check('doubles: a game to 11 ends at 11–0, server 2 on the first serve', r[0].call === '0–0–2' && r[11].call.startsWith('11–0'), r[11].call);
+}
 console.log(failed ? `${failed} rules check(s) failed` : 'all rules checks passed');
 process.exit(failed ? 1 : 0);

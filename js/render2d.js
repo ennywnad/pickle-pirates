@@ -80,6 +80,14 @@ function drawPlayer(pl, t){
   if (pl.species === 'pickle') { ctx.fillStyle = '#1b1410'; ctx.beginPath(); ctx.moveTo(x - r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*2.5, x + r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*1.75, x - r*0.95, y - r*1.55); ctx.fill(); }
   else { ctx.fillStyle = sp.acc; ctx.fillRect(x - r*0.7, y - r*1.25, r*1.4, r*0.3); }
 }
+// two humans on the court: a P1 / P2 tag over each, in their own color
+const TAG_COL = ['#ffc23a', '#5fd0ff'];
+function drawTag(pl, x, y){
+  if (G.attract || humansAll().length < 2 || pl.queue) return;
+  ctx.save(); ctx.font = '11px Bungee, "Arial Black", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(11,20,24,.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 15, y - 9, 30, 18, 5) : ctx.rect(x - 15, y - 9, 30, 18); ctx.fill();
+  ctx.fillStyle = TAG_COL[pl.pad] || TAG_COL[0]; ctx.fillText('P' + (pl.pad + 1), x, y + 1); ctx.restore();
+}
 // the human's reach: a ring at the feet that lights up when the ball can be hit
 function drawReach(pl, t){
   const B = G.ball, live = ballFor(pl, B) && contactQ(pl, B.x, B.y, B.z, B.bounces > 0), rr = TUNE.reach*scale;
@@ -139,19 +147,19 @@ function render(now){
   ctx.save(); if (sh) ctx.translate((Math.random()-0.5)*sh, (Math.random()-0.5)*sh);
   ctx.drawImage(courtC, 0, 0, cw, ch);
   // the kitchen glows red when a volley from where you stand would fault
-  if (G.kitchenWarn) { const h = humanPl(), y0 = isNear(h.team) ? NETY : NETY - KD; ctx.fillStyle = `rgba(255,70,50,${0.22 + 0.12*Math.sin(t*14)})`; const ya = sy(y0), yb = sy(y0 + KD); ctx.fillRect(sx(FLIP ? CW : 0), Math.min(ya, yb), CW*scale, Math.abs(yb - ya)); }
+  for (const a of G.aids || []) if (a.warn) { const y0 = isNear(a.pl.team) ? NETY : NETY - KD; ctx.fillStyle = `rgba(255,70,50,${0.22 + 0.12*Math.sin(t*14)})`; const ya = sy(y0), yb = sy(y0 + KD); ctx.fillRect(sx(FLIP ? CW : 0), Math.min(ya, yb), CW*scale, Math.abs(yb - ya)); }
   for (const p of G.parts) { ctx.fillStyle = p.c; ctx.globalAlpha = p.life/p.max; ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y, p.z), Math.max(1, p.s*scale), 0, 7); ctx.fill(); } ctx.globalAlpha = 1;
   // far side first, then the net, then the near side, so overlaps read right
   const top = y => FLIP ? y > NETY : y <= NETY, far = G.players.filter(p => top(p.y)), near = G.players.filter(p => !top(p.y)), ballFar = top(G.ball.y);
   drawCannon();
-  { const h = humanPl(); if (h) drawReach(h, t); if (G.aimPreview) drawReticle(sx(G.aimPreview.x), sy(G.aimPreview.y), scale*0.9); }
+  for (const a of G.aids || []) { drawReach(a.pl, t); if (a.aim) drawReticle(sx(a.aim.x), sy(a.aim.y), scale*0.9); }
   for (const p of far) drawPlayer(p, t);
   if (ballFar) drawBall();
   drawNet();
   if (!ballFar) drawBall();
   for (const p of near) drawPlayer(p, t);
   for (const p of G.pops) drawPop(p, sx(p.x), sy(p.y, p.lift || 4));
-  { const h = humanPl(); if (h) drawQueue(h, sx(h.x), sy(h.y) - PL_R*scale*3.2); }
+  for (const h of humansAll()) { drawQueue(h, sx(h.x), sy(h.y) - PL_R*scale*3.2); drawTag(h, sx(h.x), sy(h.y) - PL_R*scale*2.6); }
   ctx.restore();
   drawJoy();
 }
@@ -169,12 +177,16 @@ function updateHud(){
   if (!G || G.attract) return;
   setT('sH', String(G.score.home)); setT('sA', String(G.score.away));
   if (G.mode !== 'game') { setT('clk', `RALLY ${G.rally}`); setT('objProg', `Best rally ${G.best}`); return; }
-  const S = G.match, mine = humanPl(), gp = gamePoint(S);
+  const S = G.match, gp = gamePoint(S), srv = serverPl(), two = humansAll().length > 1, vs = G.view === 'side';
   setT('clk', scoreCall(S));
-  setT('arenaShort', `TO ${S.to}${S.scoring === 'rally' ? ' · RALLY' : ''} · ${tierOf(G.players[1]).name.toUpperCase()}`);
-  setT('hSub', S.server === 'home' ? '● SERVING' : HOME.name.toUpperCase());
-  setT('aSub', S.server === 'away' ? '● SERVING' : G.island.opp.name.toUpperCase());
-  const yours = G.state === 'serve' && mine && S.server === mine.team;
-  setT('objText', yours ? 'Your serve · press Drive, Soft or Lob' : gp ? `Game point · ${teamName(gp)}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
-  setT('objProg', G.state === 'play' ? `Rally ${G.rally}` : `Server ${S.server === 'home' ? HOME.abbr : G.island.opp.abbr} · ${serverCourt(S)} court`);
+  const who = vs ? 'P1 VS P2' : tierOf(awayLead()).name.toUpperCase();
+  setT('arenaShort', `TO ${S.to}${S.scoring === 'rally' ? ' · RALLY' : ''}${S.doubles ? ' · DOUBLES' : ''} · ${who}`);
+  const mark = S.doubles && S.scoring === 'sideout' ? `● SERVING · ${S.serverNum}` : '● SERVING';
+  setT('hSub', S.server === 'home' ? mark : HOME.name.toUpperCase());
+  setT('aSub', S.server === 'away' ? mark : G.island.opp.name.toUpperCase());
+  const yours = G.state === 'serve' && srv && srv.human;
+  const whose = !yours ? '' : two ? `P${srv.pad + 1} to serve` : 'Your serve';
+  setT('objText', yours ? `${whose} · press Drive, Soft or Lob` : gp ? `Game point · ${teamName(gp)}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
+  const srvName = srv ? (srv.human ? (two ? `P${srv.pad + 1}` : 'you') : `${srv.team === 'home' ? HOME.abbr : G.island.opp.abbr}${S.doubles ? ' ' + (srv.slot + 1) : ''}`) : '';
+  setT('objProg', G.state === 'play' ? `Rally ${G.rally}` : `Server ${srvName} · ${serverCourt(S)} court`);
 }

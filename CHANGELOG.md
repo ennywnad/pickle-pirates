@@ -2,6 +2,39 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.2.0 · Doubles and two players (milestone 7) · 2026-10-23
+
+Two a side, and two people on one screen.
+
+**Doubles**
+- Real doubles rules. Games start 0–0–2 with one server. After that, each partner serves before the serve passes over, and after a side out the player in the right court serves first.
+- The serving pair swaps sides only when it scores (the starting-server rule). The receiver is always the player diagonally across.
+- The score call is three numbers in side-out scoring (serving team, receiving team, server number). Rally scoring uses two numbers and one server per side out.
+- The scoreboard shows the server number, and "Second server" is called when the partner takes over.
+
+**CPU partners and crews**
+- One partner takes each ball (whoever gets to a good contact spot with the least running). The other covers their half of the court. The tests count frames where both partners chase the same ball, and it's zero.
+- The receiver's partner starts at the kitchen line. The serving pair stays back until the return bounces, then moves up together.
+- The CPU aims for the biggest gap, often the middle between two players.
+- The crews behind the menus sometimes play doubles now.
+
+**Two players**
+- **Versus** is open on the dock: doubles or singles, with three ways to play:
+  - **Solo:** with a CPU partner in doubles.
+  - **P1 + P2 vs the crew:** co-op doubles.
+  - **P1 vs P2:** singles, or doubles with a CPU partner each.
+- Controls: two controllers give one each, one controller goes to P2 with P1 on the keyboard, and with none the keyboard splits left and right. The controls bar shows both players' keys.
+- P1 and P2 tags float over each player. Each gets their own reach ring, aim reticle and kitchen warning (P1 gold, P2 blue).
+- P1 vs P2 uses a side-on camera that favors neither end, and the results card names the winner.
+
+**CPU tuning**
+- Long dink rallies end sooner: the CPU tries a speed-up off a lower ball as the rally goes on, and now and then misses a dink into the net or pops one up. It loosens up from 16 shots instead of 24. Singles rallies are unchanged (about 6–9 shots on average). CPU-only doubles average about 15–17.
+
+**Tests**
+- `tests/rules.mjs` checks a hand-worked doubles sequence, plus 300 random games in each scoring system against an independent referee's notebook that tracks who stands where by name. That's about 17,000 serves.
+- `tests/game.mjs` plays full doubles games and checks every serve against the notebook: the right server, behind the baseline in the right court, the receiver diagonally across, the return hit by the receiver, and the score.
+- The smoke test plays co-op doubles (P2 moves on the arrow keys and P1 doesn't), fast-forwards doubles points, and starts P1 vs P2 with the side camera. The geometry leak check now compares singles with singles and doubles with doubles.
+
 ## v0.1.0 · First playable: Brine Bay (milestone 6) · 2026-10-23
 
 The first playable build. Brine Bay is open: the Pickle Pirates against the Barnacle Boys, singles to 11.

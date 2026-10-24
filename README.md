@@ -6,7 +6,7 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–5 of 11 are done, and milestone 6, the first playable v0.1, is built and live. It's done once it's been played. What changed in each version is in the [changelog](CHANGELOG.md).
+Milestones 1–5 of 11 are done. Milestone 6 (the first playable, v0.1) and milestone 7 (doubles and two players, v0.2) are built and live; 6 is done once it's been played. What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
@@ -17,7 +17,9 @@ Milestones 1–5 of 11 are done, and milestone 6, the first playable v0.1, is bu
 
 - **v0.1, Brine Bay:** play the Barnacle Boys (crabs) on the harbor dock, with a town, a lighthouse, moored boats, the crew's own ship and gulls. Also the first sound pack and a shanty band, a How to play guide, and your record against each crew level.
 
-Doubles and two players (milestone 7) come next.
+- **v0.2, doubles and two players:** two a side with the real server rotation and three-number score, CPU partners that split the court, and two-player co-op or P1 vs P2 on one keyboard or two controllers.
+
+Crews and swings (milestone 8) come next.
 
 | Level | How it plays |
 |---|---|
@@ -55,6 +57,17 @@ Pick the level on the dock's Brine Bay card, in a custom game, or in the Practic
 
 Keys and buttons can be remapped under Controls.
 
+**Two players** (Versus): with two controllers, each player gets one. With one controller, P1 has the keyboard and P2 the controller. With none, the keyboard splits:
+
+| | P1 (left) | P2 (right) |
+|---|---|---|
+| Move | WASD | Arrows |
+| Drive | F or Space | / or Numpad 0 |
+| Soft | G | . |
+| Lob | Q | ; |
+
+P1 against P2 uses a side-on camera so neither end is favored.
+
 ### How hitting works
 
 You choose the shot and where it goes; the game swings at the best moment.
@@ -80,8 +93,11 @@ From the 2026 official rulebook (USA Pickleball text). The kitchen and two-bounc
 | Kitchen | No volleying with a foot in the kitchen or on its line, or being carried into it by the volley (any direction, even after the ball is dead) | 11.A |
 | Faults | Out, net, short serve, wrong court, post, double bounce | 10.B, 11.A |
 | Ends | Switch when the first side reaches 6 (8 in a game to 15, 11 in a game to 21) | 21.B |
+| Doubles order | Starts 0–0–2 with one server; partners each serve before a side out; the player in the right court serves first after a side out | 4.B, 5.B |
+| Doubles positions | The starting server is in the right court when the team's score is even, so the serving pair swaps sides only when it scores; the receiver is diagonally across | 4.B |
+| Doubles score call | Serving team, receiving team, server number (side-out); two numbers in rally scoring, one server per side out | 6.B.2, 14 |
 
-`tests/rules.mjs` checks each rule; `tests/game.mjs` plays full games and checks every serve and point.
+`tests/rules.mjs` checks each rule, and runs 300 random doubles games against an independent referee's notebook of who stands where. `tests/game.mjs` plays full singles and doubles games and checks every serve, server, court, receiver and point.
 
 ## Ball physics
 

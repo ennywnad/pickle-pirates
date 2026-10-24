@@ -118,10 +118,12 @@ for (const gfx of ['classic', 'med']) {
   // new matches don't pile up figure geometry on the GPU (3D only)
   if (gfx !== 'classic') {
     const mem = await page.evaluate(async () => { const R3 = window.__r3d, S = window.__sim, wait = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      if (!R3.mem || !R3.mem()) return null; startAttract(); await wait(); const a = R3.mem().geometries;
-      for (let i = 0; i < 6; i++) { startAttract(); await wait(); } const b = R3.mem().geometries; startGame(); await wait(); return { a, b }; });
-    if (mem && mem.b > mem.a + 4) fail(`${gfx}: figure geometry leaks across matches (${mem.a} -> ${mem.b})`);
-    console.log(`${gfx}: geometries across 6 new matches`, mem ? `${mem.a} -> ${mem.b}` : 'n/a');
+      if (!R3.mem || !R3.mem()) return null; const by = { singles:[], doubles:[] };   // attract games are singles or doubles: compare like with like
+      for (let i = 0; i < 10; i++) { startAttract(); await wait(); by[S.G.format].push(R3.mem().geometries); }
+      startGame(); await wait(); return by; });
+    const grow = mem ? Math.max(...Object.values(mem).filter(v => v.length).map(v => Math.max(...v) - v[0])) : 0;
+    if (mem && grow > 4) fail(`${gfx}: figure geometry leaks across matches (${JSON.stringify(mem)})`);
+    console.log(`${gfx}: geometries across 10 new matches`, mem ? JSON.stringify(mem) : 'n/a');
   }
   // pause, back to the dock, save code round trip
   await page.keyboard.press('KeyP');
@@ -134,6 +136,35 @@ for (const gfx of ['classic', 'med']) {
   await tap('#saveLoad');
   const msg = await page.textContent('#saveMsg');
   if (!/Loaded/.test(msg)) fail(`${gfx}: save code did not load (${msg})`);
+
+  // v0.2: Versus. P1 + P2 against the crew in doubles (P2 on the arrow keys), then P1 vs P2 from the side
+  await page.evaluate(() => { renderHub(); show('hub'); });
+  await tap('#btnVersus');
+  await tap('#v_format button[data-v="doubles"]');
+  await tap('#v_who button[data-v="coop"]');
+  await tap('#vsGo');
+  await page.waitForTimeout(400);
+  const co = await page.evaluate(() => { const S = window.__sim, G = S.G; return { n: G.players.length, humans: G.players.filter(p => p.human).map(p => p.team + p.slot + 'p' + p.pad).join(','), doubles: G.match.doubles, call: scoreCall(G.match), bar: document.getElementById('ctrlBar').textContent }; });
+  if (co.n !== 4 || co.humans !== 'home0p0,home1p1' || !co.doubles || !/–[12]$/.test(co.call)) fail(`${gfx}: co-op doubles did not start right (${JSON.stringify(co)})`);
+  if (!/P2/.test(co.bar)) fail(`${gfx}: the controls bar does not show P2 (${co.bar})`);
+  // P2 on the arrow keys: hold left and P2 moves left (toward −x from behind the near baseline); P1 doesn't
+  const p2x = await page.evaluate(() => { const S = window.__sim, G = S.G; G.state = 'play'; G.ball.live = false; const p2 = humanFor(1), p1 = humanFor(0); p2.x = 10; p2.y = 38; p1.x = 14; p1.y = 38; return [p2.x, p1.x]; });
+  await page.keyboard.down('ArrowLeft');
+  const after = await page.evaluate(() => { const S = window.__sim; S.step(30); return [humanFor(1).x, humanFor(0).x]; });
+  await page.keyboard.up('ArrowLeft');
+  if (!(after[0] < p2x[0] - 1) || Math.abs(after[1] - p2x[1]) > 1.5) fail(`${gfx}: P2's arrow keys did not move P2 alone (${JSON.stringify({ before: p2x, after })})`);
+  // fast-forward some doubles points with everyone on the CPU
+  const dbl = await page.evaluate(() => { startGame(); const S = window.__sim, G = S.G; G.players.forEach(p => p.human = false);
+    for (let i = 0; i < 60*120 && G.match.rallies < 4; i++) S.step(1); return { rallies: G.match.rallies, call: scoreCall(G.match) }; });
+  if (dbl.rallies < 4) fail(`${gfx}: doubles points did not play out (${JSON.stringify(dbl)})`);
+  await page.evaluate(() => { renderHub(); show('hub'); });
+  await tap('#btnVersus');
+  await tap('#v_format button[data-v="singles"]');
+  await tap('#v_who button[data-v="vs"]');
+  await tap('#vsGo');
+  await page.waitForTimeout(400);
+  const vs = await page.evaluate(() => { const G = window.__sim.G; return { n: G.players.length, view: G.view, p2team: humanFor(1) && humanFor(1).team }; });
+  if (vs.n !== 2 || vs.view !== 'side' || vs.p2team !== 'away') fail(`${gfx}: P1 vs P2 singles did not start with the side view (${JSON.stringify(vs)})`);
 
   // v0.1: Play from the dock. First time shows How to play, then Brine Bay vs the chosen crew level under the standard
   // rules; finishing the game records the result and offers the next level after a win
