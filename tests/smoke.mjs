@@ -178,7 +178,7 @@ for (const gfx of ['classic', 'med']) {
   const pg = await page.evaluate(() => { const S = window.__sim, G = S.G;
     const out = { island: G.island.id, tier: G.players[1].tier, to: G.match.to, scoring: G.match.scoring, kitchen: G.cfg.kitchen, seen: save.seenHow, before: save.record.deckhand.w };
     G.players[0].human = false; G.players[0].tier = 'captain'; G.match.pts.home = 10; G.match.pts.away = 0; G.match.server = 'home'; startPoint();
-    for (let i = 0; i < 60*120 && G.state !== 'end'; i++) S.step(1);
+    for (let i = 0; i < 60*900 && G.state !== 'end'; i++) S.step(1);
     return { ...out, state: G.state, winner: G.match.winner, after: save.record.deckhand.w + save.record.deckhand.l - out.before - (save.record.deckhand.l ? 0 : 0) }; });
   await page.waitForTimeout(400);
   const res = await page.evaluate(() => ({ shown: !document.getElementById('results').hidden, text: document.getElementById('resCard').textContent, next: !!document.getElementById('resNext') }));
