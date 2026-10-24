@@ -6,7 +6,7 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–9 of 11 are done (v0.1 to v0.5 are live and play-tested). What changed in each version is in the [changelog](CHANGELOG.md).
+Milestones 1–9 of 12 are done (v0.1 to v0.5 are live and play-tested). What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
@@ -24,7 +24,7 @@ Milestones 1–9 of 11 are done (v0.1 to v0.5 are live and play-tested). What ch
 - **v0.4, islands and hazards:** all seven islands have their own set and hazard.
 - **v0.5, booty:** win a rally of 6+ shots for a power-up crate, then press Booty (E, or B on a controller): Cannonball Shot, Peg-Leg Spin, Kraken Ink, Parrot Spotter, Anchor Drop, Fog Bank or Treasure Map. Plus a deck swabber who mops between points.
 
-Voyage and polish, v1.0 (milestone 10) comes next.
+Play-test fixes (milestone 10) come next: steam vents you can recognize, underwater hazards for Davy's Locker, in-game explanations of every hazard and power-up, and pickle-vs-pickle matches. Then Voyage (v1.0) and fight mode.
 
 | Island | Court | Hazard |
 |---|---|---|
@@ -57,8 +57,9 @@ Pick the level on the dock's Brine Bay card, in a custom game, or in the Practic
 | 7 | Doubles and two players | A doubles game scores correctly in every rotation |
 | 8 | Crews and swings | Every shot type has its own swing |
 | 9 | Islands, hazards and booty | Each island plays differently |
-| 10 | Voyage and polish, v1.0 | A new player can reach the Davy's Locker Cup |
-| 11 | Fight mode | You can win the other crew's ship and play your next match on its deck |
+| 10 | Play-test fixes: clear islands, an underwater Locker, crew choice | A new player can say what every hazard and power-up does without leaving the game, and a pickle-vs-pickle match plays on any island |
+| 11 | Voyage and polish, v1.0 | A new player can reach the Davy's Locker Cup |
+| 12 | Fight mode | You can win the other crew's ship and play your next match on its deck |
 
 ## Controls (for now)
 
