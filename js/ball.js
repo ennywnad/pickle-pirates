@@ -11,6 +11,9 @@ const SHELL_K = 2/3;                                  // I/(mR²) for a thin hol
 // one fixed step for the live ball and every prediction of it, so the landing marker, the move-to-ball assist,
 // the CPU and the aim solvers all see exactly the flight that happens
 const BALL_DT = 1/240;
+// island hazards that touch the ball (set by hazards.js): tilt = downhill kick per bounce (ft/s, toward +x);
+// vents = steam vents on a timer (a bounce on a live one launches the ball); tents = tentacles standing up
+let HZ = null;
 
 // one integration step. ev(name, ball, info) is told about 'bounce', 'net', 'tape' and 'post'. Returns the event name or null.
 function ballStep(B, dt, ev){
@@ -22,11 +25,13 @@ function ballStep(B, dt, ev){
   B.vy += (-kd*B.vy + kl*(B.sz*B.vx - B.sx*B.vz))*dt;
   B.vz += (-kd*B.vz + kl*(B.sx*B.vy - B.sy*B.vx) - TUNE.gravity)*dt;
   B.x += B.vx*dt; B.y += B.vy*dt; B.z += B.vz*dt;
+  B.clock = (B.clock || 0) + dt;
   const decay = Math.exp(-TUNE.spinDecay*dt); B.sx *= decay; B.sy *= decay; B.sz *= decay;
   let hit = null;
   if (!B.ghost) {   // ghost balls (used by the aim solvers) fly through the net
     if (B.x > -POST_OUT - 0.5 && B.x < CW + POST_OUT + 0.5) hit = netContact(B, py, pz, ev);
     if (!hit) hit = postContact(B, ev);
+    if (!hit && HZ && HZ.tents.length) hit = tentContact(B, ev);
   }
   if (B.z < BALL_R && B.vz < 0) {
     if (-B.vz < 1.0) { B.z = BALL_R; B.vz = 0; ballRoll(B, dt); return hit; }   // settled: rolling, not bouncing
@@ -95,10 +100,31 @@ function courtBounce(B, ev){
   B.sx += dy/(SHELL_K*R); B.sy += -dx/(SHELL_K*R);
   B.sz *= 0.7;
   if (ev) ev('bounce', B, vin);
+  if (HZ) {
+    if (HZ.tilt) B.vx += HZ.tilt;   // the tilted deck kicks every bounce downhill
+    for (const v of HZ.vents) if (ventOn(v, B.clock || 0) && hyp(B.x - v.x, B.y - v.y) < v.r) {
+      B.vz = Math.max(B.vz, HZ.ventKick); B.vx *= 0.6; B.vy *= 0.6; if (ev) ev('vent', B, vin); break;
+    }
+  }
+}
+// a tentacle standing up through the court: a fat post the ball bounces off
+function tentContact(B, ev){
+  for (const T of HZ.tents) {
+    if (B.z > T.h + BALL_R) continue;
+    const dx = B.x - T.x, dy = B.y - T.y, d = hyp(dx, dy), R = BALL_R + T.r;
+    if (d < R && d > 1e-6) {
+      const nx = dx/d, ny = dy/d, vn = B.vx*nx + B.vy*ny;
+      if (vn < 0) { B.vx -= 1.6*vn*nx; B.vy -= 1.6*vn*ny; B.vz += 2; }
+      B.x = T.x + nx*R; B.y = T.y + ny*R;
+      if (ev) ev('tentacle', B, Math.abs(vn)); return 'tentacle';
+    }
+  }
+  return null;
 }
 // rolling: when the ball is down and not bouncing it rolls to a stop
 function ballRoll(B, dt){
   const k = Math.exp(-1.2*dt); B.vx *= k; B.vy *= k;
+  if (HZ && HZ.tilt) B.vx += HZ.tilt*0.9*dt;   // and runs downhill
   B.sx = -B.vy/BALL_R; B.sy = B.vx/BALL_R;
 }
 
@@ -108,7 +134,7 @@ const landedIn = (x, y) => inCourt(x, y, LINE_GRACE);
 const lineMargin = (x, y) => Math.min(x, CW - x, y, CL - y);   // negative = out, by that many feet
 
 // copy of the parts of the ball the simulation needs
-const ballCopy = B => ({ x:B.x, y:B.y, z:B.z, vx:B.vx, vy:B.vy, vz:B.vz, sx:B.sx, sy:B.sy, sz:B.sz });
+const ballCopy = B => ({ x:B.x, y:B.y, z:B.z, vx:B.vx, vy:B.vy, vz:B.vz, sx:B.sx, sy:B.sy, sz:B.sz, clock:B.clock || 0 });
 // simulate forward; returns samples (every `every` steps), the first bounce, and whether the net stopped it
 function predict(B, T = 3, dt = BALL_DT, every = 8){
   const b = ballCopy(B), pts = []; let first = null, netted = false, apex = b.z, netZ = null;

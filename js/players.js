@@ -3,6 +3,7 @@
 const BOUNDS = { near:{ y0:NETY + 0.6, y1:CL + 8 }, far:{ y0:-8, y1:NETY - 0.6 } };
 function movePlayer(pl, ix, iy, dt){
   for (const k of ['split', 'burst', 'lunge']) if (pl[k] > 0) pl[k] = Math.max(0, pl[k] - dt);
+  if (pl.stun > 0) { ix = 0; iy = 0; pl.vx *= Math.exp(-4*dt); pl.vy *= Math.exp(-4*dt); }   // knocked down by a cannonball
   // a split step lands into a quick first step; a lunge has to recover before you can run again
   const top = TUNE.runSpeed*(pl.speedK || 1)*(pl.lunge > 0 ? 0.35 : 1), acc = TUNE.runAccel*(pl.burst > 0 && pl.split <= 0 ? 1.8 : 1)*(pl.split > 0 ? 0.3 : 1);
   const tvx = ix*top, tvy = iy*top, a = acc*dt;
@@ -11,6 +12,7 @@ function movePlayer(pl, ix, iy, dt){
   pl.x = clamp(pl.x + pl.vx*dt, -6, CW + 6);
   const b = BOUNDS[isNear(pl.team) ? 'near' : 'far']; pl.y = clamp(pl.y + pl.vy*dt, b.y0, b.y1);
   if (pl.y === b.y0 || pl.y === b.y1) pl.vy = 0;
+  hazardPlayer(pl, dt);
   if (hyp(pl.vx, pl.vy) > 2 && pl.swing <= 0) pl.face = Math.atan2(pl.vy, pl.vx);
   else if (pl.swing <= 0 && hyp(pl.vx, pl.vy) < 1) pl.face += (Math.atan2(NETY - pl.y, 0) - pl.face)*Math.min(1, dt*4);   // ready position: face the net
 }
@@ -101,7 +103,7 @@ function humanMove(pl, dt){
     if (pl.spotT <= 0 || !pl.spot) { pl.spotT = 0.1; pl.spot = contactSpot(pl, B); }
     const sp = pl.spot;
     if (sp) {
-      const dx = sp.x - pl.x, dy = sp.y - pl.y, d = hyp(dx, dy);
+      const [gx, gy] = hazardAvoid(sp.x, sp.y), dx = gx - pl.x, dy = gy - pl.y, d = hyp(dx, dy);
       if (d > 0.3) {
         // stick centered: the assist runs you there (near full speed at the default strength); with the stick, it nudges
         const own = hyp(ix, iy), k = (own > 0.2 ? 0.5*TUNE.assist : Math.min(1, 0.35 + TUNE.assist))*Math.min(1, d/1.5);

@@ -2,6 +2,38 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.4.0 · Islands and hazards (milestone 9, part 1) · 2026-10-23
+
+All seven islands now look and play differently. Booty and the deck swabber come next to finish milestone 9.
+
+**Hazards**
+- **Brine Bay: gulls.** A high lob (over 13 ft) may get snatched by a gull, which carries it off and drops it somewhere else on the far side. It's still in play, still your shot.
+- **Shipwreck Shoals: tilted deck.** The court leans. Every bounce kicks the ball downhill, and loose balls roll that way.
+- **Cannon Cove: cannon fire.** Red rings appear on the court, usually near a player. About a second and a half later a cannonball lands: anyone inside is knocked back and stunned for a moment. The CPU and the move-to-ball assist steer out of rings.
+- **Volcano Isle: steam vents.** Four vents puff on staggered timers, with a warning wisp first. A ball that bounces on a live vent is launched high.
+- **Kraken's Reach: tentacles.** Tentacles ripple, rise through the court for a few seconds and sink again. The ball bounces off them and players can't walk through them.
+- **Ghost Galleon: fog.** Fog banks drift across the court and the ball disappears inside them, along with its trail and landing marker. The CPU reads a ball in fog worse too.
+- **Davy's Locker: all of them.** The hazard changes every three rallies, with an announcement.
+
+**How hazards fit the rules**
+- Hazards never change a rule. Calls still go by where the ball lands, and the score still moves only by the rules.
+- The tilt, the vents and the tentacles are part of the ball physics, so the landing marker, the CPU's reads and the move-to-ball assist all account for them.
+- The scoreboard names the island's hazard with a one-line tip.
+- Hazards are on in games and off by default in Practice. The custom-game and Practice setups both have an "Island hazard" switch.
+
+**Island sets**
+- **Shipwreck Shoals:** a sand island with palms and rocks, a beached wreck, a broken mast, and a skull-and-crossed-paddles flag that waves.
+- **Cannon Cove:** a galleon's deck with cannons along both rails, masts and sails beyond the far baseline, a ship's wheel, and a fort on a cliff with smoke.
+- **Volcano Isle:** a volcano with a glowing crater, lava running down its slopes and smoke puffs, plus black rocks with molten seams.
+- **Kraken's Reach:** a raft of logs, with the kraken's arms curling out of the water all round and a whirlpool.
+- **Ghost Galleon:** glowing tattered sails, green lanterns, wisps drifting round the deck, and a big moon.
+- **Davy's Locker:** the seabed, with sand, swaying kelp, coral, treasure chests, fish swimming round and bubbles rising.
+- The classic view draws the hazards too: rings, vents, tentacles, fog, a downhill arrow, and the gull.
+
+**Tests**
+- New `tests/islands.mjs` (run in CI) sets up each hazard directly. It checks the downhill kick, a vent launch the prediction sees (and a quiet vent that does nothing), a tentacle deflection and blocking, a cannon stun and the CPU steering out, fog hiding the ball, and a gull drop on the far side.
+- It also plays CPU games on every island. Every point is scored by the rules and nothing stalls. Each island's own hazard is the only one that shows up, and the Locker rotates through them all.
+
 ## v0.3.0 · Crews and swings (milestone 8) · 2026-10-23
 
 Every crew on the voyage is here, and everyone swings for real.

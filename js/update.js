@@ -24,6 +24,7 @@ function update(dt){
     shotTick(pl, dt);
   }
   refreshTaker(dt);
+  hazardStep(dt);
   // reading aids for each human: the aim reticle and the kitchen warning
   G.aids = humansAll().map(h => ({ pl:h, aim:aimPreview(h), warn:kitchenWarn(h) }));
   G.aimPreview = G.aids[0] ? G.aids[0].aim : null; G.kitchenWarn = G.aids[0] ? G.aids[0].warn : false;
@@ -31,8 +32,8 @@ function update(dt){
 
   // ball
   const B = G.ball;
-  if (B.z > -1 && !serving) {
-    G.ballAcc = (G.ballAcc || 0) + dt;
+  if (B.z > -1 && !serving && !B.carried) {   // a gull carrying the ball moves it itself (hazards.js)
+    G.ballAcc = (G.ballAcc || 0) + dt; B.clock = G.time - G.ballAcc;
     while (G.ballAcc >= BALL_DT - 1e-9) { G.ballAcc -= BALL_DT; ballStep(B, BALL_DT, onBallEvent); }
     if (B.live) { B.trail.push([B.x, B.y, B.z]); if (B.trail.length > 14) B.trail.shift(); } else if (B.trail.length) B.trail.shift();
     rallyWatch(dt);

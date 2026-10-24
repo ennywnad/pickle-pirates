@@ -120,6 +120,7 @@ function renderPractice(){
     <div class="card pset"><h3 class="h">Rules</h3>
       ${tog('kitchen', 'Kitchen rule', 'Volleying with a foot in the kitchen, or stepping in right after a volley, is a fault')}
       ${tog('twoBounce', 'Two-bounce rule', 'The serve and the return must bounce before they\'re hit')}
+      ${tog('hazards', 'Island hazard', 'The island\'s own twist (gulls, a tilted deck, cannon fire, steam vents, tentacles or fog). Off by default in Practice')}
     </div>
     <div class="card pset"><h3 class="h">Reading the ball</h3>
       ${tog('marker', 'Landing marker', 'A ring where the ball will bounce: gold when it lands in, red when it\'s going out')}
@@ -127,9 +128,9 @@ function renderPractice(){
     </div>
     <div class="btns"><button class="btn" id="pracGo" type="button">${pracLive ? 'Apply and resume' : 'Start practice'}</button><button class="btn ghost" id="pracBack" type="button">${pracLive ? 'Back to the pause menu' : 'Back to the dock'}</button></div>`;
   for (const k of Object.keys(PRAC_OPTS)) $('p_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { practice[k] = b.dataset.v; savePractice(); $('p_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
-  for (const k of ['marker', 'height', 'kitchen', 'twoBounce']) $('p_' + k).onchange = e => { practice[k] = e.target.checked; savePractice(); };
+  for (const k of ['marker', 'height', 'kitchen', 'twoBounce', 'hazards']) $('p_' + k).onchange = e => { practice[k] = e.target.checked; savePractice(); };
   if (!pracLive) $('p_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('p_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
-  const go = () => { if (pracLive && G && !G.attract) { G.cfg = { ...practice }; awayLead().tier = AI_TIERS[practice.tier] ? practice.tier : 'bosun'; syncPracLabels(); paused = false; show(null); toast('Settings applied', '', 1000, 'small'); } else startPractice(practiceIsland); };
+  const go = () => { if (pracLive && G && !G.attract) { G.cfg = { ...practice }; awayLead().tier = AI_TIERS[practice.tier] ? practice.tier : 'bosun'; newHazards(); syncPracLabels(); paused = false; show(null); toast('Settings applied', '', 1000, 'small'); } else startPractice(practiceIsland); };
   const back = () => { if (pracLive && G && !G.attract) { paused = true; preparePause(); show('pause'); } else { renderHub(); show('hub'); } };
   $('pracGo').onclick = go; $('pracGoTop').onclick = go; $('pracBack').onclick = back;
 }
@@ -153,6 +154,7 @@ function openGameSetup(){
     <div class="card pset"><h3 class="h">Rules</h3>
       ${tog('kitchen', 'Kitchen rule', 'Volleying with a foot in the kitchen, or stepping in right after a volley, is a fault')}
       ${tog('twoBounce', 'Two-bounce rule', 'The serve and the return must bounce before they\'re hit')}
+      ${tog('hazards', 'Island hazard', 'The island\'s own twist: gulls, a tilted deck, cannon fire, steam vents, tentacles or fog. Never changes the rules')}
     </div>
     <div class="card pset"><h3 class="h">Reading the ball</h3>
       ${tog('marker', 'Landing marker', 'Off by default in games')}
@@ -160,7 +162,7 @@ function openGameSetup(){
     </div>
     <div class="btns"><button class="btn" id="gameGo" type="button">Start the game</button><button class="btn ghost" id="gameBack" type="button">Back to the dock</button></div>`;
   for (const k of ['to', 'scoring', 'tier']) $('g_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { gameCfg[k] = k === 'to' ? Number(b.dataset.v) : b.dataset.v; saveGameCfg(); $('g_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
-  for (const k of ['kitchen', 'twoBounce', 'marker', 'height']) $('g_' + k).onchange = e => { gameCfg[k] = e.target.checked; saveGameCfg(); };
+  for (const k of ['kitchen', 'twoBounce', 'marker', 'height', 'hazards']) $('g_' + k).onchange = e => { gameCfg[k] = e.target.checked; saveGameCfg(); };
   $('g_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('g_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
   $('gameGo').onclick = $('gameGoTop').onclick = () => startGame(null, {});
   $('gameBack').onclick = () => { renderHub(); show('hub'); };

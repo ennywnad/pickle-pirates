@@ -180,8 +180,32 @@ function drawReticle(x, y, r){
   ctx.beginPath(); ctx.ellipse(x, y, r, r*0.55, 0, 0, 7); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x - r*1.4, y); ctx.lineTo(x - r*0.5, y); ctx.moveTo(x + r*0.5, y); ctx.lineTo(x + r*1.4, y); ctx.moveTo(x, y - r*0.8); ctx.lineTo(x, y - r*0.3); ctx.moveTo(x, y + r*0.3); ctx.lineTo(x, y + r*0.8); ctx.stroke(); ctx.restore();
 }
+// island hazards from above: rings, vents and tentacles on the court; fog and the gull over everything
+function drawHazardsUnder(t){
+  const H = G.haz; if (!H) return;
+  ctx.save();
+  if (H.kind === 'cannon') for (const z of H.zones) { const k = Math.min(1, z.t/z.warn), rx = z.r*scale, ry = z.r*scale*(sy(1) - sy(0) || scale)/scale;
+    ctx.fillStyle = `rgba(255,70,50,${0.15 + 0.25*k})`; ctx.strokeStyle = `rgba(255,90,60,${0.6 + 0.4*Math.abs(Math.sin(t*10))})`; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(sx(z.x), sy(z.y), rx, Math.abs(ry), 0, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.ellipse(sx(z.x), sy(z.y), rx*k, Math.abs(ry)*k, 0, 0, 7); ctx.fill(); }
+  if (H.kind === 'vents') for (const v of H.vents) { const on = ventOn(v, G.time), warn = ventWarn(v, G.time);
+    ctx.fillStyle = '#2a2a30'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx(v.x), sy(v.y), v.r*scale*0.7, 0, 7); ctx.fill(); ctx.stroke();
+    if (on || warn) { ctx.fillStyle = `rgba(235,240,245,${on ? 0.7 : 0.3})`; for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.arc(sx(v.x) + Math.sin(t*9 + k)*v.r*scale*0.3, sy(v.y, (on ? 1 + k*1.2 : 0.4*k) + (t*3 % 1)), v.r*scale*(0.35 + k*0.06), 0, 7); ctx.fill(); } } }
+  if (H.kind === 'tentacles') for (const T of H.tents) { const x = sx(T.x), y = sy(T.y);
+    if (T.h < 1) { ctx.strokeStyle = 'rgba(200,140,255,.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, scale*(0.9 + (T.t % 0.5)*2), 0, 7); ctx.stroke(); }
+    else { ctx.fillStyle = '#8a4ab0'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - T.r*scale, y); ctx.quadraticCurveTo(x - T.r*scale*0.3, sy(T.y, T.h*0.6), x + Math.sin(t*2)*scale*0.4, sy(T.y, T.h)); ctx.quadraticCurveTo(x + T.r*scale*0.5, sy(T.y, T.h*0.5), x + T.r*scale, y); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
+  if (H.kind === 'tilt') { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '12px Bungee, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(FLIP ? '◀ DOWNHILL' : 'DOWNHILL ▶', sx(CW/2), sy(NETY + (FLIP ? -1 : 1)*KD*0.5)); }
+  ctx.restore();
+}
+function drawHazardsOver(t){
+  const H = G.haz; if (!H) return;
+  ctx.save();
+  if (H.kind === 'fog') for (const f of H.fog) { ctx.fillStyle = 'rgba(225,240,236,.55)'; for (const [dx, dy, k] of [[0, 0, 1], [0.4, -0.3, 0.7], [-0.45, 0.25, 0.75]]) { ctx.beginPath(); ctx.ellipse(sx(f.x + dx*f.w), sy(f.y + dy*f.h), f.w*scale*k, f.h*scale*k*0.9, 0, 0, 7); ctx.fill(); } }
+  if (H.gull) { const B = G.ball, x = sx(B.x), y = sy(B.y, B.z + 0.8), f = Math.sin(t*16)*6; ctx.strokeStyle = '#f4f2ec'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - 16, y - f); ctx.quadraticCurveTo(x - 7, y - 8, x, y); ctx.quadraticCurveTo(x + 7, y - 8, x + 16, y - f); ctx.stroke(); }
+  ctx.restore();
+}
 function drawBall(){
-  const B = G.ball; if (B.z < -0.5) return;
+  const B = G.ball; if (B.z < -0.5 || ballHidden()) return;   // lost in the fog (Ghost Galleon)
   const r = Math.max(3, BALL_R*scale*2.2);
   if (G.landing) { const lx = sx(G.landing.x), ly = sy(G.landing.y); ctx.strokeStyle = G.landing.in ? 'rgba(255,194,58,.9)' : 'rgba(255,90,60,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(lx, ly, r*1.8, r*0.9, 0, 0, 7); ctx.stroke(); }
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(sx(B.x), sy(B.y), r*0.9, r*0.45, 0, 0, 7); ctx.fill();
@@ -219,12 +243,14 @@ function render(now){
   // far side first, then the net, then the near side, so overlaps read right
   const top = y => FLIP ? y > NETY : y <= NETY, far = G.players.filter(p => top(p.y)), near = G.players.filter(p => !top(p.y)), ballFar = top(G.ball.y);
   drawCannon();
+  drawHazardsUnder(t);
   for (const a of G.aids || []) { drawReach(a.pl, t); if (a.aim) drawReticle(sx(a.aim.x), sy(a.aim.y), scale*0.9); }
   for (const p of far) drawPlayer(p, t);
   if (ballFar) drawBall();
   drawNet();
   if (!ballFar) drawBall();
   for (const p of near) drawPlayer(p, t);
+  drawHazardsOver(t);
   for (const p of G.pops) drawPop(p, sx(p.x), sy(p.y, p.lift || 4));
   for (const h of humansAll()) { drawQueue(h, sx(h.x), sy(h.y) - PL_R*scale*3.2); drawTag(h, sx(h.x), sy(h.y) - PL_R*scale*2.6); }
   ctx.restore();
@@ -253,7 +279,7 @@ function updateHud(){
   setT('aSub', S.server === 'away' ? mark : G.island.opp.name.toUpperCase());
   const yours = G.state === 'serve' && srv && srv.human;
   const whose = !yours ? '' : two ? `P${srv.pad + 1} to serve` : 'Your serve';
-  setT('objText', yours ? `${whose} · press Drive, Soft or Lob` : gp ? `Game point · ${teamName(gp)}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
+  setT('objText', yours ? `${whose} · press Drive, Soft or Lob` : gp ? `Game point · ${teamName(gp)}` : G.haz ? `${G.island.name} · ${HAZ_NAME[G.haz.kind]}: ${HAZ_TIP[G.haz.kind].toLowerCase()}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
   const srvName = srv ? (srv.human ? (two ? `P${srv.pad + 1}` : 'you') : `${srv.team === 'home' ? HOME.abbr : G.island.opp.abbr}${S.doubles ? ' ' + (srv.slot + 1) : ''}`) : '';
   setT('objProg', G.state === 'play' ? `Rally ${G.rally}` : `Server ${srvName} · ${serverCourt(S)} court`);
 }

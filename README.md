@@ -21,7 +21,19 @@ Milestones 1–5 of 11 are done. Milestones 6 (the first playable, v0.1), 7 (dou
 
 - **v0.3, crews and swings:** all seven crews (crabs, skeletons, powder monkeys, magma men, squid, ghosts and anglerfish), arms that swing a paddle, a separate swing for every shot that meets the ball on the contact frame, and celebrations between points.
 
-Islands, hazards and booty (milestone 9) come next.
+- **v0.4, islands and hazards:** all seven islands have their own set and hazard. Booty (power-ups) and the deck swabber finish milestone 9 next.
+
+| Island | Court | Hazard |
+|---|---|---|
+| Brine Bay | Harbor dock | Gulls snatch high lobs and drop them somewhere else on the far side, still in play |
+| Shipwreck Shoals | A beached wreck's deck | The deck tilts: every bounce kicks the ball downhill, and loose balls roll that way |
+| Cannon Cove | A galleon's main deck | Cannonballs splash marked rings: anyone inside is knocked back and stunned |
+| Volcano Isle | Black-rock court | Steam vents puff on a timer: a bounce on a live vent launches the ball |
+| Kraken's Reach | A raft of logs | Tentacles rise through the court: the ball bounces off them, players can't pass |
+| Ghost Galleon | A spectral deck | Fog banks drift across and hide the ball |
+| Davy's Locker | The seabed | All of the above, changing every three rallies |
+
+Hazards never change a rule: the ball is still called in or out where it lands, and the score moves only by the rules. The landing marker, the CPU and the move-to-ball assist all see the tilt, the vents and the tentacles, because they're part of the ball physics. Hazards are on in games and off by default in Practice; both setups have a switch.
 
 | Level | How it plays |
 |---|---|
@@ -142,6 +154,7 @@ js/swings.js      the paddle's path for every shot (backswing, contact, follow-t
 js/rules.js       the rules engine: scoring, serving, two-bounce, kitchen, ends (pure, tested on its own)
 js/referee.js     runs points: serving, faults and calls, side outs, switching ends, the ball cannon
 js/players.js     footwork, move-to-ball assist, kitchen guard
+js/hazards.js     the islands' hazards: gulls, tilt, cannon fire, steam vents, tentacles, fog
 js/ai.js          the CPU: three levels, reading the ball, positioning, shot choice, serves
 js/input.js       remappable keys, controllers, touch, controls screen
 js/update.js      per-frame step

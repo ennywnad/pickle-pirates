@@ -83,6 +83,7 @@ function startPoint(){
   }
   for (const pl of G.players) { pl.queue = null; pl.momentum = 0; pl.spot = null; pl.wind = null; pl.hit = null; if (!pl.human) aiNewPoint(pl); }
   G.pendingEnd = null; G.serveReq = null;
+  hazardNewPoint();
 }
 // glide everyone to their spots, then wait for the serve
 function serveSetup(dt){
@@ -150,6 +151,7 @@ function doServe(pl, kind, aim, place){
 function onBallEvent(e, B, vin){
   if (e === 'bounce') {
     sfx('bounce', clamp(vin/20, 0.2, 1));
+    if (HZ && HZ.tilt && B.live) count('tilt');
     for (let i=0;i<5;i++) G.parts.push({ x:B.x, y:B.y, z:0.1, vx:rand(-3,3), vy:rand(-3,3), vz:rand(1,3), life:0.4, max:0.4, s:rand(0.15,0.3), c:'#e8e0c8' });
     if (!B.live) return;
     const side = sideOf(B.y), hitter = B.lastBy;
@@ -171,6 +173,8 @@ function onBallEvent(e, B, vin){
     if (B.bounces >= 2) return endRally(side, 'double bounce', B.x, B.y);
   } else if (e === 'net') { sfx('net'); G.shake = Math.max(G.shake, 0.3); }
   else if (e === 'tape') sfx('tape');
+  else if (e === 'vent') { sfx('splash', 0.6); count('vents'); for (let i = 0; i < 10; i++) G.parts.push({ x:B.x, y:B.y, z:0.3, vx:rand(-2,2), vy:rand(-2,2), vz:rand(6,12), life:0.8, max:0.8, s:rand(0.3,0.6), c:'#e8eef0' }); }
+  else if (e === 'tentacle') { sfx('post'); count('tentacles'); }
   else if (e === 'post') { sfx('post'); if (B.live && B.lastBy) endRally(B.lastBy, 'post', B.x, B.y); }
 }
 // a stroke was just made: check it against the two-bounce and kitchen rules

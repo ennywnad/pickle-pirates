@@ -68,7 +68,7 @@ const PRAC_OPTS = {
   opp:   [['cpu','A crew returns it'],['none','Cannon only']],
   tier:  [['deckhand','Deckhand'],['bosun','Bosun'],['captain','Captain']],
 };
-const practiceDef = () => ({ feed:'mix', place:'random', spin:'none', pace:'normal', rate:'normal', opp:'cpu', marker:true, height:true, kitchen:true, twoBounce:true, tier:'bosun' });
+const practiceDef = () => ({ feed:'mix', place:'random', spin:'none', pace:'normal', rate:'normal', opp:'cpu', marker:true, height:true, kitchen:true, twoBounce:true, tier:'bosun', hazards:false });
 let practice = practiceDef();
 try { const pr = JSON.parse(localStorage.getItem('pickle-practice') || 'null'); if (pr && typeof pr === 'object') for (const k in practice) if (k in pr && (typeof pr[k] === typeof practice[k]) && (!PRAC_OPTS[k] || PRAC_OPTS[k].some(o => o[0] === pr[k]))) practice[k] = pr[k]; } catch(e) {}
 const savePractice = () => { try { localStorage.setItem('pickle-practice', JSON.stringify(practice)); } catch(e) {} };
@@ -76,7 +76,7 @@ const FEED_DELAY = { fast:0.6, normal:1.4, slow:2.4 }, PACE = { slow:0.85, norma
 
 // ---------------- singles game settings (saved per browser)
 const GAME_OPTS = { to:[[11,'11'],[15,'15'],[21,'21']], scoring:[['sideout','Side-out (standard)'],['rally','Rally scoring']], tier:[['deckhand','Deckhand · easy'],['bosun','Bosun · medium'],['captain','Captain · hard']] };
-const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true, tier:'bosun' });
+const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true, tier:'bosun', hazards:true });
 let gameCfg = gameDef();
 try { const g = JSON.parse(localStorage.getItem('pickle-game') || 'null'); if (g && typeof g === 'object') for (const k in gameCfg) if (k in g && typeof g[k] === typeof gameCfg[k]) gameCfg[k] = g[k]; } catch(e) {}
 const saveGameCfg = () => { try { localStorage.setItem('pickle-game', JSON.stringify(gameCfg)); } catch(e) {} };
@@ -118,6 +118,7 @@ function newMatch(islandId, attract, mode, opts = {}){
   if (attract) { const a = pick(AI_ORDER), h = pick(['bosun', 'captain']); for (const pl of G.players) pl.tier = pl.team === 'away' ? a : h; }
   // two humans on opposite teams: a side-on view that favors neither
   G.view = new Set(G.players.filter(p => p.human).map(p => p.team)).size > 1 ? 'side' : 'behind';
+  newHazards();   // the island's hazard (hazards.js)
   if (mode === 'game') {
     G.match = newScore({ to:cfg.to, scoring:cfg.scoring, doubles, server: Math.random() < 0.5 ? 'home' : 'away' });
     G.score = G.match.pts;

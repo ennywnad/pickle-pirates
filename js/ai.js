@@ -34,7 +34,7 @@ function aiPlayer(pl, dt){
   if (incoming && ai.rollFor !== G.shotN) {
     ai.rollFor = G.shotN;
     ai.react = T.react*(0.75 + Math.random()*0.5) + (hyp(B.vx, B.vy) > 60 ? 0.05 : 0);
-    const a = Math.random()*Math.PI*2, e = T.read*(0.4 + Math.random()*0.6);
+    const a = Math.random()*Math.PI*2, e = T.read*(0.4 + Math.random()*0.6)*fogPenalty();   // a ball in the fog is harder to read
     ai.err = [Math.cos(a)*e, Math.sin(a)*e];
     ai.pressAt = Math.random() < T.whiff ? -1 : clamp(rand(T.press[0], T.press[1]) + gauss()*T.pressSd, 0.02, 1.0);
     ai.plan = null; ai.think = 0;
@@ -47,6 +47,7 @@ function aiPlayer(pl, dt){
       pl.spot = contactSpot(pl, B); pl.spotAt = G.time;
       if (pl.spot) { const k = Math.min(1, pl.spot.t/0.8); ai.tx = pl.spot.x + ai.err[0]*k; ai.ty = pl.spot.y + ai.err[1]*k; }
     } else { pl.spot = null; const p = readySpot(pl); ai.tx = p.x; ai.ty = p.y; }
+    [ai.tx, ai.ty] = hazardAvoid(ai.tx, ai.ty);   // stay out of a cannon ring that's about to land
   }
   // move: hold still through the reaction time, then go
   let ix = 0, iy = 0;

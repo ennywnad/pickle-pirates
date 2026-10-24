@@ -355,6 +355,70 @@ async function init(){
   const partMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.6, 1.5, 1.3) }), PART_MAX); partMesh.frustumCulled = false; partMesh.count = 0; dyn.add(partMesh);
 
   let figs = [];
+
+  // ------------------------------------------------ hazards on the court (hazards.js decides; this draws)
+  const hazG = new THREE.Group(); dyn.add(hazG);
+  const hzRingMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.6, 0.45, 0.3), transparent:true, opacity:0.8, depthWrite:false });
+  const hzFillMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.2, 0.3, 0.2), transparent:true, opacity:0.25, depthWrite:false });
+  const ironMat = celMat('#26262c');
+  // cannon rings: an outline, a fill that grows as the shot comes, and the cannonball dropping in at the end
+  const zonePool = [0, 1, 2].map(() => { const g = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 40).rotateX(-Math.PI/2), hzRingMat); ring.renderOrder = 2; g.add(ring);
+    const fill = new THREE.Mesh(new THREE.CircleGeometry(1, 40).rotateX(-Math.PI/2), hzFillMat); fill.renderOrder = 2; fill.position.y = 0.01; g.add(fill);
+    const shot = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), ironMat), 1.1); g.add(shot);
+    g.visible = false; hazG.add(g); return { g, ring, fill, shot }; });
+  // steam vents: an iron grate in the court and a column of steam when it blows
+  const steamMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.5, 1.5, 1.5), transparent:true, opacity:0.5, depthWrite:false });
+  const ventPool = [0, 1, 2, 3].map(() => { const g = new THREE.Group();
+    const grate = withInk(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.06, 20), ironMat), 1.02); grate.position.y = 0.03; g.add(grate);
+    for (let i = -2; i <= 2; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.7), celMat('#4a4048')); bar.position.set(i*0.32, 0.07, 0); g.add(bar); }
+    const steam = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 1, 14, 1, true).translate(0, 0.5, 0), steamMat); steam.renderOrder = 3; g.add(steam);
+    g.visible = false; hazG.add(g); return { g, steam }; });
+  // tentacles: a curling purple limb with suckers, and a ripple ring while it's coming up
+  const tentMat = celMat('#8a4ab0'), suckMat = celMat('#f2a5e0');
+  const rippleMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.6, 1.0, 2.2), transparent:true, opacity:0.7, depthWrite:false });
+  const tentPool = [0, 1, 2].map(() => { const g = new THREE.Group(), limb = new THREE.Group(); g.add(limb);
+    const curve = new THREE.CatmullRomCurve3([[0, 0, 0], [0.2, 2, 0.1], [-0.1, 4, 0.3], [0.5, 5.6, 0.2], [1.1, 6.3, -0.2]].map(p => new THREE.Vector3(...p)));
+    const geo = new THREE.TubeGeometry(curve, 24, 0.7, 10), P = geo.attributes.position;
+    for (let i = 0; i < P.count; i++) { const k = 1 - Math.min(1, P.getY(i)/6.5)*0.8, cx = curve.getPoint(Math.max(0, Math.min(1, P.getY(i)/6.4))); P.setX(i, cx.x + (P.getX(i) - cx.x)*k); P.setZ(i, cx.z + (P.getZ(i) - cx.z)*k); }
+    geo.computeVertexNormals(); limb.add(withInk(new THREE.Mesh(geo, tentMat), 1.06));
+    for (let k = 0; k < 6; k++) { const p = curve.getPoint(0.12 + k*0.13), s = new THREE.Mesh(new THREE.CircleGeometry(0.16*(1 - k*0.1), 10), suckMat); s.position.set(p.x, p.y, p.z + 0.55*(1 - k*0.1)); limb.add(s); }
+    const ripple = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.05, 36).rotateX(-Math.PI/2), rippleMat); ripple.position.y = 0.04; ripple.renderOrder = 2; g.add(ripple);
+    g.visible = false; hazG.add(g); return { g, limb, ripple }; });
+  // fog banks: soft white lumps that drift across
+  const fogMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(0.85, 1.0, 0.95), transparent:true, opacity:0.42, depthWrite:false });
+  const fogPool = [0, 1, 2].map(() => { const g = new THREE.Group();
+    for (const [x, y, z, s] of [[0, 2, 0, 1], [0.5, 4.5, 0.3, 0.75], [-0.55, 3.6, -0.2, 0.8], [0.2, 6.5, 0, 0.55]]) { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), fogMat); m.position.set(x, y, z); m.scale.setScalar(s); m.renderOrder = 4; g.add(m); }
+    g.visible = false; hazG.add(g); return g; });
+  // the gull that carries the ball off (Brine Bay, and the Locker's gull rounds)
+  const carrier = new THREE.Group();
+  { const w = celMat('#f4f2ec'), gr = celMat('#9aa0a8'), beak = celMat('#e8b030');
+    const body = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 8), w), 1.12); body.scale.set(0.8, 0.7, 1.6); carrier.add(body);
+    const head = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), w), 1.12); head.position.set(0, 0.35, 1.0); carrier.add(head);
+    const bk = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.5, 6), beak); bk.rotation.x = Math.PI/2; bk.position.set(0, 0.3, 1.5); carrier.add(bk);
+    carrier.userData.wings = [-1, 1].map(s => { const g = new THREE.Group(); const m = withInk(new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 0.9), w), 1.1); m.position.x = s*1.4; g.add(m);
+      const tip = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.11, 0.8), gr); tip.position.x = s*2.6; g.add(tip); carrier.add(g); return g; }); }
+  carrier.visible = false; hazG.add(carrier);
+  function updateHazards(G, t){
+    const H = G.haz, kind = H && H.kind;
+    // the tilted deck: the whole court leans toward its downhill side
+    const tilt = kind === 'tilt' ? -0.065 : 0; world.rotation.z += (tilt - world.rotation.z)*0.08; dyn.rotation.z = world.rotation.z;
+    zonePool.forEach((z, i) => { const Z = kind === 'cannon' && H.zones[i]; z.g.visible = !!Z; if (!Z) return;
+      W(Z.x, Z.y, 0.05, z.g.position); const k = Math.min(1, Z.t/Z.warn); z.ring.scale.setScalar(Z.r); z.fill.scale.setScalar(Z.r*k);
+      hzRingMat.opacity = 0.55 + 0.4*Math.abs(Math.sin(t*10)); z.shot.visible = Z.t > Z.warn - 0.5 && !Z.hit; z.shot.position.y = Math.max(0.5, (Z.warn - Z.t)*60); });
+    ventPool.forEach((v, i) => { const V = kind === 'vents' && H.vents[i]; v.g.visible = !!V; if (!V) return;
+      W(V.x, V.y, 0, v.g.position); v.g.scale.set(V.r*0.75, 1, V.r*0.75);
+      const on = ventOn(V, G.time), warn = ventWarn(V, G.time); v.steam.visible = on || warn;
+      v.steam.scale.set(1, on ? 7 + Math.sin(t*20)*0.6 : 1.2 + Math.sin(t*14)*0.3, 1); steamMat.opacity = on ? 0.55 : 0.35; });
+    tentPool.forEach((p, i) => { const T = kind === 'tentacles' && H.tents[i]; p.g.visible = !!T; if (!T) return;
+      W(T.x, T.y, 0, p.g.position); p.limb.visible = T.h > 0.05; p.limb.scale.set(T.r/0.7, Math.max(0.01, T.h/6.5), T.r/0.7); p.limb.rotation.y = t*0.6 + i*2; p.limb.rotation.z = Math.sin(t*2.2 + i)*0.12;
+      p.ripple.visible = T.h < 1; p.ripple.scale.setScalar(1 + (T.t % 0.5)*2); });
+    fogPool.forEach((g, i) => { const F = kind === 'fog' && H.fog[i]; g.visible = !!F; if (!F) return; W(F.x, F.y, 0, g.position); g.scale.set(F.w*0.95, 2.4, F.h*0.95); g.rotation.y = Math.sin(t*0.3 + i)*0.2; });
+    carrier.visible = !!(H && H.gull);
+    if (carrier.visible) { const B = G.ball, g = H.gull; W(B.x, B.y, B.z + 0.9, carrier.position); carrier.rotation.y = Math.atan2(g.to.x - g.from.x, g.to.y - g.from.y);
+      const f = Math.sin(t*16)*0.6; carrier.userData.wings[0].rotation.z = f; carrier.userData.wings[1].rotation.z = -f; }
+  }
+
   // ------------------------------------------------ crew figures
   // Each crew is built from simple shapes in the cel style. Every figure gets the same rig on top: a body group that
   // bobs, twists, crouches and hops with the swing, and two-bone arms that reach the paddle wherever swings.js puts it
@@ -554,6 +618,116 @@ async function init(){
     geos.forEach(g => g.dispose()); mats.forEach(m => m.dispose());
   }
 
+
+  // ------------------------------------------------ the other six islands' sets (each shown on its own island)
+  const sets = {}, setTicks = {};
+  const mk = (geo, mat, ink) => { const m = new THREE.Mesh(geo, mat); return ink ? withInk(m, ink) : m; };
+  const curveTube = (pts, r, mat, segs = 16, ink = 1.4) => { const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))), m = new THREE.Mesh(new THREE.TubeGeometry(c, segs, r, 8), mat); if (ink) m.add(new THREE.Mesh(new THREE.TubeGeometry(c, segs, r*ink, 8), inkMat)); return m; };
+  function palm(x, z, h = 12, lean = 0.3){
+    const g = new THREE.Group(), trunk = curveTube([[0, 0, 0], [lean*2, h*0.5, 0], [lean*5, h, 0]], 0.45, celMat('#8a6a44'), 12, 1.25); g.add(trunk);
+    for (let i = 0; i < 6; i++) { const a = i/6*Math.PI*2, leaf = mk(new THREE.ConeGeometry(0.9, 6, 4), celMat(i % 2 ? '#3f7a30' : '#4f8f3a'), 1.06); leaf.scale.set(1, 1, 0.25);
+      leaf.position.set(lean*5 + Math.cos(a)*2.4, h - 0.6, Math.sin(a)*2.4); leaf.rotation.set(Math.sin(a)*1.2, 0, -Math.cos(a)*1.2); g.add(leaf); }
+    g.position.set(x, -1.2, z); return g;
+  }
+  function hull(L, H, beam, col){   // a simple boat hull, tapered at the bow (same idea as the harbor boats)
+    const s = new THREE.Shape(); s.moveTo(-L/2, H); s.lineTo(L/2 + L*0.12, H*1.15); s.quadraticCurveTo(L/2, H*0.1, L*0.2, 0); s.lineTo(-L/2 + L*0.08, 0); s.quadraticCurveTo(-L/2, H*0.2, -L/2, H);
+    const geo = new THREE.ExtrudeGeometry(s, { depth:beam, bevelEnabled:false, curveSegments:8 }); geo.translate(0, 0, -beam/2);
+    const P = geo.attributes.position; for (let i = 0; i < P.count; i++) { const u = (P.getX(i) + L/2)/(L*1.12), plan = u < 0.55 ? 1 : Math.max(0.08, Math.cos((u - 0.55)/0.45*Math.PI/2)); P.setZ(i, P.getZ(i)*plan*(0.5 + 0.5*Math.min(1, P.getY(i)/H))); }
+    geo.computeVertexNormals(); return mk(geo, celMat(col), 1.03);
+  }
+  function mast(h, sail, mat){ const g = new THREE.Group(); g.add(mk(new THREE.CylinderGeometry(0.3, 0.4, h, 8), celMat('#4a3420'), 1.1)); g.children[0].position.y = h/2;
+    if (sail) for (const [y, w] of [[0.45, 1], [0.72, 0.8]]) { const sq = new THREE.Mesh(new THREE.PlaneGeometry(9*w, h*0.22, 6, 2), mat); const P = sq.geometry.attributes.position; for (let i = 0; i < P.count; i++) P.setZ(i, Math.cos(P.getX(i)/(9*w)*Math.PI)*0.9); sq.position.set(0, h*y, 0.9); g.add(sq);
+      const yard = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 10*w, 6), celMat('#4a3420')); yard.rotation.z = Math.PI/2; yard.position.set(0, h*y + h*0.11, 0.7); g.add(yard); }
+    return g; }
+  // Shipwreck Shoals: a sand island behind, palms, a beached wreck with a broken mast and a skull flag
+  { const g = new THREE.Group(); sets.wreck = g;
+    const sand = mk(new THREE.SphereGeometry(1, 24, 12), celVar('#d8c08a')); sand.scale.set(120, 6, 40); sand.position.set(0, -4.5, -95); g.add(sand);
+    const shoal = mk(new THREE.SphereGeometry(1, 20, 10), celVar('#cdb07a')); shoal.scale.set(26, 2.2, 14); shoal.position.set(-44, -2.6, -20); g.add(shoal);
+    for (const [x, z, h, l] of [[-40, -88, 14, 0.4], [-28, -94, 11, -0.3], [18, -90, 15, 0.2], [46, -84, 12, -0.5], [-48, -22, 10, 0.5]]) g.add(palm(x, z, h, l));
+    const wreck = hull(36, 7, 11, '#3a2a1e'); wreck.position.set(36, -2.5, -46); wreck.rotation.set(0.05, 0.6, 0.32); g.add(wreck);
+    const broken = mast(18, false); broken.position.set(30, 2, -44); broken.rotation.set(0.2, 0, -0.9); g.add(broken);
+    const flagC = document.createElement('canvas'); flagC.width = 96; flagC.height = 64; { const c = flagC.getContext('2d'); c.fillStyle = '#1b1416'; c.fillRect(0, 0, 96, 64); c.fillStyle = '#efe8d4'; c.beginPath(); c.arc(48, 26, 13, 0, 7); c.fill(); c.fillRect(41, 34, 14, 9); c.fillStyle = '#1b1416'; c.beginPath(); c.arc(43, 25, 4, 0, 7); c.arc(53, 25, 4, 0, 7); c.fill(); c.strokeStyle = '#efe8d4'; c.lineWidth = 4; c.beginPath(); c.moveTo(20, 52); c.lineTo(76, 12); c.moveTo(20, 12); c.lineTo(76, 52); c.stroke(); }
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 3, 8, 2), new THREE.MeshBasicNodeMaterial({ map:canvasTex(flagC), side:THREE.DoubleSide })); flag.position.set(18, 10, -40); g.add(flag);
+    const pole = mk(new THREE.CylinderGeometry(0.15, 0.15, 12, 6), celMat('#4a3420'), 1.1); pole.position.set(15.7, 5, -40); g.add(pole);
+    for (const [x, z, s] of [[-30, -60, 3], [26, -62, 2.4], [-52, -40, 2], [50, -20, 2.8]]) { const r = mk(new THREE.DodecahedronGeometry(s, 0), celMat('#6e6a62'), 1.05); r.position.set(x, -1.2, z); g.add(r); }
+    setTicks.wreck = t => { const P = flag.geometry.attributes.position; for (let i = 0; i < P.count; i++) P.setZ(i, Math.sin(P.getX(i)*1.2 + t*5)*0.25*(P.getX(i) + 2.25)/4.5); P.needsUpdate = true; };
+  }
+  // Cannon Cove: the court is a galleon's main deck: cannons along both rails, masts and sails fore and aft, a fort on the cliff
+  { const g = new THREE.Group(); sets.cannon = g;
+    const iron = celMat('#2a2a30'), carriage = celMat('#6b4520'), sail = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color('#f2e8cc'), side:THREE.DoubleSide });
+    for (const sx of [-1, 1]) {
+      const side = hull(DECK_L + 10, 6, 1.4, '#5a3a20'); side.rotation.y = Math.PI/2; side.position.set(sx*(DECK_W/2 + 1.6), -5.5, 0); side.scale.set(1, 1, 1); g.add(side);
+      for (let i = 0; i < 6; i++) { const c = new THREE.Group(), z = -DECK_L/2 + 5 + i*(DECK_L - 10)/5;
+        const barrel = mk(new THREE.CylinderGeometry(0.35, 0.5, 2.6, 12), iron, 1.1); barrel.rotation.z = sx*Math.PI/2; barrel.position.set(sx*0.6, 1.1, 0); c.add(barrel);
+        const car = mk(new THREE.BoxGeometry(1.6, 0.7, 1.2), carriage, 1.06); car.position.y = 0.45; c.add(car);
+        c.position.set(sx*(DECK_W/2 - 1.6), 0, z); g.add(c); }
+    }
+    for (const [x, z, h] of [[0, -DECK_L/2 - 4, 34], [-DECK_W/2 - 2, -DECK_L/2 + 6, 24], [DECK_W/2 + 2, -DECK_L/2 + 6, 24]]) { const m = mast(h, true, sail); m.position.set(x, 0, z); m.scale.setScalar(x ? 0.8 : 1); g.add(m); }   // fore and side masts, all beyond the far baseline: nothing in front of the camera
+    const wheel = new THREE.Group(); const rim = mk(new THREE.TorusGeometry(1.2, 0.12, 6, 20), carriage, 1.1); wheel.add(rim); for (let i = 0; i < 8; i++) { const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.2, 5), carriage); sp.rotation.z = i*Math.PI/8; wheel.add(sp); }
+    wheel.position.set(DECK_W/2 - 3, 2.2, -DECK_L/2 + 1.5); g.add(wheel);
+    const cliff = mk(new THREE.SphereGeometry(1, 16, 10), celVar('#8a7a64')); cliff.scale.set(60, 26, 30); cliff.position.set(-60, -6, -130); g.add(cliff);
+    const fort = mk(new THREE.CylinderGeometry(6, 7, 14, 10), celMat('#b8ab90'), 1.03); fort.position.set(-52, 22, -120); g.add(fort);
+    for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 1.4), celMat('#b8ab90')); const a = i/10*Math.PI*2; m.position.set(-52 + Math.cos(a)*6.3, 29.6, -120 + Math.sin(a)*6.3); g.add(m); }
+    const smoke = []; for (let i = 0; i < 4; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(1.4, 10, 8), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.3, 1.3, 1.3), transparent:true, opacity:0.5, depthWrite:false })); g.add(s); smoke.push(s); }
+    setTicks.cannon = t => { wheel.rotation.z = Math.sin(t*0.4)*0.3; smoke.forEach((s, i) => { const u = (t*0.25 + i/4) % 1; s.position.set(-46 + u*6, 30 + u*14, -116); s.scale.setScalar(1 + u*3); s.material.opacity = 0.5*(1 - u); }); };
+  }
+  // Volcano Isle: a volcano behind, glowing at the top with lava running down, black rocks all round
+  { const g = new THREE.Group(); sets.volcano = g;
+    const VX = 10, VY = 50, VZ = -125;   // close enough that its slopes and lava show above the far baseline
+    const cone = mk(new THREE.ConeGeometry(64, 60, 24, 1, true), celVar('#2a1e1a')); cone.position.set(VX, VY - 30, VZ); g.add(cone);
+    const crater = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 1, 20), glow(2.8, 1.0, 0.25)); crater.position.set(VX, VY - 2, VZ); g.add(crater);
+    const lavaMat = glow(2.6, 0.8, 0.2), flows = [];
+    for (const [a, len] of [[-0.5, 1], [0.15, 0.8], [0.6, 0.9]]) { const pts = []; for (let k = 0; k <= 6; k++) { const u = k/6*len, r = 9 + u*58; pts.push([VX + Math.sin(a + Math.sin(k)*0.06)*r, VY - 2 - u*55, VZ + Math.cos(a)*r*0.95]); }
+      const f = curveTube(pts, 1.1, lavaMat, 24, 0); g.add(f); flows.push(f); }
+    for (const [x, z, s] of [[-30, -40, 4], [32, -48, 5], [-44, -10, 3], [40, 4, 3.5], [-26, 24, 2.6], [30, 30, 3]]) { const r = mk(new THREE.DodecahedronGeometry(s, 0), celMat('#1c1614'), 1.05); r.position.set(x, -1.3, z); r.rotation.set(x, z, 0); g.add(r);
+      const seam = new THREE.Mesh(new THREE.TorusGeometry(s*0.8, 0.12, 4, 12), lavaMat); seam.position.set(x, -0.6, z); seam.rotation.x = Math.PI/2; g.add(seam); }
+    const puffs = []; for (let i = 0; i < 5; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(4, 10, 8), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(0.35, 0.3, 0.3), transparent:true, opacity:0.6, depthWrite:false })); g.add(s); puffs.push(s); }
+    setTicks.volcano = t => { const k = 0.8 + 0.25*Math.sin(t*2); lavaMat.color.setRGB(2.6*k, 0.8*k, 0.2*k); puffs.forEach((s, i) => { const u = (t*0.08 + i/5) % 1; s.position.set(VX + Math.sin(i*2 + t*0.2)*8*u, VY + 2 + u*40, VZ); s.scale.setScalar(1 + u*2.5); s.material.opacity = 0.6*(1 - u); }); };
+  }
+  // Kraken's Reach: the court floats on a raft of logs; the kraken's arms curl out of the water all around
+  { const g = new THREE.Group(); sets.kraken = g;
+    const log = celMat('#7a5a34');
+    for (const sx of [-1, 1]) for (let i = 0; i < 2; i++) { const l = mk(new THREE.CylinderGeometry(1.1, 1.1, DECK_L + 4, 12), log, 1.04); l.rotation.x = Math.PI/2; l.position.set(sx*(DECK_W/2 + 0.6 + i*2.1), -0.9 - i*0.3, 0); g.add(l); }
+    for (const sz of [-1, 1]) { const l = mk(new THREE.CylinderGeometry(1.1, 1.1, DECK_W + 8, 12), log, 1.04); l.rotation.z = Math.PI/2; l.position.set(0, -0.9, sz*(DECK_L/2 + 0.8)); g.add(l); }
+    const arm = celMat('#7a3a9a'), arms = [];
+    for (const [x, z, h, s] of [[-38, -40, 22, 1], [42, -30, 26, -1], [-46, 8, 16, 1], [48, 18, 18, -1], [8, -70, 30, 1]]) {
+      const a = new THREE.Group(); a.add(curveTube([[0, -2, 0], [s*2, h*0.4, 1], [s*5, h*0.8, 0], [s*3, h, -2], [s*0.5, h*0.9, -2.5]], 1.6, arm, 24, 1.15)); a.position.set(x, -1, z); g.add(a); arms.push(a); }
+    const pool = new THREE.Mesh(new THREE.RingGeometry(14, 16, 40).rotateX(-Math.PI/2), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(0.5, 0.9, 1.1), transparent:true, opacity:0.35, depthWrite:false })); pool.position.set(8, -1.5, -70); g.add(pool);
+    setTicks.kraken = t => { arms.forEach((a, i) => { a.rotation.z = Math.sin(t*0.7 + i*1.7)*0.12; a.rotation.y = Math.sin(t*0.4 + i)*0.3; }); pool.rotation.y = t*0.4; };
+  }
+  // Ghost Galleon: a spectral ship: glowing tattered sails, green lanterns, a big moon
+  { const g = new THREE.Group(); sets.ghost = g;
+    const ghostSail = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(0.55, 1.4, 1.2), transparent:true, opacity:0.4, side:THREE.DoubleSide, depthWrite:false });
+    for (const [x, z, h] of [[0, -DECK_L/2 - 4, 34], [-DECK_W/2 - 3, -DECK_L/2 + 8, 22], [DECK_W/2 + 3, -DECK_L/2 + 8, 22]]) { const m = mast(h, true, ghostSail); m.position.set(x, 0, z); m.scale.setScalar(x ? 0.8 : 1); g.add(m); }
+    const moon = new THREE.Mesh(new THREE.SphereGeometry(16, 24, 16), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.6, 1.8, 1.7), fog:false })); moon.position.set(-80, 90, -260); g.add(moon);
+    const flame = glow(0.6, 2.6, 1.4), lamps = [];
+    for (const [x, z] of [[-DECK_W/2 + 1, -DECK_L/2 + 2], [DECK_W/2 - 1, -DECK_L/2 + 2], [-DECK_W/2 + 1, DECK_L/2 - 2], [DECK_W/2 - 1, DECK_L/2 - 2], [-DECK_W/2 + 1, 0], [DECK_W/2 - 1, 0]]) {
+      const pole = mk(new THREE.CylinderGeometry(0.15, 0.18, 6, 6), celMat('#22343a'), 1.1); pole.position.set(x, 3, z); g.add(pole);
+      const lamp = mk(new THREE.BoxGeometry(0.8, 1.1, 0.8), celMat('#1b1416'), 1.08); lamp.position.set(x, 6.3, z); g.add(lamp);
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), flame); f.position.set(x, 6.3, z); g.add(f); lamps.push(f); }
+    const wisps = []; for (let i = 0; i < 8; i++) { const w = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), flame); g.add(w); wisps.push(w); }
+    setTicks.ghost = t => { lamps.forEach((f, i) => f.scale.setScalar(0.8 + 0.35*Math.sin(t*9 + i*2))); wisps.forEach((w, i) => { const a = t*0.3 + i*0.8; w.position.set(Math.cos(a)*(DECK_W/2 + 6 + i), 4 + Math.sin(t*1.2 + i)*2, Math.sin(a)*(DECK_L/2 + 6)); }); ghostSail.opacity = 0.32 + 0.1*Math.sin(t*1.5); };
+  }
+  // Davy's Locker: the seabed: sand, kelp swaying, coral, treasure chests, fish going round, bubbles rising
+  { const g = new THREE.Group(); sets.locker = g;
+    const bed = mk(new THREE.CircleGeometry(300, 48).rotateX(-Math.PI/2), celVar('#c2a878')); bed.position.y = -1.4; g.add(bed);
+    const kelpMat = celMat('#2f7a4a'), kelps = [];
+    for (let i = 0; i < 16; i++) { const a = i/16*Math.PI*2, r = 34 + (i*37 % 20), x = Math.cos(a)*r*1.3, z = Math.sin(a)*r - 20; if (Math.abs(x) < DECK_W/2 + 6 && Math.abs(z) < DECK_L/2 + 6) continue;
+      const k = new THREE.Group(); k.add(curveTube([[0, 0, 0], [0.8, 5, 0], [-0.6, 10, 0.4], [0.5, 15 + (i % 4)*3, 0]], 0.35, kelpMat, 16, 1.25)); k.position.set(x, -1.4, z); g.add(k); kelps.push(k); }
+    const corals = ['#ff7a8a', '#ffb070', '#c78cff', '#5fd0ff']; for (let i = 0; i < 12; i++) { const a = i*2.3, r = 30 + (i % 4)*8, c = mk(new THREE.IcosahedronGeometry(1.4 + (i % 3)*0.6, 0), celMat(corals[i % 4]), 1.06); c.position.set(Math.cos(a)*r*1.2, -0.8, Math.sin(a)*r - 15); c.scale.y = 1.4; g.add(c); }
+    const gold = glow(2.4, 1.9, 0.5);
+    for (const [x, z, ry] of [[-30, -38, 0.4], [28, -44, -0.3], [36, 20, 0.8]]) { const ch = new THREE.Group(); ch.add(mk(new THREE.BoxGeometry(3, 1.8, 2), celMat('#6b4520'), 1.06)); const lid = mk(new THREE.CylinderGeometry(1, 1, 3, 10, 1, false, 0, Math.PI), celMat('#6b4520'), 1.06); lid.rotation.z = Math.PI/2; lid.position.y = 0.9; ch.add(lid);
+      const glint = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.3, 1.6), gold); glint.position.y = 1.0; ch.add(glint); ch.position.set(x, -0.5, z); ch.rotation.y = ry; g.add(ch); }
+    const fishMat = [celMat('#ffcf6a'), celMat('#5fd0ff'), celMat('#ff7a8a')], fish = [];
+    for (let i = 0; i < 9; i++) { const f = new THREE.Group(), b = mk(new THREE.SphereGeometry(0.6, 8, 6), fishMat[i % 3], 1.12); b.scale.set(0.6, 0.8, 1.4); f.add(b); const tail = mk(new THREE.ConeGeometry(0.5, 0.8, 3), fishMat[i % 3], 1.1); tail.rotation.x = -Math.PI/2; tail.position.z = -1.1; f.add(tail); g.add(f); fish.push(f); }
+    const bubMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.2, 1.6, 1.8), transparent:true, opacity:0.45, depthWrite:false }), bubbles = [];
+    for (let i = 0; i < 24; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.25 + (i % 3)*0.12, 8, 6), bubMat); g.add(b); bubbles.push({ b, x:(i*37 % 70) - 35, z:(i*53 % 80) - 50, s:2 + (i % 5)*0.6, o:i*1.7 }); }
+    setTicks.locker = t => { kelps.forEach((k, i) => { k.rotation.z = Math.sin(t*0.8 + i)*0.12; k.rotation.x = Math.cos(t*0.6 + i*1.3)*0.08; });
+      fish.forEach((f, i) => { const a = t*(0.15 + (i % 3)*0.05) + i*0.7, r = 26 + i*3; f.position.set(Math.cos(a)*r, 6 + (i % 4)*3 + Math.sin(t + i)*0.6, Math.sin(a)*r*0.7 - 10); f.rotation.y = -a; });
+      bubbles.forEach(q => { const y = ((t*q.s + q.o) % 30) - 1; q.b.position.set(q.x + Math.sin(t*2 + q.o)*0.4, y, q.z); }); };
+  }
+  for (const g of Object.values(sets)) { g.visible = false; scene.add(g); }
+
   // ------------------------------------------------ post: ink edges, bloom, halftone, vignette
   let post = null, bloomNode = null;
   const vignetteU = uniform(1);
@@ -668,6 +842,7 @@ async function init(){
     if (!G.attract) checkPlan = [2500, 8000, 20000].map(ms => performance.now() + ms);
     if (G.island.id !== lastTheme) applyTheme(G);
     harbor.visible = G.island.id === 'brine';
+    for (const [id, g] of Object.entries(sets)) g.visible = id === G.island.id;
     buildFigures(G);
   }
   const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpV = new THREE.Vector3(), tmpS = new THREE.Vector3();
@@ -759,16 +934,16 @@ async function init(){
       } }
     // ball, its shadow, trail and landing marker
     const B = G.ball;
-    ball.visible = ballBlob.visible = B.z > -0.5;
+    ball.visible = ballBlob.visible = B.z > -0.5 && !ballHidden();   // fog banks hide it (Ghost Galleon)
     if (ball.visible) {
       W(B.x, B.y, B.z, ball.position);
       ball.rotation.x += B.vy*dt*0.6; ball.rotation.z -= B.vx*dt*0.6;
       W(B.x, B.y, 0.05, ballBlob.position); const sc = Math.max(0.25, 0.9 - B.z*0.06); ballBlob.scale.set(sc, 1, sc);
     }
-    { const tr = B.trail, n = Math.min(TRAIL_N, tr.length), fast = Math.hypot(B.vx, B.vy, B.vz) > 45; let c = 0;
+    { const tr = B.trail, n = Math.min(TRAIL_N, tr.length), fast = Math.hypot(B.vx, B.vy, B.vz) > 45 && !ballHidden(); let c = 0;
       if (fast) for (let i = 0; i < n; i++) { const [x, y, z] = tr[tr.length - 1 - i]; tmpM.compose(W(x, y, z, tmpV), tmpQ.identity(), tmpS.setScalar(Math.max(0.05, 1 - i/n))); trailMesh.setMatrixAt(c++, tmpM); }
       trailMesh.count = c; trailMesh.instanceMatrix.needsUpdate = true; }
-    landing.visible = !!G.landing;
+    landing.visible = !!G.landing && !ballHidden();
     if (G.landing) { W(G.landing.x, G.landing.y, 0.06, landing.position); landU.value = 0.55 + 0.35*Math.sin(t*10); if (G.landing.in) landCol.value.set(2.2, 1.5, 0.25); else landCol.value.set(2.6, 0.5, 0.3); }
     hLine.visible = ball.visible && !!G.cfg.height && B.z > 0.4;
     if (hLine.visible) { W(B.x, B.y, 0.05, hLine.position); hLine.scale.set(1, Math.max(0.01, B.z - BALL_VIS - 0.05), 1); }
@@ -777,6 +952,8 @@ async function init(){
     { const C = G.cannon, dir = C.y < NETY ? 1 : -1; W(C.x, C.y - dir*(1.4 + C.kick*0.6), 0, cannon.position); cannon.rotation.y = dir > 0 ? 0 : Math.PI; }
     { let n = 0; for (const p of G.parts) { if (n >= PART_MAX) break; tmpM.compose(W(p.x, p.y, p.z, tmpV), tmpQ.identity(), tmpS.setScalar(p.s*(p.life/p.max))); partMesh.setMatrixAt(n++, tmpM); } partMesh.count = n; partMesh.instanceMatrix.needsUpdate = true; }
     if (harbor.visible) harbor.userData.tick(t);
+    updateHazards(G, t);
+    { const tick = setTicks[G.island.id]; if (tick && sets[G.island.id].visible) tick(t); }
     if (R3.cut) { R3.cut = false; camCut = true; }
     updateCamera(G, dt);
     { const db = renderer.getDrawingBufferSize(_dbSize); texelU.value.set(1/Math.max(1, db.x), 1/Math.max(1, db.y)); }
