@@ -123,6 +123,8 @@ window.addEventListener('keydown', e => {
   const inGame = G && !G.attract && G.state !== 'end';
   if (e.code === 'Backquote' && !e.repeat) { toggleTune(); return; }
   if (e.code === 'KeyM' && !e.repeat) { setMuted(!muted); return; }
+  // the island card: Enter or Space sets sail, Esc goes back to the dock
+  if (!$('isle').hidden) { if (!e.repeat && ['Enter', 'NumpadEnter', 'Space'].includes(e.code)) { e.preventDefault(); $('isleGo').click(); } else if (e.code === 'Escape') $('isleBack').click(); return; }
   if (e.code === 'KeyP' || e.code === 'Escape') { if (inGame && !paused) setPaused(true); else if (paused) setPaused(false); return; }
   if (!inGame || paused) return;
   let used = false;
@@ -155,8 +157,54 @@ function rumble(strong, weak, ms, p = 0){
     try { const r = a.playEffect('dual-rumble', { duration:ms, strongMagnitude:Math.max(0, Math.min(1, strong)), weakMagnitude:Math.max(0, Math.min(1, weak)) }); if (r && r.catch) r.catch(() => {}); } catch(e) {}
   }
 }
+// ---------------- the menus with a controller: the d-pad or left stick moves a highlight between buttons, toggles and
+// sliders (by where they are on screen), A picks the highlighted one, B goes back, left/right moves a slider
+const MENU_SHEETS = ['isle', 'pause', 'ctrls', 'prac', 'gameset', 'howto', 'logbook', 'results', 'hub'];
+let padFocus = null;
+const menuSheet = () => MENU_SHEETS.map(id => $(id)).find(el => el && !el.hidden) || null;
+function menuItems(sheet){
+  return [...sheet.querySelectorAll('button:not([disabled]), input:not([disabled]), a[href]')].filter(el => { const r = (el.closest('label') || el).getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+}
+const padRing = el => el && (el.closest('label.tog') || el.closest('label.sl') || el);
+function setPadFocus(el){
+  if (padFocus) padRing(padFocus).classList.remove('padfocus');
+  padFocus = el; if (!el) return;
+  padRing(el).classList.add('padfocus'); try { el.focus({ preventScroll:true }); } catch(e) {}
+  padRing(el).scrollIntoView({ block:'nearest', inline:'nearest' });
+}
+function padMove(dx, dy){
+  const sheet = menuSheet(); if (!sheet) return;
+  const items = menuItems(sheet); if (!items.length) return;
+  if (!padFocus || !sheet.contains(padFocus) || !items.includes(padFocus)) {   // start on the button A would press
+    const first = ['isleGo', 'btnResume', 'pracGo', 'gameGo', 'vsGo', 'howGo', 'logGo', 'resNext', 'resAgain', 'btnPlay'].map(id => $(id)).find(el => el && sheet.contains(el));
+    return setPadFocus(first || items[0]);
+  }
+  if (padFocus.type === 'range' && dx) {   // a slider: left/right moves it
+    const el = padFocus, st = Number(el.step) || 1; el.value = String(clamp(Number(el.value) + dx*st, Number(el.min), Number(el.max)));
+    el.dispatchEvent(new Event('input', { bubbles:true })); el.dispatchEvent(new Event('change', { bubbles:true })); return;
+  }
+  const rc = el => { const r = padRing(el).getBoundingClientRect(); return { x:r.left + r.width/2, y:r.top + r.height/2, r }; };
+  const a = rc(padFocus); let best = null, bs = Infinity;
+  for (const el of items) { if (el === padFocus) continue;
+    const b = rc(el), ox = b.x - a.x, oy = b.y - a.y, along = dx ? ox*dx : oy*dy, across = dx ? Math.abs(oy) : Math.abs(ox);
+    if (along <= 4) continue;
+    // up/down: anything in the next row counts; left/right: only things in the same row
+    if (dx && across > Math.max(a.r.height, b.r.height)*0.6) continue;
+    const s = along + across*(dy ? 2.5 : 1); if (s < bs) { bs = s; best = el; } }
+  if (best) setPadFocus(best);
+  else if (dy) setPadFocus(dy > 0 ? items[0] : items[items.length - 1]);   // wrap around
+}
+function padPick(){
+  const sheet = menuSheet();
+  if (padFocus && sheet && sheet.contains(padFocus) && padRing(padFocus).getBoundingClientRect().width > 0) { padFocus.click(); return true; }
+  return false;
+}
+window.addEventListener('pointerdown', () => setPadFocus(null), true);
 function padConfirm(){
+  if (padPick()) return;
   const vis = id => $(id) && !$(id).hidden;
+  if (vis('isle')) return $('isleGo').click();
+  if (vis('logbook')) return $('logGo').click();
   if (vis('ctrls')) return;
   if (vis('pause')) return setPaused(false);
   if (vis('prac')) return $('pracGo').click();
@@ -167,6 +215,8 @@ function padConfirm(){
 }
 function padBack(){
   const vis = id => $(id) && !$(id).hidden;
+  if (vis('isle')) return $('isleBack').click();
+  if (vis('logbook')) return $('logGo').click();
   if (vis('ctrls')) return $('ctrlsDone').click();
   if (vis('prac')) return $('pracBack').click();
   if (vis('gameset')) return ($('gameBack') || $('vsBack')).click();
@@ -199,7 +249,7 @@ function pollPad(){
   for (const ps of pads.values()) {
     const now = ps.now, down = i => now[i] && !ps.prev[i];
     if (capture && capture.profile === 'pad') { const i = now.findIndex((b, i) => b && !ps.prev[i] && i !== 8 && i !== 9 && (i < 12 || i > 15)); if (i >= 0) bindCaptured(i); ps.prev = now; continue; }
-    if (down(9) || down(8)) { if (inGame && !paused) setPaused(true); else if (paused) setPaused(false); }
+    if (down(9) || down(8)) { if (!$('isle').hidden) padConfirm(); else if (inGame && !paused) setPaused(true); else if (paused) setPaused(false); }
     let p = -1; for (let q = 0; q < humans(); q++) if (devicesFor(q).pads.includes(ps)) p = q;
     if (inGame && !paused && p >= 0) {
       const B = binds.pad, on = a => (B[a] || []).some(i => now[i]), was = a => (B[a] || []).some(i => ps.prev[i]), hit = a => on(a) && !was(a);
@@ -209,6 +259,10 @@ function pollPad(){
     } else if (!inGame || paused) {
       if (down(0)) { ensureAudio(); padConfirm(); }
       if (down(1)) padBack();
+      // move the highlight: a d-pad press, or the stick pushed (repeating while it's held)
+      const [ax, ay] = ps.axes, dir = Math.abs(ax) > 0.6 ? [Math.sign(ax), 0] : Math.abs(ay) > 0.6 ? [0, Math.sign(ay)] : null, t = performance.now();
+      if (!dir) ps.nav = null;
+      else if (!ps.nav || ps.nav.d !== dir.join() || t > ps.nav.t) { ps.nav = { d:dir.join(), t:t + (ps.nav && ps.nav.d === dir.join() ? 140 : 380) }; padMove(dir[0], dir[1]); }
     }
     ps.prev = now;
   }

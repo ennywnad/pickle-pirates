@@ -54,7 +54,7 @@ function drawNet(){
 // the shoulder height each crew's swing heights are drawn for (matches the 3D rigs)
 const SHOULDER = { pickle:3.0, crab:1.95, skeleton:3.3, monkey:2.75, magma:2.95, squid:2.35, ghost:3.1, deep:2.65 };
 function drawPlayer(pl, t){
-  const sp = SPECIES[pl.species] || SPECIES.pickle, r = PL_R*scale, hand = handOf(pl), sh = SHOULDER[pl.species] || 3.0;
+  const sp = pl.pal ? { ...(SPECIES[pl.species] || SPECIES.pickle), ...pl.pal } : SPECIES[pl.species] || SPECIES.pickle, r = PL_R*scale, hand = handOf(pl), sh = SHOULDER[pl.species] || 3.0;
   const pose = paddlePose(pl, G.time, sh);
   // the lunge is a court-x direction (forehand side = handOf), drawn mirrored when the view is from the other end
   const lean = pl.lunge > 0 ? pl.lungeSide*hand*(FLIP ? -1 : 1)*(pl.lunge/0.45)*0.6*r : 0, hop = (pl.split > 0 ? Math.sin(pl.split/0.18*Math.PI)*r*0.35 : 0) + pose.hop*scale*0.5 - pose.crouch*scale*0.3;
@@ -64,7 +64,7 @@ function drawPlayer(pl, t){
   const px = sx(pose.head[0]), py = sy(pose.head[1], pose.head[2]), shx = x, shy = y - r*0.9;
   const drawArm = (hx, hy, col) => { ctx.save(); ctx.strokeStyle = '#150e1c'; ctx.lineWidth = Math.max(3, r*0.32); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(shx, shy); ctx.lineTo(hx, hy); ctx.stroke();
     ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, r*0.2); ctx.stroke(); ctx.restore(); };
-  const armCol = { crab:'#b8432c', skeleton:sp.body, ghost:'rgba(200,250,240,.75)' }[pl.species] || sp.body;
+  const armCol = { crab:sp.leg || '#b8432c', skeleton:sp.body, ghost:'rgba(200,250,240,.75)' }[pl.species] || sp.body;
   const behind = py < shy - r*0.2;   // a raised paddle is drawn behind the head
   const drawPaddle = () => { drawArm(px, py, armCol); ctx.fillStyle = '#3a2a1a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(px, py, r*0.42, r*0.52, Math.atan2(py - shy, px - shx) + Math.PI/2, 0, 7); ctx.fill(); ctx.stroke(); };
   if (behind) drawPaddle();
@@ -80,7 +80,7 @@ function drawCrew(pl, sp, x, y, r, t){
   const blob = (cx, cy, rx, ry, fill) => { ctx.fillStyle = fill; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.fill(); ctx.stroke(); };
   switch (pl.species) {
     case 'crab': {
-      ctx.save(); ctx.strokeStyle = '#b8432c'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.save(); ctx.strokeStyle = sp.leg || '#b8432c'; ctx.lineWidth = 3; ctx.lineCap = 'round';
       for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const kx = x + s*r*0.8, ky = y - r*0.5 + k*r*0.18, step = Math.sin(t*14 + k*2)*(moving ? r*0.15 : 0);
         ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(kx + s*r*0.55, ky - r*0.35 + step); ctx.lineTo(kx + s*r*0.85, ky + r*0.45); ctx.stroke(); }
       ctx.restore();
@@ -145,7 +145,8 @@ function drawCrew(pl, sp, x, y, r, t){
   }
   // the Pickle Pirates: a cucumber in a tricorn
   blob(x, y - r*0.7, r*0.75, r*1.05, sp.body);
-  ctx.fillStyle = '#1b1410'; ctx.beginPath(); ctx.moveTo(x - r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*2.5, x + r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*1.75, x - r*0.95, y - r*1.55); ctx.fill();
+  ctx.fillStyle = sp.stripe || '#c8302a'; ctx.fillRect(x - r*0.72, y - r*0.55, r*1.44, r*0.2);
+  ctx.fillStyle = sp.hat || '#1b1410'; ctx.beginPath(); ctx.moveTo(x - r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*2.5, x + r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*1.75, x - r*0.95, y - r*1.55); ctx.fill();
 }
 // two humans on the court: a P1 / P2 tag over each, in their own color
 const TAG_COL = ['#ffc23a', '#5fd0ff'];
@@ -185,16 +186,29 @@ function drawHazardsUnder(t){
   drawBootyUnder(t);
   const H = G.haz; if (!H) return;
   ctx.save();
+  const sea = H.sea;
   if (H.kind === 'cannon') for (const z of H.zones) { const k = Math.min(1, z.t/z.warn), rx = z.r*scale, ry = z.r*scale*(sy(1) - sy(0) || scale)/scale;
-    ctx.fillStyle = `rgba(255,70,50,${0.15 + 0.25*k})`; ctx.strokeStyle = `rgba(255,90,60,${0.6 + 0.4*Math.abs(Math.sin(t*10))})`; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.ellipse(sx(z.x), sy(z.y), rx, Math.abs(ry), 0, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.ellipse(sx(z.x), sy(z.y), rx*k, Math.abs(ry)*k, 0, 0, 7); ctx.fill(); }
-  if (H.kind === 'vents') for (const v of H.vents) { const on = ventOn(v, G.time), warn = ventWarn(v, G.time);
-    ctx.fillStyle = '#2a2a30'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx(v.x), sy(v.y), v.r*scale*0.7, 0, 7); ctx.fill(); ctx.stroke();
-    if (on || warn) { ctx.fillStyle = `rgba(235,240,245,${on ? 0.7 : 0.3})`; for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.arc(sx(v.x) + Math.sin(t*9 + k)*v.r*scale*0.3, sy(v.y, (on ? 1 + k*1.2 : 0.4*k) + (t*3 % 1)), v.r*scale*(0.35 + k*0.06), 0, 7); ctx.fill(); } } }
+    ctx.fillStyle = sea ? `rgba(40,110,220,${0.15 + 0.25*k})` : `rgba(255,70,50,${0.15 + 0.25*k})`; ctx.strokeStyle = sea ? `rgba(120,210,255,${0.6 + 0.4*Math.abs(Math.sin(t*10))})` : `rgba(255,90,60,${0.6 + 0.4*Math.abs(Math.sin(t*10))})`; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(sx(z.x), sy(z.y), rx, Math.abs(ry), 0, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.ellipse(sx(z.x), sy(z.y), rx*k, Math.abs(ry)*k, 0, 0, 7); ctx.fill();
+    if (sea && !z.hit) { ctx.font = `${Math.round(scale*(0.8 + k*1.2))}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#1a1e26'; ctx.fillText('⚓', sx(z.x), sy(z.y, (1 - k)*8)); } }
+  if (H.kind === 'vents') for (const v of H.vents) { const on = ventOn(v, G.time), warn = ventWarn(v, G.time), x = sx(v.x), y = sy(v.y), R = v.r*scale*0.7;
+    // a glowing grate (orange on the volcano, blue on the seabed) that flickers as it rumbles, then the plume
+    const glow = on ? 0.95 : warn ? 0.45 + 0.5*Math.abs(Math.sin(t*16)) : 0.25, jx = warn ? Math.sin(t*61)*1.5 : 0;
+    ctx.fillStyle = sea ? `rgba(90,200,255,${glow})` : `rgba(255,120,30,${glow})`; ctx.beginPath(); ctx.arc(x + jx, y, R*1.15, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2a2a30'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + jx, y, R*0.85, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = sea ? `rgba(90,200,255,${glow})` : `rgba(255,140,40,${glow})`; ctx.lineWidth = 2; for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(x + jx + k*R*0.35, y - R*0.6); ctx.lineTo(x + jx + k*R*0.35, y + R*0.6); ctx.stroke(); }
+    if (on || warn) { const n = on ? 7 : 3;
+      for (let k = 0; k < n; k++) { const u = (t*(on ? 1.2 : 0.9) + k/n) % 1, px = x + Math.sin(t*3 + k*2.1)*R*0.5*(1 + u), py = sy(v.y, u*(on ? 8 : 1.4));
+        if (sea) { ctx.strokeStyle = 'rgba(200,240,255,.85)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px, py, scale*(0.15 + (k % 3)*0.08), 0, 7); ctx.stroke(); }
+        else { ctx.fillStyle = `rgba(240,242,245,${(on ? 0.75 : 0.4)*(1 - u*0.6)})`; ctx.beginPath(); ctx.arc(px, py, R*(0.3 + u*(on ? 0.6 : 0.1)), 0, 7); ctx.fill(); } } } }
   if (H.kind === 'tentacles') for (const T of H.tents) { const x = sx(T.x), y = sy(T.y);
     if (T.h < 1) { ctx.strokeStyle = 'rgba(200,140,255,.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, scale*(0.9 + (T.t % 0.5)*2), 0, 7); ctx.stroke(); }
     else { ctx.fillStyle = '#8a4ab0'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - T.r*scale, y); ctx.quadraticCurveTo(x - T.r*scale*0.3, sy(T.y, T.h*0.6), x + Math.sin(t*2)*scale*0.4, sy(T.y, T.h)); ctx.quadraticCurveTo(x + T.r*scale*0.5, sy(T.y, T.h*0.5), x + T.r*scale, y); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
-  if (H.kind === 'tilt') { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '12px Bungee, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(FLIP ? '◀ DOWNHILL' : 'DOWNHILL ▶', sx(CW/2), sy(NETY + (FLIP ? -1 : 1)*KD*0.5)); }
+  if (H.kind === 'tilt') { const right = sea ? (H.current > 0) !== !!FLIP : !FLIP;
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '12px Bungee, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(sea ? (right ? 'CURRENT ▶' : '◀ CURRENT') : right ? 'DOWNHILL ▶' : '◀ DOWNHILL', sx(CW/2), sy(NETY + (FLIP ? -1 : 1)*KD*0.5));
+    if (sea) { ctx.strokeStyle = 'rgba(200,240,255,.6)'; ctx.lineWidth = 1.2; const span = CW + 8, d = Math.sign(H.current);
+      for (let k = 0; k < 40; k++) { const bx = ((((k*0.618) % 1)*span + d*t*(7 + (k % 5)*2)) % span + span) % span - 4, by = ((k*0.381) % 1)*CL, bz = 0.5 + (k % 7);
+        ctx.beginPath(); ctx.arc(sx(bx), sy(by, bz), 1.5 + (k % 3), 0, 7); ctx.stroke(); } } }
   ctx.restore();
 }
 // the Treasure Map's X, and the deck swabber's wet stripe
@@ -224,8 +238,14 @@ function drawInk(){
 function drawHazardsOver(t){
   const H = G.haz; if (!H) return;
   ctx.save();
-  if (H.kind === 'fog') for (const f of H.fog) { ctx.fillStyle = 'rgba(225,240,236,.55)'; for (const [dx, dy, k] of [[0, 0, 1], [0.4, -0.3, 0.7], [-0.45, 0.25, 0.75]]) { ctx.beginPath(); ctx.ellipse(sx(f.x + dx*f.w), sy(f.y + dy*f.h), f.w*scale*k, f.h*scale*k*0.9, 0, 0, 7); ctx.fill(); } }
-  if (H.gull) { const B = G.ball, x = sx(B.x), y = sy(B.y, B.z + 0.8), f = Math.sin(t*16)*6; ctx.strokeStyle = '#f4f2ec'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  if (H.kind === 'fog' && H.sea) for (const [n, f] of H.fog.entries()) { const dir = f.vx > 0 ? 1 : -1; ctx.fillStyle = n % 2 ? '#bfe0e8' : '#e8d27a';
+    for (let k = 0; k < 70; k++) { const r = 0.25 + ((k*0.618) % 1)*0.75, a = dir*t*(0.7 + (k % 5)*0.1) + k*2.39, px = sx(f.x + Math.cos(a)*f.w*r), py = sy(f.y + Math.sin(a)*f.h*r, 0.6 + (k % 9)*0.7);
+      ctx.beginPath(); ctx.ellipse(px, py, scale*0.28, scale*0.11, a*dir + Math.PI/2, 0, 7); ctx.fill(); } }
+  else if (H.kind === 'fog') for (const f of H.fog) { ctx.fillStyle = 'rgba(225,240,236,.55)'; for (const [dx, dy, k] of [[0, 0, 1], [0.4, -0.3, 0.7], [-0.45, 0.25, 0.75]]) { ctx.beginPath(); ctx.ellipse(sx(f.x + dx*f.w), sy(f.y + dy*f.h), f.w*scale*k, f.h*scale*k*0.9, 0, 0, 7); ctx.fill(); } }
+  if (H.gull && H.sea) { const B = G.ball, x = sx(B.x), y = sy(B.y, B.z + 0.6), f = Math.sin(t*5)*5;   // the manta
+    ctx.fillStyle = '#2c4a6e'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.quadraticCurveTo(x + 14, y - 6 - f, x + 24, y + f); ctx.quadraticCurveTo(x + 10, y + 3, x, y + 8);
+    ctx.quadraticCurveTo(x - 10, y + 3, x - 24, y + f); ctx.quadraticCurveTo(x - 14, y - 6 - f, x, y - 9); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y + 8); ctx.lineTo(x, y + 22); ctx.stroke(); }
+  else if (H.gull) { const B = G.ball, x = sx(B.x), y = sy(B.y, B.z + 0.8), f = Math.sin(t*16)*6; ctx.strokeStyle = '#f4f2ec'; ctx.lineWidth = 4; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(x - 16, y - f); ctx.quadraticCurveTo(x - 7, y - 8, x, y); ctx.quadraticCurveTo(x + 7, y - 8, x + 16, y - f); ctx.stroke(); }
   ctx.restore();
 }
@@ -292,12 +312,14 @@ function drawJoy(){
 // ---------------- scoreboard
 const hudCache = {};
 const setT = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } };
+const setH = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).innerHTML = v; } };
 function updateHud(){
   if (!G || G.attract) return;
   // booty held by each crew, and the touch button for P1's crew
   { const Y = G.booty, hb = Y && Y.held.home, ab = Y && Y.held.away, me = humanPl(), mine = Y && me && Y.held[me.team];
-    setT('hBooty', hb ? '✦ ' + BOOTY_SHORT[hb].toUpperCase() : ''); $('hBooty').hidden = !hb;
-    setT('aBooty', ab ? '✦ ' + BOOTY_SHORT[ab].toUpperCase() : ''); $('aBooty').hidden = !ab;
+    const chip = k => k ? svg('bt_' + k) + BOOTY_SHORT[k].toUpperCase() : '';
+    setH('hBooty', chip(hb)); $('hBooty').hidden = !hb; $('hBooty').title = hb ? BOOTY[hb].name + ': ' + BOOTY[hb].desc : '';
+    setH('aBooty', chip(ab)); $('aBooty').hidden = !ab; $('aBooty').title = ab ? BOOTY[ab].name + ': ' + BOOTY[ab].desc : '';
     const bb = $('bBooty'); if (bb) { bb.hidden = !mine; if (mine) bb.firstElementChild.textContent = BOOTY_SHORT[mine].toUpperCase(); } }
   setT('sH', String(G.score.home)); setT('sA', String(G.score.away));
   if (G.mode !== 'game') { setT('clk', `RALLY ${G.rally}`); setT('objProg', `Best rally ${G.best}`); return; }
@@ -306,11 +328,11 @@ function updateHud(){
   const who = vs ? 'P1 VS P2' : tierOf(awayLead()).name.toUpperCase();
   setT('arenaShort', `TO ${S.to}${S.scoring === 'rally' ? ' · RALLY' : ''}${S.doubles ? ' · DOUBLES' : ''} · ${who}`);
   const mark = S.doubles && S.scoring === 'sideout' ? `● SERVING · ${S.serverNum}` : '● SERVING';
-  setT('hSub', S.server === 'home' ? mark : HOME.name.toUpperCase());
-  setT('aSub', S.server === 'away' ? mark : G.island.opp.name.toUpperCase());
+  setT('hSub', S.server === 'home' ? mark : teamName('home').toUpperCase());
+  setT('aSub', S.server === 'away' ? mark : teamName('away').toUpperCase());
   const yours = G.state === 'serve' && srv && srv.human;
   const whose = !yours ? '' : two ? `P${srv.pad + 1} to serve` : 'Your serve';
   setT('objText', yours ? `${whose} · press Drive, Soft or Lob` : gp ? `Game point · ${teamName(gp)}` : G.haz ? `${G.island.name} · ${HAZ_NAME[G.haz.kind]}: ${HAZ_TIP[G.haz.kind].toLowerCase()}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
-  const srvName = srv ? (srv.human ? (two ? `P${srv.pad + 1}` : 'you') : `${srv.team === 'home' ? HOME.abbr : G.island.opp.abbr}${S.doubles ? ' ' + (srv.slot + 1) : ''}`) : '';
+  const srvName = srv ? (srv.human ? (two ? `P${srv.pad + 1}` : 'you') : `${teamAbbr(srv.team)}${S.doubles ? ' ' + (srv.slot + 1) : ''}`) : '';
   setT('objProg', G.state === 'play' ? `Rally ${G.rally}` : `Server ${srvName} · ${serverCourt(S)} court`);
 }

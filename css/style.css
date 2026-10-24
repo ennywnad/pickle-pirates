@@ -318,3 +318,28 @@ details.statsbox[open] summary{margin-bottom:8px}
 .card.how small{color:var(--muted)}
 /* v0.5: booty held by each crew */
 .bchip{display:inline-block;margin-top:3px;font:400 10px/1 var(--block);letter-spacing:.06em;color:var(--hazard-ink);background:var(--hazard);border-radius:4px;padding:3px 5px;white-space:nowrap}
+/* controller highlight in menus */
+.padfocus{outline:3px solid var(--hazard)!important;outline-offset:3px;box-shadow:0 0 0 6px rgba(255,194,58,.18)}
+label.tog.padfocus,label.sl.padfocus{border-radius:8px}
+/* booty toasts carry a sentence: keep the subline readable */
+.toast.booty span{text-transform:none;letter-spacing:0;max-width:min(520px,92vw);font-size:15px;line-height:1.35}
+.toast.booty b{color:var(--hazard)}
+#hBooty svg,#aBooty svg{width:13px;height:13px;vertical-align:-2px;margin-right:3px}
+/* the island card before a match, and the logbook */
+.card.isle{gap:14px}
+.isle h2{font:400 clamp(40px,9vw,58px)/.95 var(--title);color:var(--bone);margin:6px 0 0}
+.isle .vs{display:flex;align-items:center;gap:10px;font:600 15px/1.3 var(--body);color:var(--bone)}
+.isle .vs i{width:16px;height:16px;border-radius:4px;flex:none}
+.hzrow{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;padding:12px;background:var(--well);border:1px solid var(--line);border-radius:10px}
+.hzrow .ic{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;background:rgba(255,194,58,.12);color:var(--hazard);border:1px solid rgba(255,194,58,.4)}
+.hzrow .ic svg{width:28px;height:28px}
+.hzrow b{display:block;font:400 15px/1.2 var(--block);letter-spacing:.02em;color:var(--hazard);margin-bottom:4px}
+.hzrow p{margin:0;font:500 14px/1.4 var(--body);color:var(--bone)}
+.hzrow.small{padding:8px 10px;grid-template-columns:32px 1fr;gap:10px}
+.hzrow.small .ic{width:32px;height:32px}.hzrow.small .ic svg{width:20px;height:20px}
+.hzrow.small b{font-size:13px;margin-bottom:2px}.hzrow.small p{font-size:13px}
+.hzgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.isle .hint{font:600 12px/1.3 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:center}
+.logisle{display:flex;flex-direction:column;gap:8px}
+.logisle h3{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0;font:400 18px/1.2 var(--block);color:var(--bone)}
+.logisle h3 small{font:600 13px/1.2 var(--body);color:var(--muted);letter-spacing:.04em}

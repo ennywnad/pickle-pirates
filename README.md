@@ -6,7 +6,7 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–9 of 12 are done (v0.1 to v0.5 are live and play-tested). What changed in each version is in the [changelog](CHANGELOG.md).
+Milestones 1–10 of 12 are done (v0.1 to v0.6 are live and play-tested). What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
@@ -72,6 +72,7 @@ Pick the level on the dock's Brine Bay card, in a custom game, or in the Practic
 | Lob | Q | Y | Lob |
 | Topspin · slice (hold while hitting) | R · F | RB · LB | — |
 | Pause · mute · tuning | P / Esc · M · ` | Start | Pause button |
+| Menus | Mouse, Enter, Esc | D-pad or left stick to move, A to pick, B to go back | Tap |
 
 Keys and buttons can be remapped under Controls.
 

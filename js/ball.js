@@ -24,6 +24,7 @@ function ballStep(B, dt, ev){
   B.vx += (-kd*B.vx + kl*(B.sy*B.vz - B.sz*B.vy))*dt;
   B.vy += (-kd*B.vy + kl*(B.sz*B.vx - B.sx*B.vz))*dt;
   B.vz += (-kd*B.vz + kl*(B.sx*B.vy - B.sy*B.vx) - TUNE.gravity)*dt;
+  if (HZ && HZ.current && B.z > BALL_R + 0.05) B.vx += HZ.current*dt;   // Davy's Locker: a sea current pushes it sideways in the air
   B.x += B.vx*dt; B.y += B.vy*dt; B.z += B.vz*dt;
   B.clock = (B.clock || 0) + dt;
   const decay = Math.exp(-TUNE.spinDecay*dt); B.sx *= decay; B.sy *= decay; B.sz *= decay;

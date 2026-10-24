@@ -21,10 +21,11 @@ function renderHub(){
       <span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal prac" type="button" id="btnGame">
       <span class="num">1v1</span>
-      <span class="cinfo"><span class="arena">SINGLES · YOUR RULES</span><span class="ct">Custom game</span><span class="co">Pick the island, the crew level, games to 11, 15 or 21, side-out or rally scoring, and which rules and reading aids are on.</span></span>
+      <span class="cinfo"><span class="arena">SINGLES · YOUR RULES</span><span class="ct">Custom game</span><span class="co">Pick the island, both crews (even pickle vs pickle), the crew level, games to 11, 15 or 21, side-out or rally scoring, and which rules and reading aids are on.</span></span>
       <span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">THE CAREER · v1.0</span><span class="ct">Voyage</span><span class="co">One match per island, objectives, stars and booty unlocks.</span></span><span class="lock">Coming later</span></button>
     <button class="chal prac" type="button" id="btnVersus"><span class="num">2v2</span><span class="cinfo"><span class="arena">DOUBLES · ONE OR TWO PLAYERS</span><span class="ct">Versus</span><span class="co">Doubles or singles: solo with a CPU partner, P1 and P2 together against the crew, or P1 against P2. One keyboard or two controllers.</span></span><span class="lock" style="color:var(--hazard)">Set up</span></button>
+    <button class="chal prac" type="button" id="btnLog"><span class="num">${svg('book')}</span><span class="cinfo"><span class="arena">ISLANDS · HAZARDS · BOOTY</span><span class="ct">Logbook</span><span class="co">What every island's hazard does, and all seven booty power-ups.</span></span><span class="lock" style="color:var(--hazard)">Read</span></button>
     <div class="card gfx"><h3 class="h">Sound</h3>
       <label class="tog"><input type="checkbox" id="sndOn" ${muted ? '' : 'checked'}><span class="sw" aria-hidden="true"></span><span class="tl"><b>Sound</b><small>Also the speaker button in the scoreboard, or press M</small></span></label>
       <label class="sl home snd"><span>Volume</span><input type="range" id="sndVol" min="0" max="100" step="5" value="${Math.round(volume*100)}"><b id="sndVolV">${Math.round(volume*100)}%</b></label>
@@ -69,10 +70,12 @@ function renderHub(){
   $('btnVersus').onclick = () => openVersus();
   $('btnHow').onclick = () => openHow('hub');
   $('btnGame').onclick = () => openGameSetup();
+  $('btnLog').onclick = () => openLog('hub');
 }
 function show(which){
-  for (const id of ['hub','pause','ctrls','prac','gameset','results','howto']) $(id).hidden = id !== which;
-  app.classList.toggle('menu', which === 'hub' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive) || (which === 'howto' && howFrom !== 'pause'));
+  for (const id of ['hub','pause','ctrls','prac','gameset','results','howto','isle','logbook']) $(id).hidden = id !== which;
+  app.classList.toggle('menu', which === 'hub' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive) || ((which === 'howto' || which === 'logbook') && howFrom !== 'pause'));
+  if (typeof setPadFocus === 'function') setPadFocus(null);
   musicSheet(which);
   if (which) $(which).scrollTop = 0;
   requestAnimationFrame(resize);
@@ -85,11 +88,16 @@ function toast(main, sub, ms, cls){
   t.className = 'toast' + (cls ? ' ' + cls : ''); t.hidden = true; void t.offsetWidth; t.hidden = false;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms);
 }
+// the scoreboard's crew names and colors
+function paintCrews(){
+  for (const [tm, k] of [['home', 'h'], ['away', 'a']]) { const c = G.crew[tm];
+    $(k + 'Abbr').textContent = c.abbr; $(k + 'Sw').style.background = c.shirt; $(k + 'Sw').style.boxShadow = `inset 0 -3px 0 ${c.trim}`; }
+}
 function startPractice(id){
   ensureAudio();
   newMatch(id || practiceIsland, false);
   Object.keys(hudCache).forEach(k => delete hudCache[k]);
-  $('aAbbr').textContent = G.island.opp.abbr; $('aSw').style.background = G.island.opp.shirt; $('aSw').style.boxShadow = `inset 0 -3px 0 ${G.island.opp.trim}`;
+  paintCrews();
   $('arenaShort').textContent = G.island.name.toUpperCase().slice(0, 16);
   syncPracLabels();
   save.plays++; persist();
@@ -140,6 +148,19 @@ function syncPracLabels(){
   $('hSub').textContent = cannonOnly ? 'RETURNS IN' : 'PICKLE PIRATES'; $('aSub').textContent = cannonOnly ? 'MISSED' : tierOf(awayLead()).name.toUpperCase();
 }
 function startAttract(){ newMatch(practiceIsland, true); resize(); }
+// ---------------- crew pickers (custom game and Versus): any crew on either side; the same crew twice is a mirror match
+const crewOpts = () => CREW_LIST.map(c => [c.id, c.name]);
+const crewsHtml = vs => `<div class="prow"><h3 class="h">${vs ? 'P1\'s crew (near side)' : 'Your crew'}</h3>${segHtml('c_home', crewOpts(), gameCfg.crewHome)}</div>
+  <div class="prow"><h3 class="h">${vs ? 'The other crew' : 'Their crew'}</h3>${segHtml('c_away', [['island', 'The island\'s own crew'], ...crewOpts()], gameCfg.crewAway)}<p class="gfxnote" id="crewNote">${crewNote()}</p></div>`;
+function crewNote(){
+  const C = resolveCrews(gameCfg.crewHome, gameCfg.crewAway, ISLANDS.find(i => i.id === practiceIsland) || ISLANDS[0]);
+  return `${C.home.name} vs ${C.away.name}.${C.home.species === C.away.species ? ' The same crew on both sides: the far side wears its other colors.' : ''}`;
+}
+function wireCrews(){
+  for (const [id, k] of [['c_home', 'crewHome'], ['c_away', 'crewAway']]) $(id).querySelectorAll('button').forEach(b => b.onclick = () => {
+    gameCfg[k] = b.dataset.v; saveGameCfg(); $(id).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); $('crewNote').textContent = crewNote(); });
+}
+const pickedCrews = () => ({ home:gameCfg.crewHome, away:gameCfg.crewAway });
 // ---------------- singles game: setup, start, results
 function openGameSetup(){
   const C = gameCfg, tog = (k, label, note) => `<label class="tog"><input type="checkbox" id="g_${k}" ${C[k] ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>${label}</b><small>${note}</small></span></label>`;
@@ -147,7 +168,8 @@ function openGameSetup(){
     <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Singles game</h2><span class="slots">YOU VS A CPU CREW</span></div><button class="btn small" id="gameGoTop" type="button">Start</button></div>
     <div class="card pset">
       <div class="prow"><h3 class="h">Island</h3>${segHtml('g_island', ISLANDS.map(i => [i.id, i.name]), practiceIsland)}</div>
-      <div class="prow"><h3 class="h">Opponent</h3>${segHtml('g_tier', GAME_OPTS.tier, C.tier)}<p class="gfxnote">Deckhands are slow to react and pop up their dinks. Bosuns come to the net and punish high balls. Captains read everything early and rarely miss.</p></div>
+      ${crewsHtml(false)}
+      <div class="prow"><h3 class="h">Opponent level</h3>${segHtml('g_tier', GAME_OPTS.tier, C.tier)}<p class="gfxnote">Deckhands are slow to react and pop up their dinks. Bosuns come to the net and punish high balls. Captains read everything early and rarely miss.</p></div>
       <div class="prow"><h3 class="h">Game to</h3>${segHtml('g_to', GAME_OPTS.to, C.to)}<p class="gfxnote">Win by 2. Ends switch when the first side reaches 6 (8 in a game to 15, 11 in a game to 21).</p></div>
       <div class="prow"><h3 class="h">Scoring</h3>${segHtml('g_scoring', GAME_OPTS.scoring, C.scoring)}<p class="gfxnote">Side-out: only the serving side scores, and losing a rally passes the serve. Rally: every rally scores.</p></div>
     </div>
@@ -164,8 +186,9 @@ function openGameSetup(){
     <div class="btns"><button class="btn" id="gameGo" type="button">Start the game</button><button class="btn ghost" id="gameBack" type="button">Back to the dock</button></div>`;
   for (const k of ['to', 'scoring', 'tier']) $('g_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { gameCfg[k] = k === 'to' ? Number(b.dataset.v) : b.dataset.v; saveGameCfg(); $('g_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
   for (const k of ['kitchen', 'twoBounce', 'marker', 'height', 'hazards', 'booty']) $('g_' + k).onchange = e => { gameCfg[k] = e.target.checked; saveGameCfg(); };
-  $('g_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('g_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
-  $('gameGo').onclick = $('gameGoTop').onclick = () => startGame(null, {});
+  $('g_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('g_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); $('crewNote').textContent = crewNote(); startAttract(); });
+  wireCrews();
+  $('gameGo').onclick = $('gameGoTop').onclick = () => startGame(null, { crews:pickedCrews() });
   $('gameBack').onclick = () => { renderHub(); show('hub'); };
   show('gameset');
 }
@@ -204,7 +227,8 @@ function openHow(from){
         <li><b>No volleys from the kitchen</b>, the zone either side of the net. It glows red when a volley from where you stand would be a fault.</li>
       </ul>
       <h3 class="h">Islands and booty</h3>
-      <p>Every island has its own hazard: gulls, a tilted deck, cannon fire, steam vents, tentacles or fog. The scoreboard says which. Win a rally of 6 shots or more and your crew gets a <b>booty</b> crate: press Booty ${touch ? '' : K('E', 'B')} to use it. Neither ever changes the rules.</p>
+      <p>Every island has its own hazard: gulls, a tilted deck, cannon fire, steam vents, tentacles or fog, and Davy's Locker has underwater versions of all six. A card before each match shows the island's hazard, the scoreboard keeps a reminder, and the first time it strikes it's named on screen.</p>
+      <p>Win a rally of 6 shots or more and your crew gets a <b>booty</b> crate (one at a time): press Booty ${touch ? '' : K('E', 'B')} to use it. Neither hazards nor booty ever change the rules. The <b>Logbook</b> on the dock explains every hazard and power-up.</p>
       <h3 class="h">The crew levels</h3>
       <p><b>Deckhand</b> is slow and pops up dinks. <b>Bosun</b> comes to the net and punishes high balls. <b>Captain</b> reads everything early. Practice with the ball cannon any time from the dock.</p>
     </div>
@@ -234,6 +258,7 @@ function openVersus(){
     </div>
     <div class="card pset">
       <div class="prow"><h3 class="h">Island</h3>${segHtml('v_island', ISLANDS.map(i => [i.id, i.name]), practiceIsland)}</div>
+      ${crewsHtml(true)}
       ${seg('v_tier', GAME_OPTS.tier, C.tier, 'CPU level', 'For the crew across the net and any CPU partner.')}
       ${seg('v_to', GAME_OPTS.to, C.to, 'Game to')}
       ${seg('v_scoring', GAME_OPTS.scoring, C.scoring, 'Scoring')}
@@ -243,25 +268,50 @@ function openVersus(){
   const fixCoop = () => { if (vsCfg.who === 'coop' && vsCfg.format === 'singles') { vsCfg.format = 'doubles'; $('v_format').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.v === 'doubles'))); } };
   wire('v_format', v => { vsCfg.format = v; if (v === 'singles' && vsCfg.who === 'coop') { vsCfg.who = 'vs'; $('v_who').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.v === 'vs'))); } saveVsCfg(); });
   wire('v_who', v => { vsCfg.who = v; fixCoop(); saveVsCfg(); });
-  wire('v_island', v => { practiceIsland = v; try { localStorage.setItem('pickle-practice-island', v); } catch(e) {} startAttract(); });
+  wire('v_island', v => { practiceIsland = v; try { localStorage.setItem('pickle-practice-island', v); } catch(e) {} $('crewNote').textContent = crewNote(); startAttract(); });
+  wireCrews();
   wire('v_tier', v => { gameCfg.tier = v; saveGameCfg(); });
   wire('v_to', v => { gameCfg.to = Number(v); saveGameCfg(); });
   wire('v_scoring', v => { gameCfg.scoring = v; saveGameCfg(); });
-  const go = () => startGame({ kitchen:true, twoBounce:true }, { format:vsCfg.format, seats:vsSeats(vsCfg) });
+  const go = () => startGame({ kitchen:true, twoBounce:true }, { format:vsCfg.format, seats:vsSeats(vsCfg), crews:pickedCrews() });
   $('vsGo').onclick = go; $('vsGoTop').onclick = go;
   $('vsBack').onclick = () => { renderHub(); show('hub'); };
   show('gameset');
 }
-function startGame(over = lastOver, opts = lastOpts){
+function startGame(over = lastOver, opts = lastOpts, again = false){
   ensureAudio(); lastOver = over; lastOpts = opts;
   const keep = { ...gameCfg }; if (over) Object.assign(gameCfg, over);
   newMatch(practiceIsland, false, 'game', opts);
   Object.assign(gameCfg, keep);
   Object.keys(hudCache).forEach(k => delete hudCache[k]);
-  $('aAbbr').textContent = G.island.opp.abbr; $('aSw').style.background = G.island.opp.shirt; $('aSw').style.boxShadow = `inset 0 -3px 0 ${G.island.opp.trim}`;
+  paintCrews();
   save.plays++; persist();
-  show(null); paused = false; renderCtrlBar();
-  setTimeout(resize, 30);
+  renderCtrlBar(); setTimeout(resize, 30);
+  if (!again) return showIsle();   // the island card first; rematches go straight in
+  setSail();
+}
+// ---------------- the island card: where you are, who you're playing, and what the island's hazard does
+function hazRow(kind, sea, small){ const h = hazInfo(kind, sea); return `<div class="hzrow${small ? ' small' : ''}"><span class="ic">${svg(h.icon)}</span><div><b>${h.name}</b><p>${small ? h.tip + '.' : h.desc}</p></div></div>`; }
+function showIsle(){
+  const I = G.island, n = ISLANDS.indexOf(I) + 1, vs = G.view === 'side', two = humansAll().length > 1, H = G.haz;
+  const C = G.crew, sw = c => `<i style="background:${c.shirt};box-shadow:inset 0 -4px 0 ${c.trim}"></i>`;
+  const crewLine = vs ? `P1 (${C.home.name}) vs P2 (${C.away.name})${G.match.doubles ? ' · each with a CPU partner' : ''}` : `${two ? 'P1 + P2' : 'You'}, the ${C.home.name}, vs ${/^(The|Rival|Dill|Davy)\b/.test(C.away.name) ? '' : 'the '}${C.away.name} · ${tierOf(awayLead()).name} level`;
+  const haz = !H ? `<p class="gfxnote">Island hazard off for this game.</p>`
+    : H.sea ? `<p class="gfxnote">The Locker changes hazard every three rallies, cycling through the seabed versions of all six:</p><div class="hzgrid">${HAZ_ROTATION.map(k => hazRow(k, true, true)).join('')}</div>`
+    : hazRow(H.kind, false);
+  $('isleCard').innerHTML = `
+    <div><p class="eyebrow">ISLAND ${n} OF ${ISLANDS.length} · ${I.court.toUpperCase()} · ${G.match.doubles ? 'DOUBLES' : 'SINGLES'} TO ${G.match.to}</p><h2>${I.name}</h2></div>
+    <div class="vs">${sw(C.home)}${sw(C.away)}<span>${crewLine}</span></div>
+    <h3 class="h">The hazard</h3>${haz}
+    ${G.booty ? `<div class="hzrow small"><span class="ic">${svg('bt_treasure')}</span><div><b>Booty is on</b><p>Win a rally of ${BOOTY_RALLY}+ shots for a power-up crate, then press Booty (${bootyKey('home')}) to use it.</p></div></div>` : ''}
+    <div class="btns"><button class="btn" id="isleGo" type="button">Set sail</button><button class="btn ghost" id="isleBack" type="button">Back to the dock</button></div>
+    <p class="hint">${matchMedia('(pointer: coarse)').matches ? '' : 'Enter or A to start · Esc or B to go back'}</p>`;
+  $('isleGo').onclick = setSail;
+  $('isleBack').onclick = () => { paused = false; renderHub(); show('hub'); startAttract(); };
+  paused = true; show('isle');
+}
+function setSail(){
+  show(null); paused = false;
   band('intro');
   const two = humansAll().length > 1, vs = G.view === 'side';
   toast(`First to ${G.match.to}${G.match.doubles ? ' · doubles' : ''}`, vs ? `P1 vs P2 · ${teamName(G.match.server)} serve first` : `${two ? 'P1 + P2 ' : ''}vs a ${tierOf(awayLead()).name} crew · ${teamName(G.match.server)} serve first`, 2200, 'small');
@@ -281,12 +331,12 @@ function showResults(){
   const faults = Object.entries(st.faults).filter(([k]) => !['double bounce', 'winner', 'ace', 'in'].includes(k)).map(([k, n]) => `${CALL_TEXT[k].replace('!', '').toLowerCase()} ${n}`).join(', ');
   $('resCard').innerHTML = `
     <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · ${S.doubles ? 'DOUBLES' : 'SINGLES'} TO ${S.to} · ${sub}</p><h2>${title}</h2></div>
-    <div class="final"><div><div class="n">${S.pts.home}</div><div class="who">${HOME.abbr}</div></div><div class="dash">–</div><div><div class="n">${S.pts.away}</div><div class="who">${G.island.opp.abbr}</div></div></div>
+    <div class="final"><div><div class="n">${S.pts.home}</div><div class="who">${teamAbbr('home')}</div></div><div class="dash">–</div><div><div class="n">${S.pts.away}</div><div class="who">${teamAbbr('away')}</div></div></div>
     <dl class="xprows"><div><dt>Rallies</dt><dd>${S.rallies}</dd></div><div><dt>Side outs</dt><dd>${S.sideOuts}</dd></div><div><dt>Longest rally</dt><dd>${st.longest} shots</dd></div><div><dt>Aces</dt><dd>${st.aces}</dd></div>${faults ? `<div><dt>Faults</dt><dd>${faults}</dd></div>` : ''}</dl>
     ${counts ? `<p class="rec">${firstWin ? `<b class="new">First win over the ${TIER_NAMES[tier]}!</b> ` : ''}Your record vs the ${TIER_NAMES[tier]}: ${rec.w}–${rec.l}</p>` : ''}
     <div class="btns">${won && next ? `<button class="btn" id="resNext" type="button">Try the ${TIER_NAMES[next]}</button><button class="btn ghost" id="resAgain" type="button">Rematch</button>` : `<button class="btn" id="resAgain" type="button">Rematch</button>`}<button class="btn ghost" id="resHub" type="button">Back to the dock</button></div>`;
-  $('resAgain').onclick = () => startGame();
-  if ($('resNext')) $('resNext').onclick = () => { gameCfg.tier = next; saveGameCfg(); startGame(); };
+  $('resAgain').onclick = () => startGame(lastOver, lastOpts, true);
+  if ($('resNext')) $('resNext').onclick = () => { gameCfg.tier = next; saveGameCfg(); startGame(lastOver, lastOpts, true); };
   $('resHub').onclick = () => { renderHub(); show('hub'); startAttract(); };
   show('results');
   if (won) sfx('level');
@@ -345,11 +395,27 @@ function setPaused(p){
 }
 $('btnPause').onclick = () => setPaused(!paused);
 $('btnResume').onclick = () => setPaused(false);
-$('btnRestart').onclick = () => { paused = false; if (G && G.mode === 'game') startGame(); else startPractice(G ? G.island.id : practiceIsland); };
+$('btnRestart').onclick = () => { paused = false; if (G && G.mode === 'game') startGame(lastOver, lastOpts, true); else startPractice(G ? G.island.id : practiceIsland); };
 $('btnTune').onclick = () => toggleTune(true);
 $('btnPracSet').onclick = () => openPractice(true);
 $('btnPauseCtrls').onclick = () => openControls('pause');
 $('btnPauseHow').onclick = () => openHow('pause');
+$('btnPauseLog').onclick = () => openLog('pause');
+// ---------------- the logbook: every island and its hazard (and the Locker's sea versions), and all the booty
+function openLog(from){
+  howFrom = from;
+  const isles = ISLANDS.map(I => { const k = ISLAND_HAZ[I.id];
+    return `<div class="logisle"><h3>${I.name} <small>${I.court} · the ${I.opp.name}</small></h3>${k === 'rotate' ? `<p class="gfxnote">Every three rallies the hazard changes, through the seabed versions of all six:</p><div class="hzgrid">${HAZ_ROTATION.map(h => hazRow(h, true, true)).join('')}</div>` : hazRow(k, false)}</div>`; }).join('');
+  const booty = BOOTY_ORDER.map(k => `<div class="hzrow small"><span class="ic">${svg('bt_' + k)}</span><div><b>${BOOTY[k].name}</b><p>${BOOTY[k].desc}</p></div></div>`).join('');
+  $('logWrap').innerHTML = `
+    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Logbook</h2><span class="slots">ISLANDS, HAZARDS AND BOOTY</span></div><button class="btn small" id="logGoTop" type="button">Done</button></div>
+    <div class="card how"><h3 class="h">Island hazards</h3><p>Each island bends one part of the game. None of them changes the rules: every ball is still called where it lands. Turn them off in a custom game if you want a plain court.</p>${isles}</div>
+    <div class="card how"><h3 class="h">Booty</h3><p>Win a rally of ${BOOTY_RALLY} shots or more and your crew gets a crate (one held at a time; it shows by your score). Press Booty (E on the keyboard, B on a controller, or the button on screen) to use it. The CPU crews earn and use booty too.</p><div class="hzgrid">${booty}</div></div>
+    <div class="btns"><button class="btn" id="logGo" type="button">${from === 'pause' ? 'Back to the pause menu' : 'Back to the dock'}</button></div>`;
+  const go = () => { if (from === 'pause') { preparePause(); show('pause'); } else { renderHub(); show('hub'); } };
+  $('logGo').onclick = go; $('logGoTop').onclick = go;
+  show('logbook');
+}
 applyA11y();
 $('btnQuit').onclick = () => { paused = false; tuneHold = null; renderHub(); show('hub'); startAttract(); };
 function syncSound(){

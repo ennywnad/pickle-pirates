@@ -61,7 +61,8 @@ function endPoint(winner, kind){
   if (res.switchEnds) { G.stT = 2.4; announce('Switch ends', `First to ${S.switchAt}`, 1600); }
   void wasServer;
 }
-const teamName = tm => tm === 'home' ? HOME.name : G.island.opp.name;
+const teamName = tm => G.crew ? G.crew[tm].name : tm === 'home' ? HOME.name : G.island.opp.name;
+const teamAbbr = tm => G.crew ? G.crew[tm].abbr : tm === 'home' ? HOME.abbr : G.island.opp.abbr;
 
 // ---------------- serving
 // stand the server and receiver for the next serve; the ball goes to the server

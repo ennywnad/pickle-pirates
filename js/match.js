@@ -76,7 +76,7 @@ const FEED_DELAY = { fast:0.6, normal:1.4, slow:2.4 }, PACE = { slow:0.85, norma
 
 // ---------------- singles game settings (saved per browser)
 const GAME_OPTS = { to:[[11,'11'],[15,'15'],[21,'21']], scoring:[['sideout','Side-out (standard)'],['rally','Rally scoring']], tier:[['deckhand','Deckhand · easy'],['bosun','Bosun · medium'],['captain','Captain · hard']] };
-const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true, tier:'bosun', hazards:true, booty:true });
+const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true, tier:'bosun', hazards:true, booty:true, crewHome:'pickle', crewAway:'island' });
 let gameCfg = gameDef();
 try { const g = JSON.parse(localStorage.getItem('pickle-game') || 'null'); if (g && typeof g === 'object') for (const k in gameCfg) if (k in g && typeof g[k] === typeof gameCfg[k]) gameCfg[k] = g[k]; } catch(e) {}
 const saveGameCfg = () => { try { localStorage.setItem('pickle-game', JSON.stringify(gameCfg)); } catch(e) {} };
@@ -95,7 +95,8 @@ function vsSeats(c){
 
 // mode 'practice': you on the near side, the ball cannon restarts every rally, a CPU crew (or nobody) across the net.
 // mode 'game': a game under the full rules, singles or doubles. Attract mode plays games CPU vs CPU behind the menus.
-// opts: { format:'singles'|'doubles', seats:[{ team, slot, pad }] } names the human players; by default P1 plays home slot 0.
+// opts: { format:'singles'|'doubles', seats:[{ team, slot, pad }], crews:{ home, away } } names the human players (by
+// default P1 plays home slot 0) and the crews (by default the Pickle Pirates against the island's own crew).
 function newMatch(islandId, attract, mode, opts = {}){
   const isl = ISLANDS.find(i => i.id === islandId) || ISLANDS[0];
   mode = attract ? 'game' : mode || 'practice';
@@ -107,10 +108,11 @@ function newMatch(islandId, attract, mode, opts = {}){
   const seats = attract ? [] : opts.seats || [{ team:'home', slot:0, pad:0 }];
   const seat = (team, slot) => seats.find(s => s.team === team && s.slot === slot);
   G.format = doubles ? 'doubles' : 'singles'; G.seats = seats;
+  G.crew = resolveCrews(opts.crews && opts.crews.home, opts.crews && opts.crews.away, isl);
   G.players = [];
   for (const team of ['home', 'away']) for (let slot = 0; slot < (doubles ? 2 : 1); slot++) {
     const s = seat(team, slot);
-    G.players.push(mkPlayer(team, team === 'home' ? HOME.species : isl.opp.species, !!s, slot, s ? s.pad : 0));
+    const pl = mkPlayer(team, G.crew[team].species, !!s, slot, s ? s.pad : 0); pl.pal = G.crew[team].pal || null; G.players.push(pl);
   }
   // CPU levels: the crew across the net plays at the chosen level; a CPU partner on your side plays at the same level
   const tier = AI_TIERS[cfg.tier] ? cfg.tier : 'bosun';

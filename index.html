@@ -24,7 +24,7 @@
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
       </button>
       <div class="team h">
-        <div class="tlabel"><span class="abbr"><i class="swatch" style="background:var(--crew)"></i>PKL</span><span class="sub" id="hSub">PICKLE PIRATES</span><span class="bchip" id="hBooty" hidden></span></div>
+        <div class="tlabel"><span class="abbr"><i class="swatch" id="hSw" style="background:var(--crew)"></i><span id="hAbbr">PKL</span></span><span class="sub" id="hSub">PICKLE PIRATES</span><span class="bchip" id="hBooty" hidden></span></div>
         <span class="score" id="sH">0</span>
       </div>
       <div class="clockbox"><span class="per" id="arenaShort">PRACTICE</span><span class="clock" id="clk">RALLY 0</span></div>
@@ -67,6 +67,7 @@
         <button class="btn ghost" id="btnMute" type="button">Sound: on</button>
         <button class="btn ghost" id="btnPauseCtrls" type="button">Controls</button>
         <button class="btn ghost" id="btnPauseHow" type="button">How to play</button>
+        <button class="btn ghost" id="btnPauseLog" type="button">Logbook: islands and booty</button>
         <button class="btn ghost" id="btnRestart" type="button">Restart practice</button>
         <button class="btn ghost" id="btnQuit" type="button">Back to the dock</button>
       </div>
@@ -75,6 +76,8 @@
     <div class="sheet" id="prac" hidden><div class="wrap" id="pracWrap"></div></div>
     <div class="sheet" id="gameset" hidden><div class="wrap" id="gameWrap"></div></div>
     <div class="sheet" id="howto" hidden><div class="wrap" id="howWrap"></div></div>
+    <div class="sheet" id="isle" hidden><div class="wrap center"><div class="card isle" id="isleCard" style="width:100%;max-width:520px"></div></div></div>
+    <div class="sheet" id="logbook" hidden><div class="wrap" id="logWrap"></div></div>
     <div class="sheet" id="results" hidden><div class="wrap center"><div class="card" id="resCard" style="width:100%;max-width:420px"></div></div></div>
   </div>
 </div>

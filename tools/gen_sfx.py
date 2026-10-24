@@ -314,6 +314,23 @@ def splash():
         bubbles += at(b, t0, d)
     return verb(mix(hit, body, bubbles), wet=0.28, tail=0.8)
 
+def vent_blow():         # a steam vent: a low rumble under the deck, then a hiss of steam that dies away
+    d = 1.6; t = T(d)
+    rumble = filt(noise(d), 'lp', 90, 4) * env_adsr(d, 0.25, 0.3, 0.6, 0.6) * 2.2 * (1 + 0.4 * np.sin(2 * np.pi * 7 * t))
+    hiss = filt(noise(d), 'bp', (2500, 9000)) * env_adsr(d, 0.45, 0.2, 0.55, 0.7) * 0.55
+    hiss *= np.clip((t - 0.35) / 0.1, 0, 1)
+    whoomp = filt(noise(0.5) * env_exp(0.5, 0.12, 0.01), 'lp', 400) * 0.9
+    return verb(mix(rumble, hiss, at(whoomp, 0.35, d)), wet=0.18, tail=0.6)
+
+def bubbles():          # a column of bubbles rushing up out of a vent on the sea floor
+    d = 1.4; t = T(d)
+    out = filt(noise(d), 'lp', 300) * env_adsr(d, 0.15, 0.2, 0.5, 0.6) * 0.6
+    for _ in range(60):
+        t0 = j(0.0, 1.1); f = j(500, 1900); bd = j(0.015, 0.05); bt = T(bd)
+        b = np.sin(2 * np.pi * np.cumsum(f * (1 + 1.2 * bt / bd)) / SR) * np.exp(-bt / (bd / 3)) * j(0.12, 0.4)
+        out += at(b, t0, d)
+    return verb(out, wet=0.3, tail=0.8)
+
 # ------------------------------------------------------------------ game / UI
 def bell(f, d=0.7, amp=1.0):
     return modal(d, [(f, 0.28, 1.0 * amp), (f * 2.0, 0.16, 0.45 * amp), (f * 3.01, 0.09, 0.25 * amp), (f * 4.2, 0.05, 0.12 * amp)])
@@ -604,6 +621,7 @@ SFX = {   # name: (builder, variants)
     'paddle': (paddle_dink, 4), 'drive': (paddle_drive, 3), 'smash': (paddle_smash, 2), 'bounce': (deck_bounce, 4),
     'net': (net_catch, 2), 'tape': (tape_tick, 1), 'post': (post_knock, 2), 'cannon': (cannon_feed, 1), 'splash': (splash, 1),
     'bell': (ship_bell, 1), 'pickup': (pickup, 1), 'level': (level, 1), 'cheer': (dock_cheer, 1), 'aww': (aww, 1),
+    'vent': (vent_blow, 1), 'bubbles': (bubbles, 1),
 }
 if __name__ == '__main__':
     import sys

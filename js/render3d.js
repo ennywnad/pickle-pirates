@@ -361,19 +361,40 @@ async function init(){
   const hzRingMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.6, 0.45, 0.3), transparent:true, opacity:0.8, depthWrite:false });
   const hzFillMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.2, 0.3, 0.2), transparent:true, opacity:0.25, depthWrite:false });
   const ironMat = celMat('#26262c');
-  // cannon rings: an outline, a fill that grows as the shot comes, and the cannonball dropping in at the end
+  // cannon rings: an outline, a fill that grows as the shot comes, and the cannonball dropping in at the end (under the
+  // sea it's an anchor sinking down instead)
+  const anchorGeo = (() => { const parts = [];
+    const shank = new THREE.CylinderGeometry(0.1, 0.1, 1.9, 8); shank.translate(0, 0.95, 0); parts.push(shank);
+    const ring = new THREE.TorusGeometry(0.22, 0.06, 6, 14); ring.translate(0, 2.1, 0); parts.push(ring);
+    const stock = new THREE.CylinderGeometry(0.07, 0.07, 1.2, 6); stock.rotateZ(Math.PI/2); stock.translate(0, 1.6, 0); parts.push(stock);
+    const arms = new THREE.TorusGeometry(0.75, 0.09, 6, 16, Math.PI); arms.rotateZ(Math.PI); arms.translate(0, 0.78, 0); parts.push(arms);
+    for (const s of [-1, 1]) { const f = new THREE.ConeGeometry(0.22, 0.45, 4); f.translate(s*0.75, 0.95, 0); parts.push(f); }
+    return parts; })();
   const zonePool = [0, 1, 2].map(() => { const g = new THREE.Group();
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 40).rotateX(-Math.PI/2), hzRingMat); ring.renderOrder = 2; g.add(ring);
     const fill = new THREE.Mesh(new THREE.CircleGeometry(1, 40).rotateX(-Math.PI/2), hzFillMat); fill.renderOrder = 2; fill.position.y = 0.01; g.add(fill);
     const shot = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), ironMat), 1.1); g.add(shot);
-    g.visible = false; hazG.add(g); return { g, ring, fill, shot }; });
-  // steam vents: an iron grate in the court and a column of steam when it blows
-  const steamMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.5, 1.5, 1.5), transparent:true, opacity:0.5, depthWrite:false });
-  const ventPool = [0, 1, 2, 3].map(() => { const g = new THREE.Group();
-    const grate = withInk(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.06, 20), ironMat), 1.02); grate.position.y = 0.03; g.add(grate);
-    for (let i = -2; i <= 2; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.7), celMat('#4a4048')); bar.position.set(i*0.32, 0.07, 0); g.add(bar); }
-    const steam = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 1, 14, 1, true).translate(0, 0.5, 0), steamMat); steam.renderOrder = 3; g.add(steam);
-    g.visible = false; hazG.add(g); return { g, steam }; });
+    const anchor = new THREE.Group(); for (const geo of anchorGeo) anchor.add(withInk(new THREE.Mesh(geo, ironMat), 1.08)); anchor.scale.setScalar(1.15); g.add(anchor);
+    g.visible = false; hazG.add(g); return { g, ring, fill, shot, anchor }; });
+  const seaRingCol = new THREE.Color(0.5, 1.4, 2.4), fireRingCol = hzRingMat.color.clone(), seaFillCol = new THREE.Color(0.1, 0.4, 0.9), fireFillCol = hzFillMat.color.clone();
+  // steam vents: a cracked iron grate with a glow under it. It glows and shakes as it rumbles (the warning), puffs, then
+  // billows steam for about a second. On the Locker the same vents are cracks in the seabed gushing bubbles.
+  const PUFFS = 12;
+  const steamMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.55, 1.55, 1.55), transparent:true, opacity:0.62, depthWrite:false });
+  const bubbleMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(0.9, 1.9, 2.3), transparent:true, opacity:0.55, depthWrite:false });
+  const puffGeo = new THREE.IcosahedronGeometry(1, 1), bubGeo = new THREE.SphereGeometry(1, 10, 8);
+  const ventPool = [0, 1, 2, 3].map(() => { const g = new THREE.Group(), grate = new THREE.Group(); g.add(grate);
+    const glowMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.8, 0.9, 0.15), transparent:true, opacity:0.3, depthWrite:false });
+    const glow = new THREE.Mesh(new THREE.CircleGeometry(0.95, 24).rotateX(-Math.PI/2), glowMat); glow.position.y = 0.075; glow.renderOrder = 2; grate.add(glow);
+    // cracks running out from the grate, glowing with it
+    for (let k = 0; k < 6; k++) { const a = k/6*Math.PI*2 + 0.3*Math.sin(k*3), len = 0.7 + (k % 3)*0.35;
+      const c = new THREE.Mesh(new THREE.PlaneGeometry(0.09, len).rotateX(-Math.PI/2).translate(0, 0, 0.9 + len/2), glowMat); c.rotation.y = a; c.position.y = 0.07; c.renderOrder = 2; grate.add(c); }
+    const rim = withInk(new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.09, 6, 24).rotateX(Math.PI/2), ironMat), 1.04); rim.position.y = 0.1; grate.add(rim);
+    const bars = [];
+    for (let i = -2; i <= 2; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 1.75 - Math.abs(i)*0.25), celMat('#3a3238')); bar.position.set(i*0.34, 0.1, 0); grate.add(bar); bars.push(bar); }
+    const puffs = [];
+    for (let k = 0; k < PUFFS; k++) { const p = new THREE.Mesh(puffGeo, steamMat); p.renderOrder = 3; g.add(p); puffs.push(p); }
+    g.visible = false; hazG.add(g); return { g, grate, glowMat, puffs, bars }; });
   // tentacles: a curling purple limb with suckers, and a ripple ring while it's coming up
   const tentMat = celMat('#8a4ab0'), suckMat = celMat('#f2a5e0');
   const rippleMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.6, 1.0, 2.2), transparent:true, opacity:0.7, depthWrite:false });
@@ -390,6 +411,22 @@ async function init(){
   const fogPool = [0, 1, 2].map(() => { const g = new THREE.Group();
     for (const [x, y, z, s] of [[0, 2, 0, 1], [0.5, 4.5, 0.3, 0.75], [-0.55, 3.6, -0.2, 0.8], [0.2, 6.5, 0, 0.55]]) { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), fogMat); m.position.set(x, y, z); m.scale.setScalar(s); m.renderOrder = 4; g.add(m); }
     g.visible = false; hazG.add(g); return g; });
+  // fish schools (the Locker's fog): a swirl of tiny fish, thick enough to lose the ball in
+  const FISH = 150;
+  const fishGeo = new THREE.ConeGeometry(0.2, 0.85, 5).rotateX(Math.PI/2).scale(0.5, 1, 1);
+  const fishMats = [celMat('#f0d060'), celMat('#a8d8ec')];
+  const fishPool = [0, 1, 2].map((_, n) => { const m = new THREE.InstancedMesh(fishGeo, fishMats[n % 2], FISH); m.frustumCulled = false;
+    m.userData.seed = Array.from({ length:FISH }, (_, i) => ({ r:Math.sqrt(Math.random()), h:0.5 + Math.random()*5.5, w:0.7 + Math.random()*0.5, ph:Math.random()*Math.PI*2, bob:Math.random()*Math.PI*2 }));
+    m.visible = false; hazG.add(m); return m; });
+  // the sea current: bubbles streaming across the court, and chevrons on the seabed pointing the way it runs
+  const STREAM = 70;
+  const streamMesh = new THREE.InstancedMesh(bubGeo, bubbleMat, STREAM); streamMesh.frustumCulled = false; streamMesh.visible = false; hazG.add(streamMesh);
+  const streamSeed = Array.from({ length:STREAM }, () => ({ x:Math.random(), y:Math.random()*(CL + 6) - 3, z:0.4 + Math.random()*9, s:0.07 + Math.random()*0.16, ph:Math.random()*7 }));
+  const chevMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(0.8, 1.8, 2.4), transparent:true, opacity:0.4, depthWrite:false });
+  const chevrons = [];
+  for (const y of [NETY - KD - 7.5, NETY + KD + 7.5]) for (let k = 0; k < 4; k++) { const c = new THREE.Group();
+    for (const s of [-1, 1]) { const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 1.5).rotateX(-Math.PI/2), chevMat); bar.rotation.y = s*0.75; bar.position.set(-0.35, 0, s*0.5); bar.renderOrder = 2; c.add(bar); }
+    c.userData = { y, k }; c.visible = false; hazG.add(c); chevrons.push(c); }
   // the gull that carries the ball off (Brine Bay, and the Locker's gull rounds)
   const carrier = new THREE.Group();
   { const w = celMat('#f4f2ec'), gr = celMat('#9aa0a8'), beak = celMat('#e8b030');
@@ -399,6 +436,20 @@ async function init(){
     carrier.userData.wings = [-1, 1].map(s => { const g = new THREE.Group(); const m = withInk(new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 0.9), w), 1.1); m.position.x = s*1.4; g.add(m);
       const tip = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.11, 0.8), gr); tip.position.x = s*2.6; g.add(tip); carrier.add(g); return g; }); }
   carrier.visible = false; hazG.add(carrier);
+  // the manta ray that does the same job under the sea: a broad flat body, wings that ripple, a whip of a tail
+  const manta = new THREE.Group();
+  { const top = celMat('#2c4a6e'), belly = celMat('#dfe8ee'), eye = celMat('#10141a');
+    const body = withInk(new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8), top), 1.06); body.scale.set(1.0, 0.28, 1.5); manta.add(body);
+    const under = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8), belly); under.scale.set(0.8, 0.2, 1.25); under.position.y = -0.08; manta.add(under);
+    const wingShape = new THREE.Shape(); wingShape.moveTo(0, 0.9); wingShape.quadraticCurveTo(1.6, 0.6, 3.1, -0.3); wingShape.quadraticCurveTo(1.6, -0.5, 0, -1.1); wingShape.lineTo(0, 0.9);
+    const wingGeo = new THREE.ShapeGeometry(wingShape, 8).rotateX(-Math.PI/2);
+    manta.userData.wings = [-1, 1].map(s => { const g = new THREE.Group(); const m = new THREE.Mesh(wingGeo, top); m.scale.x = s; g.position.x = s*0.6; g.add(m); manta.add(g); return g; });
+    for (const s of [-1, 1]) { const horn = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.6, 5), top); horn.rotation.x = Math.PI/2; horn.position.set(s*0.45, 0, 1.55); manta.add(horn);
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), eye); e.position.set(s*0.55, 0.12, 1.15); manta.add(e); }
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.08, 2.6, 5), top); tail.rotation.x = Math.PI/2; tail.position.set(0, 0, -2.6); manta.add(tail); }
+  manta.visible = false; hazG.add(manta);
+  const fM = new THREE.Matrix4(), fQ = new THREE.Quaternion(), fE = new THREE.Euler(), fS = new THREE.Vector3(), fP = new THREE.Vector3();
+  let ventCol = null;
   // booty on the court: the Treasure Map's X, and the deck swabber with the wet stripe it leaves
   const xMark = new THREE.Group();
   { const gold = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.4, 1.9, 0.5), transparent:true, opacity:0.85, depthWrite:false }), red = celMat('#c8302a');
@@ -423,23 +474,58 @@ async function init(){
   }
   function updateHazards(G, t){
     updateBooty(G, t);
-    const H = G.haz, kind = H && H.kind;
-    // the tilted deck: the whole court leans toward its downhill side
-    const tilt = kind === 'tilt' ? -0.065 : 0; world.rotation.z += (tilt - world.rotation.z)*0.08; dyn.rotation.z = world.rotation.z;
+    const H = G.haz, kind = H && H.kind, sea = !!(H && H.sea);
+    // the tilted deck: the whole court leans toward its downhill side (the Locker's current doesn't tilt anything)
+    const tilt = kind === 'tilt' && !sea ? -0.065 : 0; world.rotation.z += (tilt - world.rotation.z)*0.08; dyn.rotation.z = world.rotation.z;
+    hzRingMat.color.copy(sea ? seaRingCol : fireRingCol); hzFillMat.color.copy(sea ? seaFillCol : fireFillCol);
     zonePool.forEach((z, i) => { const Z = kind === 'cannon' && H.zones[i]; z.g.visible = !!Z; if (!Z) return;
       W(Z.x, Z.y, 0.05, z.g.position); const k = Math.min(1, Z.t/Z.warn); z.ring.scale.setScalar(Z.r); z.fill.scale.setScalar(Z.r*k);
-      hzRingMat.opacity = 0.55 + 0.4*Math.abs(Math.sin(t*10)); z.shot.visible = Z.t > Z.warn - 0.5 && !Z.hit; z.shot.position.y = Math.max(0.5, (Z.warn - Z.t)*60); });
+      hzRingMat.opacity = 0.55 + 0.4*Math.abs(Math.sin(t*10));
+      z.shot.visible = !sea && Z.t > Z.warn - 0.5 && !Z.hit; z.shot.position.y = Math.max(0.5, (Z.warn - Z.t)*60);
+      // an anchor sinks the whole time the ring is up, swaying on its way down, and stays planted for a moment
+      z.anchor.visible = sea; if (sea) { z.anchor.position.y = Math.max(0, (Z.warn - Z.t)*9); z.anchor.rotation.z = Z.hit ? 0.25 : Math.sin(t*3 + i)*0.25*(1 - k); z.anchor.rotation.y = i*1.3; } });
+    // vents: orange glow on Volcano Isle, a cold blue glow on the seabed
+    const vc = sea ? 'sea' : 'fire';
+    if (ventCol !== vc) { ventCol = vc; for (const v of ventPool) v.glowMat.color.set(sea ? new THREE.Color(0.4, 1.7, 2.6) : new THREE.Color(2.8, 0.9, 0.15)); }
     ventPool.forEach((v, i) => { const V = kind === 'vents' && H.vents[i]; v.g.visible = !!V; if (!V) return;
-      W(V.x, V.y, 0, v.g.position); v.g.scale.set(V.r*0.75, 1, V.r*0.75);
-      const on = ventOn(V, G.time), warn = ventWarn(V, G.time); v.steam.visible = on || warn;
-      v.steam.scale.set(1, on ? 7 + Math.sin(t*20)*0.6 : 1.2 + Math.sin(t*14)*0.3, 1); steamMat.opacity = on ? 0.55 : 0.35; });
+      W(V.x, V.y, 0, v.g.position); v.grate.scale.set(V.r*0.75, 1, V.r*0.75);
+      const on = ventOn(V, G.time), warn = ventWarn(V, G.time);
+      v.glowMat.opacity = on ? 0.95 : warn ? 0.45 + 0.5*Math.abs(Math.sin(t*16)) : 0.22 + 0.08*Math.sin(t*2 + i);
+      v.grate.position.set(warn ? Math.sin(t*61)*0.05 : 0, 0, warn ? Math.cos(t*53)*0.05 : 0);   // rattles as it rumbles
+      v.puffs.forEach((p, k) => {
+        const mat = sea ? bubbleMat : steamMat; if (p.material !== mat) { p.material = mat; p.geometry = sea ? bubGeo : puffGeo; }
+        const rate = on ? (sea ? 1.4 : 1.2) : 0.9, u = (t*rate + k/PUFFS) % 1;
+        if (on) { const h = u*(sea ? 9 : 8), s = sea ? (0.2 + 0.3*((k*7) % 3)/2)*(1 + u*0.6) : (0.45 + u*1.4)*(u > 0.75 ? 1 - (u - 0.75)*3.2 : 1);
+          p.visible = true; p.position.set(Math.sin(t*3 + k*2.1)*(0.2 + u*(sea ? 0.6 : 0.9)), h + 0.2, Math.cos(t*2.5 + k*1.7)*(0.2 + u*(sea ? 0.6 : 0.9))); p.scale.setScalar(Math.max(0.01, s)); }
+        else if (warn && k < 5) { const s = sea ? 0.16 : 0.4*(1 - u); p.visible = true; p.position.set(Math.sin(k*2.4)*0.6, u*(sea ? 2.2 : 1.4) + 0.15, Math.cos(k*2.4)*0.6); p.scale.setScalar(Math.max(0.01, s)); }
+        else p.visible = false; }); });
     tentPool.forEach((p, i) => { const T = kind === 'tentacles' && H.tents[i]; p.g.visible = !!T; if (!T) return;
       W(T.x, T.y, 0, p.g.position); p.limb.visible = T.h > 0.05; p.limb.scale.set(T.r/0.7, Math.max(0.01, T.h/6.5), T.r/0.7); p.limb.rotation.y = t*0.6 + i*2; p.limb.rotation.z = Math.sin(t*2.2 + i)*0.12;
       p.ripple.visible = T.h < 1; p.ripple.scale.setScalar(1 + (T.t % 0.5)*2); });
-    fogPool.forEach((g, i) => { const F = kind === 'fog' && H.fog[i]; g.visible = !!F; if (!F) return; W(F.x, F.y, 0, g.position); g.scale.set(F.w*0.95, 2.4, F.h*0.95); g.rotation.y = Math.sin(t*0.3 + i)*0.2; });
-    carrier.visible = !!(H && H.gull);
-    if (carrier.visible) { const B = G.ball, g = H.gull; W(B.x, B.y, B.z + 0.9, carrier.position); carrier.rotation.y = Math.atan2(g.to.x - g.from.x, g.to.y - g.from.y);
-      const f = Math.sin(t*16)*0.6; carrier.userData.wings[0].rotation.z = f; carrier.userData.wings[1].rotation.z = -f; }
+    fogPool.forEach((g, i) => { const F = kind === 'fog' && !sea && H.fog[i]; g.visible = !!F; if (!F) return; W(F.x, F.y, 0, g.position); g.scale.set(F.w*0.95, 2.4, F.h*0.95); g.rotation.y = Math.sin(t*0.3 + i)*0.2; });
+    fishPool.forEach((m, i) => { const F = kind === 'fog' && sea && H.fog[i]; m.visible = !!F; if (!F) return;
+      W(F.x, F.y, 0, m.position); const dir = F.vx > 0 ? 1 : -1;
+      m.userData.seed.forEach((f, k) => { const a = dir*t*f.w + f.ph, rx = F.w*0.95*f.r, rz = F.h*0.95*f.r;
+        fP.set(Math.cos(a)*rx, f.h + Math.sin(t*2 + f.bob)*0.35, Math.sin(a)*rz);
+        fE.set(0, Math.atan2(-Math.sin(a)*rx*dir, Math.cos(a)*rz*dir), Math.sin(t*9 + k)*0.15); fQ.setFromEuler(fE);
+        fM.compose(fP, fQ, fS.set(1, 1, 1 + 0.15*Math.sin(t*14 + k))); m.setMatrixAt(k, fM); });
+      m.instanceMatrix.needsUpdate = true; });
+    // the current: bubbles stream across in the direction it runs, chevrons on the seabed point the same way
+    const cur = kind === 'tilt' && sea && H.current ? Math.sign(H.current) : 0;
+    streamMesh.visible = !!cur;
+    if (cur) { const span = CW + 16;
+      streamSeed.forEach((b, k) => { const x = (((b.x*span + cur*t*(7 + b.s*20)) % span) + span) % span - 8;
+        fP.copy(W(x, b.y, b.z + Math.sin(t*2 + b.ph)*0.3, fP)); fM.compose(fP, fQ.identity(), fS.setScalar(b.s)); streamMesh.setMatrixAt(k, fM); });
+      streamMesh.instanceMatrix.needsUpdate = true; chevMat.opacity = 0.25 + 0.2*Math.abs(Math.sin(t*2)); }
+    chevrons.forEach(c => { c.visible = !!cur; if (!cur) return; const { y, k } = c.userData, x = ((k/4 + t*0.25) % 1)*CW;
+      W(cur > 0 ? x : CW - x, y, 0.03, c.position); c.rotation.y = cur > 0 ? 0 : Math.PI; });
+    // the gull (or the manta) carrying the ball
+    const flying = !!(H && H.gull);
+    carrier.visible = flying && !sea; manta.visible = flying && sea;
+    if (flying) { const B = G.ball, g = H.gull, who = sea ? manta : carrier, yaw = Math.atan2(g.to.x - g.from.x, g.to.y - g.from.y);
+      W(B.x, B.y, B.z + (sea ? 0.6 : 0.9), who.position); who.rotation.y = yaw;
+      const f = sea ? Math.sin(t*5)*0.45 : Math.sin(t*16)*0.6; who.userData.wings[0].rotation.z = f; who.userData.wings[1].rotation.z = -f;
+      if (sea) who.rotation.x = Math.sin(t*5 + 1)*0.06; }
   }
 
   // ------------------------------------------------ crew figures
@@ -469,17 +555,17 @@ async function init(){
     pickle(pl, sp, bob){   // the Pickle Pirates: cucumbers in eye patches and tricorns
       const body = mesh(new THREE.CapsuleGeometry(0.72, 2.6, 6, 14), charMat(sp.body), 1.07); body.position.y = 0.72 + 1.3 + 0.55; body.castShadow = true; bob.add(body);
       for (let i = 0; i < 9; i++) { const a = i*2.4, y = -1.0 + (i % 5)*0.52; const w = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), charMat(sp.acc)); w.position.set(Math.cos(a)*0.71, y, Math.sin(a)*0.71); body.add(w); }
-      const shirt = mesh(new THREE.CylinderGeometry(0.76, 0.79, 0.9, 16, 1, true), charMat('#e8e0c8'), 1.04); shirt.position.y = -0.31; body.add(shirt);
-      const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.18, 16, 1, true), redMat); stripe.position.y = -0.31; body.add(stripe);
+      const shirt = mesh(new THREE.CylinderGeometry(0.76, 0.79, 0.9, 16, 1, true), charMat(sp.shirt || '#e8e0c8'), 1.04); shirt.position.y = -0.31; body.add(shirt);
+      const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.18, 16, 1, true), sp.stripe ? charMat(sp.stripe) : redMat); stripe.position.y = -0.31; body.add(stripe);
       for (const sx of [-1, 1]) eye(0.2, [sx*0.3, 0.78, 0.62], body);
       const patch = new THREE.Mesh(new THREE.CircleGeometry(0.26, 14), eyeB); patch.position.set(0.3, 0.78, 0.84); body.add(patch);
       const strap = new THREE.Mesh(new THREE.TorusGeometry(0.73, 0.04, 4, 24), eyeB); strap.position.y = 0.86; strap.rotation.set(Math.PI/2 - 0.25, 0, 0); body.add(strap);
-      tricorn(body, 1.3 + 0.54);
+      tricorn(body, 1.3 + 0.54, 1, sp.hat ? charMat(sp.hat) : hatMat);
       for (const sx of [-1, 1]) { const f = mesh(new THREE.SphereGeometry(0.32, 10, 8), charMat('#2a1a10'), 1.1); f.scale.set(1, 0.6, 1.4); f.position.set(sx*0.4, 0.2, 0.15); bob.add(f); }
       return { sy:3.0, sx:0.72, L1:0.85, L2:0.85, r:0.13, arm:charMat(sp.body), hand:charMat(sp.acc) };
     },
     crab(pl, sp, bob){   // the Barnacle Boys: a wide red shell on six legs, eye stalks, barnacles, a bandana
-      const shellM = charMat(sp.body), legM = charMat('#b8432c');
+      const shellM = charMat(sp.body), legM = charMat(sp.leg || '#b8432c');
       const shell = mesh(new THREE.SphereGeometry(1, 18, 12), shellM, 1.07); shell.scale.set(1.3, 0.72, 1.0); shell.position.y = 1.75; shell.castShadow = true; bob.add(shell);
       const belly = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI*2, Math.PI/2, Math.PI/2), charMat(sp.acc)); belly.scale.set(1.18, 0.5, 0.9); belly.position.y = 1.62; bob.add(belly);
       for (let i = 0; i < 7; i++) { const a = i*2.1 + 0.4, r = 0.55 + (i % 3)*0.18; const bn = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.16, 6), charMat(sp.acc)); bn.position.set(Math.cos(a)*r*1.1, 2.18 + 0.05*(i % 2), Math.sin(a)*r*0.7 - 0.15); bob.add(bn); }
@@ -601,7 +687,7 @@ async function init(){
     return a;
   }
   function mkFigure(pl){
-    const sp = SPEC[pl.species] || SPEC.pickle;
+    const sp = pl.pal ? { ...(SPEC[pl.species] || SPEC.pickle), ...pl.pal } : SPEC[pl.species] || SPEC.pickle;   // a mirror match: the other colors
     const root = new THREE.Group(), bob = new THREE.Group(); root.add(bob);
     const rig = (CREWS[pl.species] || CREWS.pickle)(pl, sp, bob);
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2), blobMat); blob.scale.set(pl.species === 'crab' ? 3.4 : 2.6, 1, pl.species === 'crab' ? 2.8 : 2.6); blob.position.y = 0.04; blob.renderOrder = 1; root.add(blob);

@@ -12,6 +12,12 @@
 const BOOTY_ORDER = ['cannonball', 'pegleg', 'ink', 'parrot', 'anchor', 'fog', 'treasure'];
 const BOOTY_SHORT = { cannonball:'Cannonball', pegleg:'Peg-Leg', ink:'Ink', parrot:'Parrot', anchor:'Anchor', fog:'Fog Bank', treasure:'Treasure' };
 const BOOTY_RALLY = 6;   // shots in a rally to earn a crate
+// the key or button that uses booty, for the crew's first human (shown in the toasts)
+function bootyKey(team){
+  const h = crewOf(team).find(p => p.human); if (!h || typeof devicesFor !== 'function' || typeof binds === 'undefined') return 'E';
+  const d = devicesFor(h.pad || 0); if (d.pads && d.pads.length) return 'B';
+  const k = d.kb && binds[d.kb] && binds[d.kb].booty && binds[d.kb].booty[0]; return k ? (typeof KEY_NAMES !== 'undefined' && KEY_NAMES[k]) || k.replace(/^Key/, '') : 'E';
+}
 const bootyOn = () => !!G && G.mode === 'game' && G.cfg.booty !== false && !G.attract;
 function newBooty(){
   G.booty = bootyOn() ? { held:{ home:null, away:null }, fx:{ home:{}, away:{} }, zone:null, ev:{ earned:0, used:{}, treasure:0 }, always:false } : null;
@@ -23,8 +29,8 @@ function earnBooty(team, kind){
   Y.held[team] = kind || BOOTY_ORDER[Math.floor(Math.random()*BOOTY_ORDER.length)]; Y.ev.earned++;
   const pl = crewOf(team)[0];
   if (pl) G.pops.push({ text:'BOOTY: ' + BOOTY_SHORT[Y.held[team]].toUpperCase(), x:pl.x, y:pl.y, life:1.4, max:1.4, size:14, color:'#ffc23a', lift:4 });
-  const mine = crewOf(team).some(p => p.human);
-  if (mine && typeof toast === 'function') toast('Booty!', `${BOOTY[Y.held[team]].name}: press Booty (E) to use it`, 1800, 'small');
+  const mine = crewOf(team).some(p => p.human), B = BOOTY[Y.held[team]];
+  if (mine && typeof toast === 'function') toast(`Booty: ${B.name}!`, `${B.desc} Press Booty (${bootyKey(team)}) to use it.`, 3200, 'small booty');
   if (typeof sfx === 'function') sfx('pickup');
   return true;
 }
@@ -50,6 +56,12 @@ function useBooty(team){
   const pl = crewOf(team)[0];
   if (pl) G.pops.push({ text:BOOTY_SHORT[kind].toUpperCase() + '!', x:pl.x, y:pl.y, life:1.1, max:1.1, size:16, color:'#ffc23a', lift:5 });
   if (typeof sfx === 'function') sfx('pickup');
+  // say what just happened: to the crew that used it, and (more importantly) to the human it was used against
+  if (typeof toast === 'function' && !G.attract) {
+    const mine = crewOf(team).some(p => p.human), theirs = crewOf(opp).some(p => p.human), B = BOOTY[kind];
+    if (theirs && !mine) toast(`${teamName(team)} use ${B.name}!`, B.desc.replace(/^Your next/, 'Their next').replace(/your crew/g, 'their crew').replace(/the other crew/gi, 'your crew').replace('Land a shot in it and you get', 'If they land a shot in it they get'), 2600, 'small booty');
+    else if (mine) toast(B.name + '!', B.desc, 1800, 'small booty');
+  }
   return true;
 }
 // a stroke (or serve) by `pl`: the shot-shaping booty its crew has waiting. Returns the launch speed factor.

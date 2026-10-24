@@ -98,6 +98,14 @@ for (const gfx of ['classic', 'med']) {
   await page.waitForSelector('#gameset:not([hidden])', { timeout: 5000 });
   await tap('#g_tier button[data-v="captain"]');
   await tap('#gameGo');
+  // the island card comes first and holds the game until you set sail (Enter)
+  await page.waitForSelector('#isle:not([hidden])', { timeout: 5000 }).catch(() => {});
+  const card = await page.evaluate(() => ({ shown: !document.getElementById('isle').hidden, text: document.getElementById('isleCard').textContent, paused, t: window.__sim.G.time }));
+  if (!card.shown || !card.paused || !/hazard/i.test(card.text) || !/Set sail/.test(card.text)) fail(`${gfx}: the island card did not show before the game (${JSON.stringify(card).slice(0, 300)})`);
+  if (shots) await page.screenshot({ path: `${shots}/isle-${gfx}.png` });
+  await page.keyboard.press('Enter');
+  const sailed = await page.evaluate(() => ({ hidden: document.getElementById('isle').hidden, paused }));
+  if (!sailed.hidden || sailed.paused) fail(`${gfx}: Enter did not set sail from the island card (${JSON.stringify(sailed)})`);
   await page.waitForFunction(() => /CAPTAIN/.test(document.getElementById('arenaShort').textContent), null, { timeout: 8000 }).catch(() => {});
   const gm = await page.evaluate(() => { const S = window.__sim, G = S.G; const start = { mode: G.mode, state: G.state, call: document.getElementById('clk').textContent, tier: G.players[1].tier, board: document.getElementById('arenaShort').textContent };
     G.players[0].human = false; for (let i = 0; i < 60*240 && G.match.rallies < 4; i++) S.step(1); G.players[0].human = true;
@@ -114,13 +122,23 @@ for (const gfx of ['classic', 'med']) {
   await tap('#tuneClose');
   const backToPause = await page.isVisible('#pause');
   if (!tn.tune || tn.t !== t0 || !backToPause) fail(`${gfx}: Feel tuning did not hold the game (${JSON.stringify({ t0, ...tn, backToPause })})`);
+  // a controller can move through the pause menu and pick a button (d-pad down, A)
+  const nav = await page.evaluate(() => { setPaused(true); padMove(0, 1); const a = padFocus && padFocus.id; padMove(0, 1); const b = padFocus && padFocus.id;
+    const ring = padFocus && padFocus.classList.contains('padfocus'); padMove(0, -1); const c = padFocus && padFocus.id; padConfirm(); return { a, b, c, ring, paused }; });
+  if (nav.a !== 'btnResume' || !nav.b || nav.b === nav.a || !nav.ring || nav.c !== 'btnResume' || nav.paused) fail(`${gfx}: controller navigation in the pause menu did not work (${JSON.stringify(nav)})`);
+  // the logbook from the pause menu, and back
+  await page.keyboard.press('KeyP'); await tap('#btnPauseLog');
+  const lg = await page.evaluate(() => ({ shown: !document.getElementById('logbook').hidden, rows: document.querySelectorAll('#logWrap .hzrow').length, text: document.getElementById('logWrap').textContent }));
+  if (!lg.shown || lg.rows < 6 + 6 + 7 || !/Fish schools/.test(lg.text) || !/Treasure Map/.test(lg.text)) fail(`${gfx}: the logbook is missing islands or booty (${JSON.stringify({ ...lg, text: undefined })})`);
+  await tap('#logGo');
+  if (await page.isHidden('#pause')) fail(`${gfx}: the logbook did not go back to the pause menu`);
   await tap('#btnResume');
   // new matches don't pile up figure geometry on the GPU (3D only)
   if (gfx !== 'classic') {
     const mem = await page.evaluate(async () => { const R3 = window.__r3d, S = window.__sim, wait = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       if (!R3.mem || !R3.mem()) return null; const by = { singles:[], doubles:[] };   // attract games are singles or doubles: compare like with like
       for (let i = 0; i < 10; i++) { startAttract(); await wait(); by[S.G.format].push(R3.mem().geometries); }
-      startGame(); await wait(); return by; });
+      startGame(lastOver, lastOpts, true); await wait(); return by; });
     const grow = mem ? Math.max(...Object.values(mem).filter(v => v.length).map(v => Math.max(...v) - v[0])) : 0;
     if (mem && grow > 4) fail(`${gfx}: figure geometry leaks across matches (${JSON.stringify(mem)})`);
     console.log(`${gfx}: geometries across 10 new matches`, mem ? JSON.stringify(mem) : 'n/a');
@@ -137,12 +155,19 @@ for (const gfx of ['classic', 'med']) {
   const msg = await page.textContent('#saveMsg');
   if (!/Loaded/.test(msg)) fail(`${gfx}: save code did not load (${msg})`);
 
+  // pickle vs pickle: the same crew on both sides, the far side in Dill Rogers' colors, names on the scoreboard
+  const pvp = await page.evaluate(() => { gameCfg.crewHome = 'pickle'; gameCfg.crewAway = 'pickle'; startGame(null, { crews:pickedCrews() }); setSail();
+    const G = window.__sim.G, out = { species: G.players.map(p => p.species).join(','), away: G.crew.away.id, pal: !!G.players[1].pal, h: $('hAbbr').textContent, a: $('aAbbr').textContent, name: teamName('away') };
+    gameCfg.crewAway = 'island'; return out; });
+  if (pvp.species !== 'pickle,pickle' || pvp.away !== 'dill' || !pvp.pal || pvp.h !== 'PKL' || pvp.a !== 'DIL') fail(`${gfx}: pickle vs pickle did not set up right (${JSON.stringify(pvp)})`);
+  await page.evaluate(() => { renderHub(); show('hub'); });
   // v0.2: Versus. P1 + P2 against the crew in doubles (P2 on the arrow keys), then P1 vs P2 from the side
   await page.evaluate(() => { renderHub(); show('hub'); });
   await tap('#btnVersus');
   await tap('#v_format button[data-v="doubles"]');
   await tap('#v_who button[data-v="coop"]');
   await tap('#vsGo');
+  await tap('#isleGo');
   await page.waitForTimeout(400);
   const co = await page.evaluate(() => { const S = window.__sim, G = S.G; return { n: G.players.length, humans: G.players.filter(p => p.human).map(p => p.team + p.slot + 'p' + p.pad).join(','), doubles: G.match.doubles, call: scoreCall(G.match), bar: document.getElementById('ctrlBar').textContent }; });
   if (co.n !== 4 || co.humans !== 'home0p0,home1p1' || !co.doubles || !/–[12]$/.test(co.call)) fail(`${gfx}: co-op doubles did not start right (${JSON.stringify(co)})`);
@@ -154,7 +179,7 @@ for (const gfx of ['classic', 'med']) {
   await page.keyboard.up('ArrowLeft');
   if (!(after[0] < p2x[0] - 1) || Math.abs(after[1] - p2x[1]) > 1.5) fail(`${gfx}: P2's arrow keys did not move P2 alone (${JSON.stringify({ before: p2x, after })})`);
   // fast-forward some doubles points with everyone on the CPU
-  const dbl = await page.evaluate(() => { startGame(); const S = window.__sim, G = S.G; G.players.forEach(p => p.human = false);
+  const dbl = await page.evaluate(() => { startGame(lastOver, lastOpts, true); const S = window.__sim, G = S.G; G.players.forEach(p => p.human = false);
     for (let i = 0; i < 60*240 && G.match.rallies < 4; i++) S.step(1); return { rallies: G.match.rallies, call: scoreCall(G.match) }; });
   if (dbl.rallies < 4) fail(`${gfx}: doubles points did not play out (${JSON.stringify(dbl)})`);
   await page.evaluate(() => { renderHub(); show('hub'); });
@@ -162,6 +187,7 @@ for (const gfx of ['classic', 'med']) {
   await tap('#v_format button[data-v="singles"]');
   await tap('#v_who button[data-v="vs"]');
   await tap('#vsGo');
+  await tap('#isleGo');
   await page.waitForTimeout(400);
   const vs = await page.evaluate(() => { const G = window.__sim.G; return { n: G.players.length, view: G.view, p2team: humanFor(1) && humanFor(1).team }; });
   if (vs.n !== 2 || vs.view !== 'side' || vs.p2team !== 'away') fail(`${gfx}: P1 vs P2 singles did not start with the side view (${JSON.stringify(vs)})`);
@@ -174,6 +200,7 @@ for (const gfx of ['classic', 'med']) {
   const howShown = await page.isVisible('#howto');
   if (gfx === 'classic' && !howShown) fail(`${gfx}: How to play did not show on the first Play`);
   if (howShown) await tap('#howGo');
+  await tap('#isleGo');
   await page.waitForTimeout(500);
   const pg = await page.evaluate(() => { const S = window.__sim, G = S.G;
     const out = { island: G.island.id, tier: G.players[1].tier, to: G.match.to, scoring: G.match.scoring, kitchen: G.cfg.kitchen, seen: save.seenHow, before: save.record.deckhand.w };

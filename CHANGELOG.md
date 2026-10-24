@@ -2,6 +2,48 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.6.0 · Clear islands, an underwater Locker, crew choice (milestone 10 complete) · 2026-10-23
+
+Play-test fixes. Every hazard and power-up now explains itself in the game, Davy's Locker looks like the bottom of the sea, and you can pick both crews, including pickle vs pickle.
+
+**Steam vents you can recognize**
+- The vents on Volcano Isle are now cracked iron grates with a glow underneath. They glow and rattle with a rumble as a warning, puff, then billow steam for about a second. The old white cylinders are gone.
+- Both views draw the new vents.
+
+**Davy's Locker, under the sea**
+
+The Locker still rotates through all six hazards every three rallies, but each one is now done the way the seabed would:
+
+| On the surface | In the Locker | What changes |
+|---|---|---|
+| Gulls | Manta ray | Same job: it carries off balls above about 11 ft |
+| Tilted deck | Sea current | New physics: the current pushes the ball sideways while it's in the air, shown by streaming bubbles and arrows on the court. The deck no longer tilts. The landing marker and the CPU both account for it |
+| Cannon fire | Sinking anchors | Blue rings, and an anchor sinks into each one |
+| Steam vents | Bubble vents | Blue glow, and columns of bubbles instead of steam |
+| Tentacles | Tentacles | Unchanged |
+| Fog | Fish schools | A swirling school of tiny fish hides the ball instead of white clouds |
+
+**Hazards and booty explain themselves**
+- **Island card:** before each match (rematches skip it), a card names the island, both crews and the level, and explains the hazard. For the Locker it lists all six seabed versions. Set sail with Enter or A, or go back with Esc or B.
+- **First-time callouts:** the first time a hazard strikes in a game, its name and a one-line tip appear on screen.
+- **Booty:**
+  - Earning a crate shows what it does and which key or button uses it.
+  - If a CPU crew uses booty on you, you're told what it is and what it does.
+  - The scoreboard chips show an icon, and hovering a chip shows its description.
+- **Logbook:** a new page, reached from the dock and the pause menu. It covers every island and its hazard, including the Locker's six, and all seven power-ups.
+- Each hazard and power-up has its own icon. The power-up descriptions are rewritten to match exactly what each one does.
+- Vents rumble (or fizz, in the Locker) as their warning starts.
+
+**Crew choice, and pickle vs pickle**
+- Custom game and Versus have **Your crew** and **Their crew** pickers. You can pick any of the nine crews on either side, on any island.
+- The Pickle Pirates' rivals, **Dill Rogers' Crew** (DIL), are new: lighter pickles with a blue sash and a red hat. If you pick the Pickle Pirates for both sides, the far side becomes Dill Rogers' Crew.
+- Any other crew against itself plays as a "Rival" crew in its second set of colors, for example blue crabs.
+- The scoreboard, the calls and the results card use the crews you picked.
+
+**Controller in the menus**
+- The D-pad or left stick moves a highlight through the buttons, toggles and sliders on every menu, including the pause menu.
+- A picks the highlighted item, B goes back, and left and right move a slider.
+
 ## v0.5.0 · Booty and the deck swabber (milestone 9 complete) · 2026-10-23
 
 Power-ups. Win a rally of 6 shots or more and your crew gets a booty crate. You hold one at a time and press Booty to use it: E on the keyboard, B on a controller, or the Booty button on touch.

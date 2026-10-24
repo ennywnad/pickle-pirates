@@ -69,10 +69,21 @@ const setup = island => `Object.assign(gameCfg, { to:11, scoring:'sideout', tier
     const d = G.haz.lastDrop; return { got, drop:d, inFar: !!d && d.y < NETY && d.x > 0 && d.x < CW, live:B.live }; })()`);
   check('Brine Bay: a gull snatches a high lob and drops it on the far side, still in play', r.got && r.inFar && r.live, JSON.stringify(r.drop && { x:+r.drop.x.toFixed(1), y:+r.drop.y.toFixed(1) }));
 }
+{
+  // Davy's Locker: the sea current pushes the ball sideways in flight (no tilted deck), and the prediction knows it
+  const r = run(`(() => { ${setup('locker')} setHazard('tilt'); const B = G.ball, cur = HZ.current;
+    const shot = () => Object.assign(B, { x:10, y:38, z:2, vx:0, vy:-26, vz:20, live:true, lastBy:'home', bounces:0, sx:0, sy:0, sz:0 });
+    shot(); const pr = predict(B, 4, BALL_DT, 1000); let e; for (let i = 0; i < 1200 && e !== 'bounce'; i++) e = ballStep(B, BALL_DT);
+    const land = { x:B.x, y:B.y }, pf = pr.first;
+    HZ.current = 0; shot(); e = null; for (let i = 0; i < 1200 && e !== 'bounce'; i++) e = ballStep(B, BALL_DT); HZ.current = cur;
+    return { cur, tilt:HZ.tilt, name:HAZ_NAME.tilt, drift:land.x - B.x, err:Math.hypot(land.x - pf.x, land.y - pf.y) }; })()`);
+  check('Davy\'s Locker: the sea current curves the ball sideways (no tilt), and the landing prediction follows it', r.tilt === 0 && Math.abs(r.cur) > 0 && Math.sign(r.drift) === Math.sign(r.cur) && Math.abs(r.drift) > 1 && r.err < 0.15 && r.name === 'Sea current',
+    `current ${r.cur} ft/s², drift ${r.drift.toFixed(2)} ft, prediction off by ${r.err.toFixed(3)} ft`);
+}
 // ---------- 2. games on every island
 const islands = ['brine', 'wreck', 'cannon', 'volcano', 'kraken', 'ghost', 'locker'];
 const own = { brine:['gulls'], wreck:['tilt'], cannon:['cannon'], volcano:['vents'], kraken:['tentacles'], ghost:['fog'], locker:null };
-const kinds = ['gulls', 'tilt', 'cannon', 'vents', 'tentacles', 'fog'];
+const kinds = ['gulls', 'tilt', 'current', 'cannon', 'vents', 'tentacles', 'fog'];
 for (const isl of islands) {
   const r = run(`(() => {
     const ev = {}, errs = [], kindsSeen = new Set(); let rallies = 0, strokes = 0, minutes = 0;
