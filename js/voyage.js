@@ -27,13 +27,13 @@ const voyCupWon = () => voyStars(VOYAGE[VOYAGE.length - 1].island)[0];
 const voyOver = L => ({ to:L.to, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, tier:L.tier, hazards:true, booty:true });
 
 // per-team counters the objectives read (kept for every game; cheap)
-const teamStats = () => ({ winners:0, streak:0, bestStreak:0, longWin:0, stunned:0, crates:0, used:0, kitchen:0 });
+const teamStats = () => ({ won:0, winners:0, streak:0, bestStreak:0, longWin:0, stunned:0, crates:0, used:0, kitchen:0 });
 function statRally(winner, loser, kind){
   const T = G.stats.team; if (!T) return;
   const w = T[winner], l = T[loser];
   if (kind === 'double bounce' || kind === 'ace') w.winners++;
   if (kind === 'kitchen') l.kitchen++;
-  w.streak++; w.bestStreak = Math.max(w.bestStreak, w.streak); l.streak = 0;
+  w.won++; w.streak++; w.bestStreak = Math.max(w.bestStreak, w.streak); l.streak = 0;
   w.longWin = Math.max(w.longWin, G.rally);
 }
 const statAdd = (team, k, n = 1) => { const T = G && G.stats && G.stats.team; if (T && T[team]) T[team][k] += n; };

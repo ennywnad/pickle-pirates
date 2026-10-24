@@ -1,12 +1,12 @@
 {
   "name": "pickle-pirates",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "Arcade pickleball between pirate crews, in the browser.",
   "type": "module",
   "scripts": {
     "serve": "node tests/serve.mjs",
-    "test": "node tests/ball.mjs && node tests/rules.mjs && node tests/rally.mjs && node tests/game.mjs && node tests/swings.mjs && GAMES=1 node tests/islands.mjs && GAMES=2 node tests/booty.mjs && node tests/voyage.mjs && SOAK=6 QUICK=1 node tests/ai.mjs && node tests/smoke.mjs"
+    "test": "node tests/ball.mjs && node tests/rules.mjs && node tests/rally.mjs && node tests/game.mjs && node tests/swings.mjs && GAMES=1 node tests/islands.mjs && GAMES=2 node tests/booty.mjs && node tests/voyage.mjs && node tests/replay.mjs && SOAK=6 QUICK=1 node tests/ai.mjs && node tests/smoke.mjs"
   },
   "devDependencies": {
     "playwright": "1.56.0"

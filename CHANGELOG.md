@@ -2,6 +2,29 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.8.0 · Instant replays and stats (milestone 11, part 2) · 2026-10-24
+
+**Instant replays**
+- **What gets a replay:** a rally of 12 shots or more, or a smash nobody could return. The last 5 seconds play back at half speed.
+- **The view:** in 3D the replay camera sits low at the side of the court and follows the ball. A red REPLAY tag says what you're watching.
+- **The game waits:** the game holds still during the replay and picks up exactly where it was.
+- **Skipping:** any shot button, A, Enter, Space or a tap skips a replay.
+- **How often:** at most one replay every 4 rallies.
+- **Turning them off:** use the **Instant replays** toggle in Accessibility on the dock.
+
+**Stats**
+- **Results card:** shows each crew's numbers side by side, with the better number in gold:
+  - rallies won
+  - winners (aces count)
+  - aces
+  - errors (net, out and other faults)
+  - kitchen faults
+  - best run of rallies
+  - booty used
+- **Your log:** a new section at the top of the Logbook with your lifetime numbers: games, wins, Voyage stars, rallies, longest rally, best run, winners, aces, errors, kitchen faults and booty used.
+  - It counts every game you play on the near side. P1 vs P2 games don't count.
+  - Save codes carry it.
+
 ## v0.7.0 · The Voyage (milestone 11, part 1) · 2026-10-23
 
 The career. Sail the Pickle Pirates to all seven islands, one match each, ending with the Davy's Locker Cup.

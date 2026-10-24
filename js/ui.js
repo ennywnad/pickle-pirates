@@ -34,6 +34,7 @@ function renderHub(){
     <div class="card gfx"><div class="kitrow"><div style="display:flex;flex-direction:column;gap:4px;min-width:0"><h3 class="h">Controls</h3><span class="xptext">Remap keys and controller buttons.</span></div><button class="btn ghost small" id="btnControls" type="button">Change</button></div></div>
     <div class="card gfx"><h3 class="h">Accessibility</h3>
       <label class="tog"><input type="checkbox" id="a_rm" ${A11Y.rm ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>Reduce motion</b><small>No screen shake or pulsing buttons</small></span></label>
+      <label class="tog"><input type="checkbox" id="a_replay" ${A11Y.replay !== false ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>Instant replays</b><small>Long rallies and smash winners play back at half speed. Any shot button skips one</small></span></label>
       <div class="prow"><span class="xptext">On-screen buttons</span>${segHtml('a_btn', [['normal','Normal'],['large','Large'],['xl','Extra large']], A11Y.btn)}</div></div>
     <div class="card gfx"><h3 class="h">Graphics</h3><div class="seg" id="gfxSeg">${GFX_OPTS.map(([k,l]) => `<button type="button" data-g="${k}" aria-pressed="${k===gfxPref}">${l}</button>`).join('')}</div><h3 class="h" style="margin-top:6px">3D engine</h3><div class="seg" id="engSeg">${[['webgpu','WebGPU'],['webgl','WebGL2 (compatibility)']].map(([k,l]) => `<button type="button" data-e="${k}" aria-pressed="${k===gfxEngine()}">${l}</button>`).join('')}</div><p class="gfxnote" id="gfxNote">${gfxStatusText()}</p></div>
     <div class="card gfx"><h3 class="h">Save data</h3>
@@ -48,6 +49,7 @@ function renderHub(){
   $('sndOn').onchange = e => setMuted(!e.target.checked);
   $('btnControls').onclick = () => openControls('hub');
   $('a_rm').onchange = e => { A11Y.rm = e.target.checked; saveA11y(); applyA11y(); };
+  $('a_replay').onchange = e => { A11Y.replay = e.target.checked; saveA11y(); };
   $('a_btn').querySelectorAll('button').forEach(b => b.onclick = () => { A11Y.btn = b.dataset.v; saveA11y(); applyA11y(); $('a_btn').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
   $('sndVol').oninput = e => { volume = Number(e.target.value)/100; $('sndVolV').textContent = e.target.value + '%'; try { localStorage.setItem('pickle-vol', String(volume)); } catch(err) {} ensureAudio(); applyVolume(); };
   $('sndCrowd').oninput = e => { crowdVol = Number(e.target.value)/100; $('sndCrowdV').textContent = e.target.value + '%'; try { localStorage.setItem('pickle-crowdvol', String(crowdVol)); } catch(err) {} ensureAudio(); applyVolume(); };
@@ -373,16 +375,17 @@ function showResults(){
   const counts = !vs && hum.length === 1 && !S.doubles;
   const rec = save.record[tier] || (save.record[tier] = { w:0, l:0 }), firstWin = counts && won && rec.w === 0;
   if (counts) { if (won) rec.w++; else rec.l++; persist(); }
+  if (!vs && hum.some(s => s.team === 'home')) addLife(won);   // lifetime stats for your crew
   const R = G.voyage ? voyFinish() : null;
   const next = counts && !R ? AI_ORDER[AI_ORDER.indexOf(tier) + 1] : null;
   const winnerP = vs ? hum.find(s => s.team === S.winner) : null;
   const title = vs ? `P${winnerP ? winnerP.pad + 1 : 1} wins!` : R && R.cup ? 'The Cup is yours!' : won ? 'Victory!' : 'Sunk!';
   const sub = vs ? 'P1 VS P2' : `VS ${tierOf(awayLead()).name.toUpperCase()}${hum.length > 1 ? ' · P1 + P2' : ''}`;
-  const faults = Object.entries(st.faults).filter(([k]) => !['double bounce', 'winner', 'ace', 'in'].includes(k)).map(([k, n]) => `${CALL_TEXT[k].replace('!', '').toLowerCase()} ${n}`).join(', ');
   $('resCard').innerHTML = `
     <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · ${S.doubles ? 'DOUBLES' : 'SINGLES'} TO ${S.to} · ${sub}</p><h2>${title}</h2></div>
     <div class="final"><div><div class="n">${S.pts.home}</div><div class="who">${teamAbbr('home')}</div></div><div class="dash">–</div><div><div class="n">${S.pts.away}</div><div class="who">${teamAbbr('away')}</div></div></div>
-    <dl class="xprows"><div><dt>Rallies</dt><dd>${S.rallies}</dd></div><div><dt>Side outs</dt><dd>${S.sideOuts}</dd></div><div><dt>Longest rally</dt><dd>${st.longest} shots</dd></div><div><dt>Aces</dt><dd>${st.aces}</dd></div>${faults ? `<div><dt>Faults</dt><dd>${faults}</dd></div>` : ''}</dl>
+    <dl class="xprows"><div><dt>Rallies</dt><dd>${S.rallies}</dd></div><div><dt>Side outs</dt><dd>${S.sideOuts}</dd></div><div><dt>Longest rally</dt><dd>${st.longest} shots</dd></div></dl>
+    ${statsTableHtml()}
     ${R ? voyResultHtml(R) : ''}
     ${counts ? `<p class="rec">${firstWin ? `<b class="new">First win over the ${TIER_NAMES[tier]}!</b> ` : ''}Your record vs the ${TIER_NAMES[tier]}: ${rec.w}–${rec.l}</p>` : ''}
     <div class="btns">${R ? (R.next !== null ? `<button class="btn" id="resNext" type="button">Sail to ${voyLegName(R.next)}</button><button class="btn ghost" id="resAgain" type="button">Play it again</button>` : `<button class="btn" id="resAgain" type="button">${won ? 'Play it again' : 'Try again'}</button>`) + `<button class="btn ghost" id="resMap" type="button">Voyage map</button>`
@@ -394,6 +397,24 @@ function showResults(){
   show('results');
   if (won) sfx('level');
   if (R && R.firstCup) setTimeout(() => sfx('cheer'), 600);
+}
+// the match stats, crew against crew
+function crewStats(tm){
+  const T = G.stats.team[tm], o = other(tm), fb = G.stats.faultBy;
+  return { won:T.won, winners:T.winners, aces:fb[o].ace || 0, errors:Object.entries(fb[tm]).filter(([k]) => !['double bounce', 'ace', 'kitchen', 'in', 'winner', 'close', 'smash'].includes(k)).reduce((n, [, v]) => n + v, 0), kitchen:T.kitchen, bestRun:T.bestStreak, booty:T.used };
+}
+const STAT_ROWS = [['won', 'Rallies won'], ['winners', 'Winners (aces count)'], ['aces', 'Aces'], ['errors', 'Errors (net, out, faults)'], ['kitchen', 'Kitchen faults'], ['bestRun', 'Best run of rallies'], ['booty', 'Booty used']];
+function statsTableHtml(){
+  const h = crewStats('home'), a = crewStats('away');
+  return `<table class="stattab"><thead><tr><th></th><th>${teamAbbr('home')}</th><th>${teamAbbr('away')}</th></tr></thead><tbody>${STAT_ROWS.filter(([k]) => k !== 'booty' || G.booty).map(([k, l]) => {
+    const better = k === 'errors' || k === 'kitchen' ? (x, y) => x < y : (x, y) => x > y;
+    return `<tr><th>${l}</th><td class="${better(h[k], a[k]) ? 'lead' : ''}">${h[k]}</td><td class="${better(a[k], h[k]) ? 'lead' : ''}">${a[k]}</td></tr>`; }).join('')}</tbody></table>`;
+}
+function addLife(won){
+  const L = save.life, h = crewStats('home');
+  L.games++; if (won) L.wins++; L.rallies += G.match.rallies; L.longest = Math.max(L.longest, G.stats.longest);
+  for (const k of ['won', 'winners', 'aces', 'errors', 'kitchen', 'booty']) L[k] += h[k];
+  L.bestRun = Math.max(L.bestRun, h.bestRun); persist();
 }
 const voyLegName = i => { const L = VOYAGE[i]; return L.cup ? 'the Cup' : ISLANDS.find(x => x.id === L.island).name; };
 // the stars from this match, what's new, and any power-ups the new stars unlocked
@@ -466,6 +487,13 @@ $('btnPracSet').onclick = () => openPractice(true);
 $('btnPauseCtrls').onclick = () => openControls('pause');
 $('btnPauseHow').onclick = () => openHow('pause');
 $('btnPauseLog').onclick = () => openLog('pause');
+// your crew's lifetime numbers (games you played on the near side; P1 vs P2 games don't count)
+function lifeHtml(){
+  const L = save.life; if (!L.games) return `<div class="card how"><h3 class="h">Your log</h3><p>Finish a game and your lifetime numbers show up here.</p></div>`;
+  const pct = n => Math.round(100*n/Math.max(1, L.games));
+  const items = [['Games', L.games], ['Won', `${L.wins} (${pct(L.wins)}%)`], ['Voyage stars', `${voyTotal()} of ${VOYAGE.length*3}`], ['Rallies', L.rallies], ['Longest rally', `${L.longest} shots`], ['Best run', `${L.bestRun} rallies`], ['Winners', L.winners], ['Aces', L.aces], ['Errors', L.errors], ['Kitchen faults', L.kitchen], ['Booty used', L.booty]];
+  return `<div class="card how"><h3 class="h">Your log</h3><dl class="lifegrid">${items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></div>`;
+}
 // ---------------- the logbook: every island and its hazard (and the Locker's sea versions), and all the booty
 function openLog(from){
   howFrom = from;
@@ -474,6 +502,7 @@ function openLog(from){
   const booty = BOOTY_ORDER.map(k => `<div class="hzrow small"><span class="ic">${svg('bt_' + k)}</span><div><b>${BOOTY[k].name}</b><p>${BOOTY[k].desc}</p></div></div>`).join('');
   $('logWrap').innerHTML = `
     <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Logbook</h2><span class="slots">ISLANDS, HAZARDS AND BOOTY</span></div><button class="btn small" id="logGoTop" type="button">Done</button></div>
+    ${lifeHtml()}
     <div class="card how"><h3 class="h">Island hazards</h3><p>Each island bends one part of the game. None of them changes the rules: every ball is still called where it lands. Turn them off in a custom game if you want a plain court.</p>${isles}</div>
     <div class="card how"><h3 class="h">Booty</h3><p>Win a rally of ${BOOTY_RALLY} shots or more and your crew gets a crate (one held at a time; it shows by your score). Press Booty (E on the keyboard, B on a controller, or the button on screen) to use it. The CPU crews earn and use booty too.</p><div class="hzgrid">${booty}</div></div>
     <div class="btns"><button class="btn" id="logGo" type="button">${from === 'pause' ? 'Back to the pause menu' : 'Back to the dock'}</button></div>`;

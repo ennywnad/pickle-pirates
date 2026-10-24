@@ -81,19 +81,21 @@ const playing = () => G && !G.attract && !paused && G.state !== 'end';
 // a shot press waits for the best moment to swing (see shots.js); Drive keeps charging while held
 function pressShot(p, kind){
   if (!playing()) return;
+  if (skipReplay()) return;   // a replay is playing: any shot button skips it
   const pl = humanFor(p); if (!pl) return;
   if (G.state === 'serve' && G.match && pl === serverPl()) { requestServe(pl, kind, readAim(p)); return; }
   queueShot(pl, kind, { hold: kind === 'drive', aim: readAim(p), mod: actionHeld(p, 'top') ? 'top' : actionHeld(p, 'slice') ? 'slice' : null });
 }
 function releaseDrive(p){ const pl = humanFor(p); if (pl) releaseShot(pl); }
 function pressBooty(p = 0){
-  if (!playing()) return; const pl = humanFor(p); if (!pl) return;
+  if (!playing()) return; if (skipReplay()) return; const pl = humanFor(p); if (!pl) return;
   if (!G.booty) return toast('No booty here', 'Booty is switched off for this game', 1200, 'small');
   if (!useBooty(pl.team)) toast('No booty yet', `Win a rally of ${BOOTY_RALLY}+ shots to earn a crate`, 1300, 'small');
 }
 cv.addEventListener('pointerdown', e => {
   ensureAudio();
   if (!playing()) return;
+  if (skipReplay()) { e.preventDefault(); return; }
   const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   if (x < r.width*0.62 && joy.id === null) { joy.id = e.pointerId; joy.bx = joy.x = x; joy.by = joy.y = y; try { cv.setPointerCapture(e.pointerId); } catch(err) {} }
   e.preventDefault();
@@ -127,6 +129,7 @@ window.addEventListener('keydown', e => {
   if (!$('isle').hidden) { if (!e.repeat && ['Enter', 'NumpadEnter', 'Space'].includes(e.code)) { e.preventDefault(); $('isleGo').click(); } else if (e.code === 'Escape') $('isleBack').click(); return; }
   if (e.code === 'KeyP' || e.code === 'Escape') { if (inGame && !paused) setPaused(true); else if (paused) setPaused(false); return; }
   if (!inGame || paused) return;
+  if (G.replay && !e.repeat && ['Enter', 'NumpadEnter', 'Space'].includes(e.code)) { e.preventDefault(); skipReplay(); return; }
   let used = false;
   for (let p = 0; p < humans(); p++) {
     const kb = devicesFor(p).kb; if (!kb) continue;

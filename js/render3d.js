@@ -887,15 +887,22 @@ async function init(){
 
   // ------------------------------------------------ camera: behind the near baseline, like TV tennis
   const camS = { px:0, py:30, pz:60, vx:0, vy:0, vz:0, tx:0, ty:0, tz:0, wx:0, wy:0, wz:0 };
-  let orbitA = 0, aspect = 1, camCut = true, lastFlip = 1;
+  let orbitA = 0, aspect = 1, camCut = true, lastFlip = 1, wasReplay = false;
   function spring(cur, vel, target, k, dt){ const c = 2*Math.sqrt(k); const a = k*(target - cur) - c*vel; vel += a*dt; return [cur + vel*dt, vel]; }
   const _cf = new THREE.Vector3(), _cr = new THREE.Vector3();
   function updateCamera(G, dt){
     const flip = S.viewFlip() ? -1 : 1;   // after the ends switch the camera sits behind the other baseline
     if (flip !== lastFlip) { lastFlip = flip; camCut = true; }
+    if (!!G.replay !== wasReplay) { wasReplay = !!G.replay; camCut = true; }   // cut into and out of a replay
     const B = G.ball, bx = B.z > -1 ? (B.x - CW/2)*flip : 0, bz = B.z > -1 ? (B.y - NETY)*flip : 0;
     let tx, ty, tz, px, py, pz;
-    if (G.attract) {
+    if (G.replay) {
+      // instant replay: low from the side of the court, following the ball
+      const R = G.replay; if (!R.cut) { R.cut = true; camCut = true; }
+      cam.fov = aspect < 1.05 ? 62 : 46; tx = clampN(bx*0.4, -6, 6); ty = 1.5; tz = clampN(bz*0.5, -12, 12);
+      px = (aspect < 1.05 ? 46 : 38); py = 17; pz = tz*0.85;
+      if (flip < 0) { px = -px; }   // the same side of the court either way
+    } else if (G.attract) {
       orbitA += dt*0.06; const R = 44;
       tx = 0; ty = 1; tz = 0; px = Math.sin(orbitA)*R; py = 15; pz = Math.cos(orbitA)*R*1.15; cam.fov = 40;
     } else if (G.view === 'side') {
@@ -947,7 +954,7 @@ async function init(){
     recolor(pileMat, '#' + new THREE.Color(T.deck).multiplyScalar(0.7).getHexString());
   }
   function onNewMatch(G){
-    lastG = G; camCut = true;
+    lastG = G; camCut = true; wasReplay = false;
     if (!G.attract) checkPlan = [2500, 8000, 20000].map(ms => performance.now() + ms);
     if (G.island.id !== lastTheme) applyTheme(G);
     harbor.visible = G.island.id === 'brine';

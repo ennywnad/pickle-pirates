@@ -214,9 +214,27 @@ for (const gfx of ['classic', 'med']) {
   if (pg.island !== 'brine' || pg.tier !== 'deckhand' || pg.to !== 11 || pg.scoring !== 'sideout' || !pg.kitchen || !pg.seen) fail(`${gfx}: Play did not start Brine Bay vs the Deckhand under the standard rules (${JSON.stringify(pg)})`);
   if (pg.state !== 'end' || !res.shown || !/record vs the Deckhand/.test(res.text)) fail(`${gfx}: the game did not finish into a results card with the record (${JSON.stringify({ pg, res })})`);
   if (pg.winner === 'home' && !res.next) fail(`${gfx}: no "try the next level" after a win`);
+  if (!/Rallies won/.test(res.text) || !/Winners/.test(res.text)) fail(`${gfx}: the results card has no crew stats table`);
   await tap('#resHub');
+  // the lifetime log in the Logbook picked the game up
+  await tap('#btnLog');
+  const life = await page.evaluate(() => ({ text: document.getElementById('logWrap').textContent, games: save.life.games }));
+  if (!(life.games >= 1) || !/Your log/.test(life.text)) fail(`${gfx}: the Logbook has no lifetime log after a game (${JSON.stringify({ games: life.games })})`);
+  await tap('#logGo');
   const hubRec = await page.textContent('#hubRec');
   if (!/Deckhand \d+–\d+/.test(hubRec) || /Deckhand 0–0/.test(hubRec)) fail(`${gfx}: the dock does not show the record (${hubRec})`);
+
+  // v0.8: an instant replay plays over a held game, shows its tag, and Space skips it
+  await page.evaluate(() => { A11Y.replay = false; startGame(STANDARD, {}, true); const S = window.__sim, G = S.G; G.players[0].human = false;
+    for (let i = 0; i < 60*60 && !(G.match.rallies >= 2 && G.state === 'dead'); i++) S.step(1);   // just after a point
+    window.__r0 = G.match.rallies; G.replayWant = { title:'Test', sub:'smoke', at:G.time }; A11Y.replay = true; });
+  await page.waitForFunction(() => window.__sim.G.replay && !document.getElementById('rtag').hidden, null, { timeout: 4000 }).catch(() => {});
+  const rp = await page.evaluate(() => { const G = window.__sim.G; return { state: G.state, on: !!G.replay, tag: !document.getElementById('rtag').hidden, held: G.match.rallies === window.__r0, frames: G.replay ? G.replay.frames.length : 0 }; });
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => document.getElementById('rtag').hidden, null, { timeout: 3000 }).catch(() => {});
+  const rp2 = await page.evaluate(() => new Promise(r => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 500) requestAnimationFrame(f); else r({ off: !window.__sim.G.replay, tagOff: document.getElementById('rtag').hidden, fps: n*2 }); }; requestAnimationFrame(f); }));
+  if (!rp.on || !rp.tag || !rp.held || !rp2.off || !rp2.tagOff) fail(`${gfx}: the instant replay did not play and skip (${JSON.stringify({ ...rp, ...rp2 })})`);
+  await page.evaluate(() => { G.players[0].human = true; renderHub(); show('hub'); });
 
   // v0.7: the Voyage. The dock card opens the map, the first island sails with its objective on the island card, and
   // a won match records its stars and offers the next island

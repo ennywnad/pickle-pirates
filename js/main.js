@@ -4,7 +4,7 @@ let last = 0;
 function frame(t){
   const dt = Math.min(0.05, (t - last)/1000 || 0); last = t;
   try { pollPad(); } catch(e) {}
-  if (!paused) update(dt);
+  if (!paused && !replayTick(dt)) update(dt);   // an instant replay holds the sim while it plays (replay.js)
   try { updateCrowd(); musicTick(); } catch(e) {}
   const R3 = window.__r3d;
   let drew = false;

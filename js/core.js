@@ -111,7 +111,8 @@ function resolveCrews(homeId, awayId, isl){
 
 // ---------------- progression and save
 const SKEY = 'pickle-pirates-save';
-const defSave = () => ({ xp:0, stars:{}, plays:0, v:1, record:{}, seenHow:false });   // record: { tier: { w, l } } from finished singles games
+const LIFE_KEYS = ['games', 'wins', 'rallies', 'longest', 'won', 'winners', 'aces', 'errors', 'kitchen', 'booty', 'bestRun'];
+const defSave = () => ({ xp:0, stars:{}, plays:0, v:1, record:{}, seenHow:false, life:{} });   // record: { tier: { w, l } } from finished singles games
 function normSave(s){
   const o = { ...defSave(), ...s };
   o.xp = Math.max(0, Number(o.xp)||0);
@@ -120,13 +121,14 @@ function normSave(s){
   o.record = {};
   for (const t of ['deckhand', 'bosun', 'captain']) { const r = s && s.record && s.record[t]; o.record[t] = { w:Math.max(0, Number(r && r.w)||0), l:Math.max(0, Number(r && r.l)||0) }; }
   o.seenHow = !!(s && s.seenHow);
+  o.life = {}; for (const k of LIFE_KEYS) o.life[k] = Math.max(0, Number(s && s.life && s.life[k]) || 0);   // lifetime stats (your crew's side)
   return o;
 }
 let save = normSave({});
 try { const s = JSON.parse(localStorage.getItem(SKEY) || 'null'); if (s && typeof s.xp === 'number') save = normSave(s); } catch(e) {}
 let muted = false;
 try { muted = localStorage.getItem('pickle-mute') === '1'; } catch(e) {}
-const GAME_VERSION = 'v0.7.0';
+const GAME_VERSION = 'v0.8.0';
 // save codes: "PKP1." + base64url(JSON)
 function exportSave(){ const j = JSON.stringify({ ...save, updatedAt:Date.now() }); return 'PKP1.' + btoa(unescape(encodeURIComponent(j))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function importSave(code){

@@ -296,7 +296,7 @@ function render(now){
   if (!ballFar) drawBall();
   for (const p of near) drawPlayer(p, t);
   drawHazardsOver(t);
-  for (const p of G.pops) drawPop(p, sx(p.x), sy(p.y, p.lift || 4));
+  if (!G.replay) for (const p of G.pops) drawPop(p, sx(p.x), sy(p.y, p.lift || 4));
   for (const h of humansAll()) { drawQueue(h, sx(h.x), sy(h.y) - PL_R*scale*3.2); drawTag(h, sx(h.x), sy(h.y) - PL_R*scale*2.6); }
   ctx.restore();
   drawInk();
@@ -314,6 +314,8 @@ const hudCache = {};
 const setT = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } };
 const setH = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).innerHTML = v; } };
 function updateHud(){
+  // the instant replay tag
+  { const R = G && G.replay, el = $('rtag'); if (el.hidden !== !R) el.hidden = !R; if (R) { setT('rtagSub', `${R.title} · ${R.sub}`); setT('rtagHint', matchMedia('(pointer: coarse)').matches ? 'Tap to skip' : 'Press any shot button to skip'); } }
   if (!G || G.attract) return;
   // booty held by each crew, and the touch button for P1's crew
   { const Y = G.booty, hb = Y && Y.held.home, ab = Y && Y.held.away, me = humanPl(), mine = Y && me && Y.held[me.team];

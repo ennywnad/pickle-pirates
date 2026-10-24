@@ -46,4 +46,5 @@ function update(dt){
   if (G.swab) { G.swab.t += dt; if (G.swab.t > 2.4) G.swab = null; }
   if ((G.cfg.marker || parrot) && B.live && B.z > 0.3) { const pr = predict(B, 2.5, BALL_DT, 1e4); if (pr.first) { G.landing = pr.first; G.landing.in = landedIn(pr.first.x, pr.first.y); } }
   G.cannon.kick = Math.max(0, G.cannon.kick - dt*3);
+  replayRecord();   // instant replays (replay.js)
 }
