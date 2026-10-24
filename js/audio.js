@@ -8,10 +8,10 @@ let AC = null, noise = null, master = null, sfxBus = null, crowdBus = null, crow
 let volume = 0.8, crowdVol = 0.6, musicVol = 0.6, musicBus = null;
 try { const v = parseFloat(localStorage.getItem('pickle-vol')); if (v >= 0 && v <= 1) volume = v; const c = parseFloat(localStorage.getItem('pickle-crowdvol')); if (c >= 0 && c <= 1) crowdVol = c; const m = parseFloat(localStorage.getItem('pickle-musicvol')); if (m >= 0 && m <= 1) musicVol = m; } catch(e) {}
 // sound name -> number of files (name_0.mp3 ...)
-const SFX_SET = { paddle:4, drive:3, smash:2, bounce:4, net:2, tape:1, post:2, cannon:1, splash:1, bell:1, pickup:1, level:1, cheer:1, aww:1, parrot:3, crowd:1, vent:1, bubbles:1 };
+const SFX_SET = { paddle:4, drive:3, smash:2, bounce:4, net:2, tape:1, post:2, cannon:1, splash:1, bell:1, pickup:1, level:1, cheer:1, aww:1, parrot:3, crowd:1, vent:1, bubbles:1, gull:1, tentacle:1, whoosh:1, anchor:1 };
 // fixed picks: the parrot's three calls mean different things
 const SFX_PICK = { call:['parrot', 0], fault:['parrot', 1], good:['parrot', 2] };
-const SFX_GAIN = { paddle:0.5, drive:0.62, smash:0.75, bounce:0.4, net:0.5, tape:0.4, post:0.5, cannon:0.45, splash:0.55, bell:0.4, pickup:0.45, level:0.5, cheer:0.6, aww:0.5, parrot:0.42, vent:0.5, bubbles:0.45 };
+const SFX_GAIN = { paddle:0.5, drive:0.62, smash:0.75, bounce:0.4, net:0.5, tape:0.4, post:0.5, cannon:0.45, splash:0.55, bell:0.4, pickup:0.45, level:0.5, cheer:0.6, aww:0.5, parrot:0.42, vent:0.5, bubbles:0.45, gull:0.45, tentacle:0.55, whoosh:0.5, anchor:0.55 };
 const SFX_GAP = { vent:0.5, bubbles:0.5, bounce:0.04, paddle:0.04, drive:0.04, cheer:1.5, aww:1.5, call:0.3, fault:0.3, good:0.3, bell:0.8 };
 const NO_PITCH = new Set(['level', 'pickup', 'cheer', 'aww', 'bell']);
 const sfxRaw = {}, sfxBuf = {}, sfxLast = {};

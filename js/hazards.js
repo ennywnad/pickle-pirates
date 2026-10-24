@@ -85,7 +85,7 @@ function hazardStep(dt){
           const to = other(B.lastBy), d = rand(KD + 2, 16);
           H.gull = { t:0, dur:1.0, from:{ x:B.x, y:B.y, z:B.z }, to:{ x:rand(3, CW - 3), y: isNear(to) ? NETY + d : NETY - d, z:9.5 }, team:to };
           B.carried = true; B.vx = B.vy = B.vz = 0; B.sx = B.sy = B.sz = 0; count('gulls'); tell('gulls');
-          if (typeof sfx === 'function') sfx('call');
+          if (typeof sfx === 'function') sfx(H.sea ? 'whoosh' : 'gull');
         }
       }
       if (H.gull) {
@@ -117,7 +117,7 @@ function hazardStep(dt){
         const z = H.zones[i]; z.t += dt;
         if (!z.hit && z.t >= z.warn) {
           z.hit = true; count('cannon');
-          if (typeof sfx === 'function') sfx('cannon'), sfx('splash', 0.8);
+          if (typeof sfx === 'function') { if (H.sea) sfx('anchor'); else { sfx('cannon'); sfx('splash', 0.8); } }
           G.shake = Math.max(G.shake || 0, 0.5);
           for (const pl of G.players) { const dx = pl.x - z.x, dy = pl.y - z.y, d = hyp(dx, dy);
             if (d < z.r + 0.4) { pl.stun = 0.8; const k = 9/(d || 1); pl.vx = dx*k; pl.vy = dy*k; count('stunned'); statAdd(pl.team, 'stunned'); } }
@@ -140,6 +140,7 @@ function hazardStep(dt){
         const T = H.tents[i]; T.t += dt;
         const a = T.t - T.rise;   // ripple first, then up, then back down
         T.h = a < 0 ? 0 : a < 0.3 ? 6.5*a/0.3 : a < T.up ? 6.5 : a < T.up + 0.4 ? 6.5*(1 - (a - T.up)/0.4) : 0;
+        if (a >= 0 && !T.heard) { T.heard = true; if (typeof sfx === 'function' && !G.attract) sfx('tentacle', 0.8); }   // it bursts up
         if (a > T.up + 0.4) H.tents.splice(i, 1);
       }
       HZ.tents = H.tents.filter(T => T.h > 1);

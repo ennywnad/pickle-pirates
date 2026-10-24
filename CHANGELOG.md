@@ -2,6 +2,21 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v1.0.0 · The Davy's Locker Cup (milestone 11 complete) · 2026-10-24
+
+Version 1.0. A new player can go from the dock to the Davy's Locker Cup: the Voyage (v0.7), instant replays and stats (v0.8), and phone and accessibility polish (v0.9). This release finishes the sound pack and the finale.
+
+**The rest of the sound pack**
+- Brine Bay's gulls now cry like gulls when they swoop on a ball. Before, they borrowed the parrot's call.
+- Under the sea:
+  - The manta ray glides in with a soft rush.
+  - A sinking anchor lands with a muffled iron clank and a cloud of bubbles, instead of a cannon blast.
+- Kraken's Reach: each tentacle bursts up through the court with a wet thud and a squelch.
+- Every hazard now has its own sound, including the vent rumbles and bubble fizzes from v0.6.
+
+**The finale**
+- Winning the Davy's Locker Cup brings confetti over the results card, with no confetti under Reduce motion. The results card says "The Cup is yours!" and the crowd cheers the first time you win it.
+
 ## v0.9.0 · Phones and accessibility (milestone 11, part 3) · 2026-10-24
 
 **Phones and tablets**

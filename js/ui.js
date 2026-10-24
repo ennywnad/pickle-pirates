@@ -401,6 +401,12 @@ function showResults(){
   show('results');
   if (won) sfx('level');
   if (R && R.firstCup) setTimeout(() => sfx('cheer'), 600);
+  // the Cup: confetti over the results (not with Reduce motion)
+  document.querySelectorAll('.confetti').forEach(e => e.remove());
+  if (R && R.cup && !A11Y.rm) { const c = document.createElement('div'); c.className = 'confetti'; c.setAttribute('aria-hidden', 'true');
+    const cols = ['#ffc23a', '#5aa83e', '#5fd0ff', '#ec3b4f', '#f3ead2', '#c78cff'];
+    c.innerHTML = Array.from({ length:60 }, (_, i) => `<i style="left:${(i*37) % 100}%;background:${cols[i % cols.length]};animation-delay:${(i % 12)*0.18}s;animation-duration:${2.4 + (i % 5)*0.35}s;transform:rotate(${i*29}deg)"></i>`).join('');
+    $('results').appendChild(c); setTimeout(() => c.remove(), 9000); }
 }
 // the match stats, crew against crew
 function crewStats(tm){

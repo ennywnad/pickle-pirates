@@ -322,6 +322,34 @@ def vent_blow():         # a steam vent: a low rumble under the deck, then a his
     whoomp = filt(noise(0.5) * env_exp(0.5, 0.12, 0.01), 'lp', 400) * 0.9
     return verb(mix(rumble, hiss, at(whoomp, 0.35, d)), wet=0.18, tail=0.6)
 
+def gull_call():        # Brine Bay: a gull swooping in on a high ball, close by
+    return verb(gull(j(1700, 1900), 2) * 0.9, wet=0.2, tail=0.6)
+
+def tentacle():         # Kraken's Reach: a tentacle bursting up through the court, wet and heavy
+    d = 1.3; t = T(d)
+    thud = filt(noise(0.5) * env_exp(0.5, 0.1, 0.01), 'lp', 220) * 1.6
+    squelch = sweep_bp(noise(0.7), 300, 1400, q=3) * env_adsr(0.7, 0.03, 0.15, 0.5, 0.35) * 0.9
+    drip = np.zeros(len(t))
+    for _ in range(14):
+        t0 = j(0.25, 1.1); f = j(500, 1300); bd = j(0.02, 0.05); bt = T(bd)
+        drip += at(np.sin(2 * np.pi * np.cumsum(f * (1 + 1.4 * bt / bd)) / SR) * np.exp(-bt / (bd / 3)) * j(0.1, 0.3), t0, d)
+    return verb(mix(thud, at(squelch, 0.04, d), drip), wet=0.22, tail=0.7)
+
+def whoosh():           # Davy's Locker: the manta ray gliding over, a soft rushing sweep
+    d = 1.1
+    x = sweep_bp(noise(d), 250, 1100, q=1.5) * env_adsr(d, 0.35, 0.2, 0.6, 0.45) * 1.2
+    return verb(x, wet=0.35, tail=0.8)
+
+def anchor_drop():      # Davy's Locker: an anchor landing on the seabed, a muffled iron clank and a cloud of bubbles
+    d = 1.4
+    clank = filt(modal(0.6, [(310, 0.25, 1.0), (845, 0.14, 0.55), (1510, 0.08, 0.3), (2380, 0.05, 0.15)]), 'lp', 1800)
+    thud = filt(noise(0.4) * env_exp(0.4, 0.09, 0.005), 'lp', 160) * 1.8
+    bub = np.zeros(int(d * SR))
+    for _ in range(30):
+        t0 = j(0.05, 1.0); f = j(400, 1500); bd = j(0.02, 0.05); bt = T(bd)
+        bub += at(np.sin(2 * np.pi * np.cumsum(f * (1 + 1.2 * bt / bd)) / SR) * np.exp(-bt / (bd / 3)) * j(0.1, 0.3), t0, d)
+    return verb(mix(clank, thud, bub * 0.8, dur=d), wet=0.35, tail=0.9)
+
 def bubbles():          # a column of bubbles rushing up out of a vent on the sea floor
     d = 1.4; t = T(d)
     out = filt(noise(d), 'lp', 300) * env_adsr(d, 0.15, 0.2, 0.5, 0.6) * 0.6
@@ -621,7 +649,7 @@ SFX = {   # name: (builder, variants)
     'paddle': (paddle_dink, 4), 'drive': (paddle_drive, 3), 'smash': (paddle_smash, 2), 'bounce': (deck_bounce, 4),
     'net': (net_catch, 2), 'tape': (tape_tick, 1), 'post': (post_knock, 2), 'cannon': (cannon_feed, 1), 'splash': (splash, 1),
     'bell': (ship_bell, 1), 'pickup': (pickup, 1), 'level': (level, 1), 'cheer': (dock_cheer, 1), 'aww': (aww, 1),
-    'vent': (vent_blow, 1), 'bubbles': (bubbles, 1),
+    'vent': (vent_blow, 1), 'bubbles': (bubbles, 1), 'gull': (gull_call, 1), 'tentacle': (tentacle, 1), 'whoosh': (whoosh, 1), 'anchor': (anchor_drop, 1),
 }
 if __name__ == '__main__':
     import sys

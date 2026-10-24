@@ -259,6 +259,14 @@ for (const gfx of ['classic', 'med']) {
   const vres = await page.evaluate(() => ({ shown: !document.getElementById('results').hidden, next: document.getElementById('resNext') && document.getElementById('resNext').textContent, map: !!document.getElementById('resMap'), text: document.getElementById('resCard').textContent }));
   if (vr.winner === 'home' && (!vr.stars[0] || !vres.shown || !/Shipwreck Shoals/.test(vres.next || '') || !vres.map || !/Voyage: ★/.test(vres.text))) fail(`${gfx}: a won Voyage match did not record its star and offer the next island (${JSON.stringify({ vr, ...vres, text: undefined })})`);
   await tap('#resHub');
+  // the last leg: winning the Davy's Locker Cup gets its own title and confetti
+  await page.evaluate(() => { save.stars = Object.fromEntries(VOYAGE.slice(0, 6).map(L => [L.island, [true, false, false]])); persist(); startVoyage(6); setSail();
+    const S = window.__sim, G = S.G; G.players[0].human = false; G.players[0].tier = 'captain'; G.match.pts.home = 14; G.match.pts.away = 0; G.match.server = 'home'; startPoint();
+    for (let i = 0; i < 60*900 && G.state !== 'end'; i++) S.step(1); });
+  await page.waitForTimeout(400);
+  const cup = await page.evaluate(() => ({ won: window.__sim.G.match.winner, title: document.querySelector('#resCard h2').textContent, confetti: document.querySelectorAll('.confetti i').length, star: voyCupWon() }));
+  if (cup.won === 'home' && (!/Cup is yours/.test(cup.title) || !cup.star || (!cup.confetti && !(await page.evaluate(() => A11Y.rm))))) fail(`${gfx}: winning the Cup did not celebrate (${JSON.stringify(cup)})`);
+  await tap('#resHub');
 
   if (gfx !== 'classic') {
     const r3 = await page.evaluate(() => ({ status: window.__r3d.status, active: window.__r3d.active, check: window.__r3d.lastCheck }));
