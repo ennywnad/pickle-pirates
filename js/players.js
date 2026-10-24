@@ -30,10 +30,13 @@ function contactSpot(pl, B){
     const bounced = B.bounces > 0 || p.bounced;
     if (!bounced && mustBounce()) continue;
     if (p.z < 0.5 || p.z > (bounced ? 6 : 8.2)) continue;   // up to an overhead reach on the volley (contactQ allows 8.6)
-    // stand a little to the side of the ball (forehand) and a touch behind it
-    const sx = p.x - hand*1.5, sy = p.y + back*0.5;
+    // stand a little to the side of the ball and a touch behind it: the forehand side, unless the ball is coming to the
+    // backhand and taking it there is clearly quicker
+    const sy = p.y + back*0.5, fx = p.x - hand*1.5, bx = p.x + hand*1.5;
+    const tF = runTime(pl, hyp(fx - pl.x, sy - pl.y) - 0.3), tB = runTime(pl, hyp(bx - pl.x, sy - pl.y) - 0.3);
+    const sx = tB + 0.3 < tF ? bx : fx;
     if (!bounced && G.cfg.kitchen !== false && inKitchenZone(sx, sy)) continue;   // never plan a volley from the kitchen
-    const reachT = runTime(pl, hyp(sx - pl.x, sy - pl.y) - 0.3) + 0.08;
+    const reachT = Math.min(tF, tB + 0.3) + 0.08;
     // waist-high is best; up at the net, a high ball is a volley or a smash, not a reason to back off to the baseline
     const good = p.z >= 1.1 && (p.z <= 4.2 || (!bounced && Math.abs(pl.y - NETY) <= KD + 4));
     const spot = { x:clamp(sx, -5, CW + 5), y:sy, bx:p.x, by:p.y, bz:p.z, t:p.t };

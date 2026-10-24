@@ -6,7 +6,7 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–5 of 11 are done. Milestone 6 (the first playable, v0.1) and milestone 7 (doubles and two players, v0.2) are built and live; 6 is done once it's been played. What changed in each version is in the [changelog](CHANGELOG.md).
+Milestones 1–5 of 11 are done. Milestones 6 (the first playable, v0.1), 7 (doubles and two players, v0.2) and 8 (crews and swings, v0.3) are built and live; 6 is done once it's been played. What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
@@ -19,7 +19,9 @@ Milestones 1–5 of 11 are done. Milestone 6 (the first playable, v0.1) and mile
 
 - **v0.2, doubles and two players:** two a side with the real server rotation and three-number score, CPU partners that split the court, and two-player co-op or P1 vs P2 on one keyboard or two controllers.
 
-Crews and swings (milestone 8) come next.
+- **v0.3, crews and swings:** all seven crews (crabs, skeletons, powder monkeys, magma men, squid, ghosts and anglerfish), arms that swing a paddle, a separate swing for every shot that meets the ball on the contact frame, and celebrations between points.
+
+Islands, hazards and booty (milestone 9) come next.
 
 | Level | How it plays |
 |---|---|
@@ -136,6 +138,7 @@ js/audio.js       mixer, crowd, sound effects, music cues
 js/match.js       match state, tuning sliders, accessibility
 js/ball.js        ball flight, spin, bounces, net, line calls, launch solvers
 js/shots.js       contact window, auto-timed swing, shot quality and errors, aim
+js/swings.js      the paddle's path for every shot (backswing, contact, follow-through) and celebrations
 js/rules.js       the rules engine: scoring, serving, two-bounce, kitchen, ends (pure, tested on its own)
 js/referee.js     runs points: serving, faults and calls, side outs, switching ends, the ball cannon
 js/players.js     footwork, move-to-ball assist, kitchen guard

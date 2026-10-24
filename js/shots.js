@@ -40,7 +40,7 @@ function bestAhead(pl, B){
   for (const p of pr.pts) {
     if (p.t < 1/60) continue;
     const k = Math.min(p.t, 0.25), c = contactQ(pl, p.x, p.y, p.z, B.bounces > 0 || p.bounced, pl.x + pl.vx*k, pl.y + pl.vy*k);
-    if (c && (!best || c.q > best.q + 0.02)) best = { ...c, t:p.t };
+    if (c && (!best || c.q > best.q + 0.02)) best = { ...c, t:p.t, px:p.x, py:p.y, pz:p.z };
   }
   return best;
 }
@@ -53,12 +53,13 @@ function shotTick(pl, dt){
   if (ballFor(pl, B)) {
     let now = contactQ(pl, B.x, B.y, B.z, B.bounces > 0);
     if (now && now.volley && !pl.human && G.cfg.kitchen !== false && inKitchenZone(pl.x, pl.y)) now = null;   // the CPU lets it bounce rather than fault
+    const ahead = bestAhead(pl, B);
     if (now) {
-      const ahead = bestAhead(pl, B);
       // swing now unless a clearly better contact is coming before the press runs out
       if (!ahead || now.q >= ahead.q - 0.04 || Q.t + ahead.t > TUNE.queueTime) { strike(pl, Q, now); return; }
     }
-  }
+    planSwing(pl, Q.kind, ahead);   // wind up so the forward swing meets the ball at that contact
+  } else pl.wind = null;
   if (Q.t > TUNE.queueTime) { pl.queue = null; pl.swing = 0.28; pl.swingKind = Q.kind; if (pl.human && ballFor(pl, B)) grade(pl, 'early', 'TOO EARLY'); }
 }
 function grade(pl, g, text){
@@ -70,7 +71,7 @@ function grade(pl, g, text){
 // the hit itself
 function strike(pl, Q, c){
   const B = G.ball, opp = G.players.find(p => p.team !== pl.team);
-  pl.queue = null;
+  pl.queue = null; pl.wind = null;
   // an illegal stroke (two-bounce or kitchen volley) is a fault on contact: the rally ends there and doesn't count it
   if (strokeRules(pl, c)) { pl.swing = 0.28; pl.swingKind = Q.kind === 'soft' ? 'dink' : Q.kind; pl.swingSide = c.side; return true; }
   // what the button becomes here: high balls near the net get smashed, soft is a dink up close and a drop from back
@@ -92,6 +93,7 @@ function strike(pl, Q, c){
   // soft shots off poor contact float up (an attackable ball) or dump short
   const softSpray = (kind === 'dink' || kind === 'drop') ? Math.max(0.4, 1 + gauss()*2.2*spread) : 1;
   const from = { x:B.x, y:B.y, z:Math.max(B.z, 0.3) };
+  recordHit(pl, kind, c.side, c.volley, B);   // the paddle is at the ball (swings.js)
   if (q < 0.25 && Math.random() < 0.6) {   // mishit: frames it into the net or floats a sitter
     kind = 'pop';
     if (Math.random() < 0.45) { tx = B.x + rand(-2, 2); ty = NETY + backDir(pl.team)*1.5; }

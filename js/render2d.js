@@ -51,34 +51,101 @@ function drawNet(){
   ctx.beginPath(); ctx.moveTo(x0, sy(NETY, NET_H_SIDE)); ctx.quadraticCurveTo(sx(CW/2), sy(NETY, NET_H_MID*2 - NET_H_SIDE), x1, sy(NETY, NET_H_SIDE)); ctx.stroke();
   ctx.fillStyle = '#150e1c'; for (const x of [x0, x1]) { ctx.fillRect(x - 3, sy(NETY, NET_H_SIDE + 0.4), 6, scale*(NET_H_SIDE + 0.4)*0.55); }
 }
+// the shoulder height each crew's swing heights are drawn for (matches the 3D rigs)
+const SHOULDER = { pickle:3.0, crab:1.95, skeleton:3.3, monkey:2.75, magma:2.95, squid:2.35, ghost:3.1, deep:2.65 };
 function drawPlayer(pl, t){
-  const sp = SPECIES[pl.species] || SPECIES.pickle, r = PL_R*scale, hand = handOf(pl);
+  const sp = SPECIES[pl.species] || SPECIES.pickle, r = PL_R*scale, hand = handOf(pl), sh = SHOULDER[pl.species] || 3.0;
+  const pose = paddlePose(pl, G.time, sh);
   // the lunge is a court-x direction (forehand side = handOf), drawn mirrored when the view is from the other end
-  const lean = pl.lunge > 0 ? pl.lungeSide*hand*(FLIP ? -1 : 1)*(pl.lunge/0.45)*0.6*r : 0, hop = pl.split > 0 ? Math.sin(pl.split/0.18*Math.PI)*r*0.35 : 0;
+  const lean = pl.lunge > 0 ? pl.lungeSide*hand*(FLIP ? -1 : 1)*(pl.lunge/0.45)*0.6*r : 0, hop = (pl.split > 0 ? Math.sin(pl.split/0.18*Math.PI)*r*0.35 : 0) + pose.hop*scale*0.5 - pose.crouch*scale*0.3;
   const x = sx(pl.x) + lean, y = sy(pl.y) - hop;
   ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(sx(pl.x), sy(pl.y) + r*0.3, r*1.1, r*0.5, 0, 0, 7); ctx.fill();
-  // paddle: ready in front, swinging across on the side the ball was on
-  const sw = pl.swing > 0 ? (1 - pl.swing/0.28) : 0, side = pl.swing > 0 ? pl.swingSide : 1;   // turned from the way the player faces, so forehand is +1 at either end
-  const pa = pl.face + (FLIP ? Math.PI : 0) + side*(0.9 - sw*1.8), px = x + Math.cos(pa)*r*1.5, py = y - r*0.6 + Math.sin(pa)*r*1.5*0.6;
-  ctx.fillStyle = '#3a2a1a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(px, py, r*0.45, r*0.55, pa, 0, 7); ctx.fill(); ctx.stroke();
-  // body (the Barnacle Boys are crabs: a wide shell on legs, eyes on stalks)
-  if (pl.species === 'crab') {
-    ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2.5;
-    ctx.save(); ctx.strokeStyle = '#b8432c'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const kx = x + s*r*0.8, ky = y - r*0.5 + k*r*0.18, step = Math.sin(t*14 + k*2)*(Math.hypot(pl.vx, pl.vy) > 1 ? r*0.15 : 0);
-      ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(kx + s*r*0.55, ky - r*0.35 + step); ctx.lineTo(kx + s*r*0.85, ky + r*0.45); ctx.stroke(); }
-    ctx.restore();
-    ctx.fillStyle = sp.body; ctx.beginPath(); ctx.ellipse(x, y - r*0.55, r*1.05, r*0.62, 0, 0, 7); ctx.fill(); ctx.stroke();
-    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + s*r*0.3, y - r*1.05); ctx.lineTo(x + s*r*0.35, y - r*1.45); ctx.stroke();
-      ctx.fillStyle = '#f4f0e4'; ctx.beginPath(); ctx.arc(x + s*r*0.36, y - r*1.55, r*0.2, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#0b0710'; ctx.beginPath(); ctx.arc(x + s*r*0.36, y - r*1.55, r*0.08, 0, 7); ctx.fill(); }
-    ctx.fillStyle = '#1f3a6a'; ctx.beginPath(); ctx.ellipse(x, y - r*0.95, r*0.6, r*0.18, 0, Math.PI, 0); ctx.fill();
-    return;
+  // the paddle where swings.js puts it (so it meets the ball on the contact frame), on an arm from the shoulder
+  const px = sx(pose.head[0]), py = sy(pose.head[1], pose.head[2]), shx = x, shy = y - r*0.9;
+  const drawArm = (hx, hy, col) => { ctx.save(); ctx.strokeStyle = '#150e1c'; ctx.lineWidth = Math.max(3, r*0.32); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(shx, shy); ctx.lineTo(hx, hy); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, r*0.2); ctx.stroke(); ctx.restore(); };
+  const armCol = { crab:'#b8432c', skeleton:sp.body, ghost:'rgba(200,250,240,.75)' }[pl.species] || sp.body;
+  const behind = py < shy - r*0.2;   // a raised paddle is drawn behind the head
+  const drawPaddle = () => { drawArm(px, py, armCol); ctx.fillStyle = '#3a2a1a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(px, py, r*0.42, r*0.52, Math.atan2(py - shy, px - shx) + Math.PI/2, 0, 7); ctx.fill(); ctx.stroke(); };
+  if (behind) drawPaddle();
+  drawCrew(pl, sp, x, y, r, t);
+  if (!behind) drawPaddle();
+  if (pose.mood === 'cheer') { const ox = sx(pose.off[0]), oy = sy(pose.off[1], pose.off[2]); drawArm(ox, oy, armCol); }
+}
+// each crew's shape from above
+function drawCrew(pl, sp, x, y, r, t){
+  const ink = '#150e1c', moving = Math.hypot(pl.vx, pl.vy) > 1;
+  ctx.strokeStyle = ink; ctx.lineWidth = 2.5;
+  const eyes = (ey, dx = 0.3, er = 0.18, white = '#f4f0e4') => { for (const s of [-1, 1]) { ctx.fillStyle = white; ctx.beginPath(); ctx.arc(x + s*r*dx, ey, r*er, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#0b0710'; ctx.beginPath(); ctx.arc(x + s*r*dx, ey, r*er*0.45, 0, 7); ctx.fill(); } };
+  const blob = (cx, cy, rx, ry, fill) => { ctx.fillStyle = fill; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.fill(); ctx.stroke(); };
+  switch (pl.species) {
+    case 'crab': {
+      ctx.save(); ctx.strokeStyle = '#b8432c'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const kx = x + s*r*0.8, ky = y - r*0.5 + k*r*0.18, step = Math.sin(t*14 + k*2)*(moving ? r*0.15 : 0);
+        ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(kx + s*r*0.55, ky - r*0.35 + step); ctx.lineTo(kx + s*r*0.85, ky + r*0.45); ctx.stroke(); }
+      ctx.restore();
+      blob(x, y - r*0.55, r*1.05, r*0.62, sp.body);
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + s*r*0.3, y - r*1.05); ctx.lineTo(x + s*r*0.35, y - r*1.45); ctx.stroke(); }
+      eyes(y - r*1.55, 0.36, 0.2);
+      ctx.fillStyle = '#1f3a6a'; ctx.beginPath(); ctx.ellipse(x, y - r*0.95, r*0.6, r*0.18, 0, Math.PI, 0); ctx.fill();
+      return;
+    }
+    case 'skeleton': {
+      ctx.save(); ctx.strokeStyle = sp.body; ctx.lineWidth = 3; ctx.lineCap = 'round'; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.ellipse(x, y - r*(0.45 + k*0.28), r*(0.55 - k*0.06), r*0.14, 0, 0, 7); ctx.stroke(); } ctx.restore();
+      blob(x, y - r*1.45, r*0.55, r*0.5, sp.body);
+      eyes(y - r*1.5, 0.22, 0.16, '#0b0710');
+      ctx.fillStyle = '#ff6a3c'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s*r*0.22, y - r*1.5, r*0.05, 0, 7); ctx.fill(); }
+      ctx.fillStyle = '#2a2226'; ctx.beginPath(); ctx.moveTo(x - r*0.8, y - r*1.8); ctx.quadraticCurveTo(x, y - r*2.6, x + r*0.8, y - r*1.8); ctx.quadraticCurveTo(x, y - r*2.0, x - r*0.8, y - r*1.8); ctx.fill();
+      return;
+    }
+    case 'monkey': {
+      ctx.save(); ctx.strokeStyle = sp.body; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y - r*0.3); ctx.quadraticCurveTo(x + r*1.2, y + r*0.1 + Math.sin(t*2.5)*r*0.2, x + r*1.0, y - r*0.8); ctx.stroke(); ctx.restore();
+      blob(x, y - r*0.6, r*0.7, r*0.8, sp.body);
+      for (const s of [-1, 1]) blob(x + s*r*0.55, y - r*1.45, r*0.2, r*0.2, sp.acc);
+      blob(x, y - r*1.4, r*0.5, r*0.48, sp.body); blob(x, y - r*1.3, r*0.32, r*0.26, sp.acc);
+      eyes(y - r*1.48, 0.16, 0.11);
+      ctx.fillStyle = '#c8302a'; ctx.beginPath(); ctx.ellipse(x, y - r*1.72, r*0.45, r*0.15, 0, Math.PI, 0); ctx.fill();
+      return;
+    }
+    case 'magma': {
+      const k = 0.6 + 0.4*Math.sin(t*3.1);
+      ctx.fillStyle = sp.acc; ctx.beginPath(); for (let i = 0; i < 7; i++) { const a = i/7*Math.PI*2, rr = r*(0.85 + (i % 2)*0.15); ctx.lineTo(x + Math.cos(a)*rr, y - r*0.8 + Math.sin(a)*rr*1.1); } ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.strokeStyle = `rgba(255,${120 + 60*k},40,${0.7 + 0.3*k})`; ctx.lineWidth = 2; for (const dy of [-0.4, 0.1]) { ctx.beginPath(); ctx.moveTo(x - r*0.6, y - r*(0.8 + dy)); ctx.lineTo(x - r*0.1, y - r*(0.6 + dy)); ctx.lineTo(x + r*0.6, y - r*(0.85 + dy)); ctx.stroke(); } ctx.restore();
+      ctx.fillStyle = '#ffd860'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s*r*0.22, y - r*1.35, r*0.1, 0, 7); ctx.fill(); }
+      return;
+    }
+    case 'squid': {
+      ctx.save(); ctx.strokeStyle = sp.body; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      for (let k = 0; k < 6; k++) { const a = (k/5 - 0.5)*1.6, w = Math.sin(t*3 + k)*r*0.15; ctx.beginPath(); ctx.moveTo(x + Math.sin(a)*r*0.4, y - r*0.5); ctx.quadraticCurveTo(x + Math.sin(a)*r*0.9 + w, y - r*0.1, x + Math.sin(a)*r*1.05, y + r*0.3); ctx.stroke(); }
+      ctx.restore();
+      blob(x, y - r*1.2, r*0.62, r*1.0, sp.body);
+      eyes(y - r*0.75, 0.28, 0.2);
+      ctx.fillStyle = '#0b0710'; ctx.beginPath(); ctx.arc(x - r*0.28, y - r*0.75, r*0.21, 0, 7); ctx.fill();
+      return;
+    }
+    case 'ghost': {
+      const fy = Math.sin(t*2 + pl.slot)*r*0.15;
+      ctx.save(); ctx.globalAlpha = 0.78; ctx.fillStyle = sp.body; ctx.beginPath(); ctx.moveTo(x - r*0.8, y - r*0.1 + fy);
+      ctx.quadraticCurveTo(x - r*0.85, y - r*2.0 + fy, x, y - r*2.0 + fy); ctx.quadraticCurveTo(x + r*0.85, y - r*2.0 + fy, x + r*0.8, y - r*0.1 + fy);
+      for (let i = 0; i < 4; i++) { const x0 = x + r*0.8 - (i + 0.5)*r*0.4; ctx.quadraticCurveTo(x0, y - r*0.4 + fy + Math.sin(t*4 + i)*r*0.08, x0 - r*0.2, y - r*0.1 + fy); }
+      ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = '#0b0710'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x + s*r*0.26, y - r*1.45 + fy, r*0.12, r*0.18, 0, 0, 7); ctx.fill(); }
+      ctx.fillStyle = sp.acc; ctx.beginPath(); ctx.moveTo(x - r*0.8, y - r*1.85 + fy); ctx.quadraticCurveTo(x, y - r*2.7 + fy, x + r*0.8, y - r*1.85 + fy); ctx.quadraticCurveTo(x, y - r*2.05 + fy, x - r*0.8, y - r*1.85 + fy); ctx.fill();
+      return;
+    }
+    case 'deep': {
+      blob(x, y - r*0.85, r*0.95, r*0.85, sp.body);
+      ctx.fillStyle = '#0b0710'; ctx.beginPath(); ctx.ellipse(x, y - r*0.6, r*0.55, r*0.25, 0, 0, Math.PI); ctx.fill();
+      ctx.fillStyle = '#f4f0e4'; for (let i = 0; i < 5; i++) { const tx = x - r*0.4 + i*r*0.2; ctx.beginPath(); ctx.moveTo(tx - r*0.06, y - r*0.6); ctx.lineTo(tx, y - r*0.45); ctx.lineTo(tx + r*0.06, y - r*0.6); ctx.fill(); }
+      eyes(y - r*1.15, 0.35, 0.12);
+      const k = 0.6 + 0.4*Math.sin(t*4); ctx.save(); ctx.strokeStyle = sp.body; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - r*1.65); ctx.quadraticCurveTo(x + r*0.2, y - r*2.4, x + r*0.55, y - r*2.1); ctx.stroke();
+      ctx.fillStyle = `rgba(95,208,255,${0.6 + 0.4*k})`; ctx.shadowColor = '#5fd0ff'; ctx.shadowBlur = 10*k; ctx.beginPath(); ctx.arc(x + r*0.55, y - r*2.05, r*0.16, 0, 7); ctx.fill(); ctx.restore();
+      return;
+    }
   }
-  ctx.fillStyle = sp.body; ctx.beginPath(); ctx.ellipse(x, y - r*0.7, r*0.75, r*1.05, 0, 0, 7); ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke();
-  // tricorn hat for the pirates, a band for everyone else
-  if (pl.species === 'pickle') { ctx.fillStyle = '#1b1410'; ctx.beginPath(); ctx.moveTo(x - r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*2.5, x + r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*1.75, x - r*0.95, y - r*1.55); ctx.fill(); }
-  else { ctx.fillStyle = sp.acc; ctx.fillRect(x - r*0.7, y - r*1.25, r*1.4, r*0.3); }
+  // the Pickle Pirates: a cucumber in a tricorn
+  blob(x, y - r*0.7, r*0.75, r*1.05, sp.body);
+  ctx.fillStyle = '#1b1410'; ctx.beginPath(); ctx.moveTo(x - r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*2.5, x + r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*1.75, x - r*0.95, y - r*1.55); ctx.fill();
 }
 // two humans on the court: a P1 / P2 tag over each, in their own color
 const TAG_COL = ['#ffc23a', '#5fd0ff'];

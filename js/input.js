@@ -82,7 +82,7 @@ const playing = () => G && !G.attract && !paused && G.state !== 'end';
 function pressShot(p, kind){
   if (!playing()) return;
   const pl = humanFor(p); if (!pl) return;
-  if (G.state === 'serve' && G.match && pl === serverPl()) { doServe(pl, kind, readAim(p)); return; }
+  if (G.state === 'serve' && G.match && pl === serverPl()) { requestServe(pl, kind, readAim(p)); return; }
   queueShot(pl, kind, { hold: kind === 'drive', aim: readAim(p), mod: actionHeld(p, 'top') ? 'top' : actionHeld(p, 'slice') ? 'slice' : null });
 }
 function releaseDrive(p){ const pl = humanFor(p); if (pl) releaseShot(pl); }

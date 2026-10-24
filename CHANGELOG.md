@@ -2,6 +2,40 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.3.0 · Crews and swings (milestone 8) · 2026-10-23
+
+Every crew on the voyage is here, and everyone swings for real.
+
+**Seven crews**
+- **Barnacle Boys** (Brine Bay): crabs, now on six walking legs, with a paddle in one claw and a big pincer on the other.
+- **Skeleton Scallywags** (Shipwreck Shoals): bones, a rib cage, a battered tricorn, glowing red eyes and a chattering jaw.
+- **Powder Monkeys** (Cannon Cove): long arms, big ears, a red bandana and a swishing tail.
+- **Magma Mutineers** (Volcano Isle): black rock with molten seams that pulse, and glowing eyes.
+- **Squid Squad** (Kraken's Reach): a tall mantle with fins, big eyes (one patched), and tentacles that never keep still.
+- **The Drowned Crew** (Ghost Galleon): see-through glowing sheets with ragged hems, hollow eyes and waterlogged hats. They float.
+- **Davy's Deep Ones** (Davy's Locker): anglerfish on legs, all teeth, with a glowing lure.
+- Each crew also has its own shape in the classic view.
+
+**Swings**
+- Every figure has two arms that reach for a real paddle.
+- Each shot has its own swing: forehand and backhand drives, forehand and backhand volleys (a short punch), dinks (a low push), drops and lobs (a lift, the lob finishing high), the smash (from behind the head, with a hop), the underhand serve, and a mishit.
+- The body twists into the backswing, crouches for dinks and drops, and hops on smashes.
+- The backswing starts from where the game predicts contact. The forward swing arrives on the frame the ball is struck, and on that frame the paddle is at the ball. Both views use the same swing paths.
+- Serves now have an underhand windup, about a quarter second, before the ball goes.
+- Players take a backhand when the ball comes to that side and it's clearly quicker than running around it.
+
+**Celebrations**
+- After a point, the winners throw their paddles up and hop and the losers slump. A game win gets a bigger party.
+
+**Tests**
+- New `tests/swings.mjs` (run in CI): each swing is distinct from every other.
+- It plays four CPU games (singles and doubles) and checks every stroke. On the contact frame the paddle is at the ball (about 1,300 strokes). The forward swing was headed to within 0.35 ft of where the ball was struck on 99% of strokes. And 99% of strokes show a backswing first.
+- Every shot type gets swung.
+
+**Notes**
+- Taking backhands more freely made the Bosun noticeably easier, so they're only taken when clearly quicker. CPUs mostly hit forehands.
+- The smoke test waits for the scoreboard instead of a fixed delay, and gives fast-forwarded games more simulated time.
+
 ## v0.2.0 · Doubles and two players (milestone 7) · 2026-10-23
 
 Two a side, and two people on one screen.

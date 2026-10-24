@@ -354,83 +354,205 @@ async function init(){
   const PART_MAX = 80;
   const partMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.6, 1.5, 1.3) }), PART_MAX); partMesh.frustumCulled = false; partMesh.count = 0; dyn.add(partMesh);
 
-  // ------------------------------------------------ crew figures (stand-ins until milestone 8's rigged crews)
+  let figs = [];
+  // ------------------------------------------------ crew figures
+  // Each crew is built from simple shapes in the cel style. Every figure gets the same rig on top: a body group that
+  // bobs, twists, crouches and hops with the swing, and two-bone arms that reach the paddle wherever swings.js puts it
+  // (the paddle meets the ball on the contact frame). Arms and paddles live in world space and are solved each frame.
   const SPEC = S.SPECIES;
-  const eyeW = celMat('#f4f0e4', 0.1), eyeB = new THREE.MeshBasicNodeMaterial({ color:0x0b0710 }), hatMat = celMat('#1b1410'), goldMat = celMat('#e0b030', 0.1), paddleMat = celMat('#3a2a1a'), faceMat = celMat('#c8452c');
-  // the Barnacle Boys: a wide red shell on six legs, eye stalks, barnacles, a bandana, and the paddle in a claw
-  const shellLeg = celMat('#b8432c'), bandanaMat = celMat('#1f3a6a');
-  function mkCrab(pl, sp, root, bob){
-    const shellM = charMat(sp.body);
-    const shell = withInk(new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), shellM), 1.07); shell.scale.set(1.3, 0.72, 1.0); shell.position.y = 1.75; shell.castShadow = true; bob.add(shell);
-    const belly = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI*2, Math.PI/2, Math.PI/2), charMat(sp.acc)); belly.scale.set(1.18, 0.5, 0.9); belly.position.y = 1.62; bob.add(belly);
-    // barnacles on the shell
-    for (let i = 0; i < 7; i++) { const a = i*2.1 + 0.4, r = 0.55 + (i % 3)*0.18; const bn = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.16, 6), charMat(sp.acc)); bn.position.set(Math.cos(a)*r*1.1, 2.18 + 0.05*(i % 2), Math.sin(a)*r*0.7 - 0.15); bob.add(bn); }
-    // a bandana knotted over the top of the shell
-    const band = withInk(new THREE.Mesh(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI*2, 0, Math.PI*0.32), bandanaMat), 1.05); band.scale.set(1.0, 0.72, 0.8); band.position.set(0, 1.83, -0.05); bob.add(band);
-    const knot = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), bandanaMat), 1.1); knot.position.set(0.15, 2.3, -0.62); bob.add(knot);
-    // eye stalks
-    for (const sx of [-1, 1]) {
-      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.75, 6), shellM); stalk.position.set(sx*0.36, 2.55, 0.55); stalk.rotation.x = 0.25; bob.add(stalk);
-      const e = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.21, 10, 8), eyeW), 1.12); e.position.set(sx*0.38, 2.98, 0.66); const p = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), eyeB); p.position.z = 0.14; e.add(p); bob.add(e);
+  const SHARED_MATS = new Set();
+  const shared = m => { SHARED_MATS.add(m); return m; };
+  const eyeW = shared(celMat('#f4f0e4', 0.1)), eyeB = shared(new THREE.MeshBasicNodeMaterial({ color:0x0b0710 })), hatMat = shared(celMat('#1b1410')), goldMat = shared(celMat('#e0b030', 0.1));
+  const paddleMat = shared(celMat('#3a2a1a')), paddleEdge = shared(celMat('#d8b878')), faceMat = shared(celMat('#c8452c')), gripMat = shared(celMat('#1b1410'));
+  const bandanaMat = shared(celMat('#1f3a6a')), redMat = shared(celMat('#c8302a'));
+  const glow = (r, g, b) => new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(r, g, b) });   // > 1 blooms
+  SHARED_MATS.add(blobMat); SHARED_MATS.add(inkMat);
+  const mesh = (geo, mat, ink) => { const m = new THREE.Mesh(geo, mat); return ink ? withInk(m, ink) : m; };
+  const eye = (r, at, parent, pupil = 0.5) => { const e = mesh(new THREE.SphereGeometry(r, 10, 8), eyeW, 1.12); e.position.set(...at); const p = new THREE.Mesh(new THREE.SphereGeometry(r*pupil, 8, 6), eyeB); p.position.z = r*0.7; e.add(p); parent.add(e); return e; };
+  const tricorn = (parent, y, s = 1, mat = hatMat) => { const hat = mesh(new THREE.CylinderGeometry(1.05*s, 1.1*s, 0.35*s, 3), mat, 1.08); hat.position.y = y; hat.rotation.y = Math.PI/6; parent.add(hat);
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.5*s, 0.62*s, 0.55*s, 12), mat); crown.position.y = 0.35*s; hat.add(crown);
+    const trim = new THREE.Mesh(new THREE.TorusGeometry(0.62*s, 0.05*s, 4, 16).rotateX(Math.PI/2), goldMat); trim.position.y = 0.08*s; crown.add(trim); return hat; };
+  const tube = (pts, r, mat, ink = 1.5) => { const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))), m = new THREE.Mesh(new THREE.TubeGeometry(c, 16, r, 6), mat); if (ink) m.add(new THREE.Mesh(new THREE.TubeGeometry(c, 16, r*ink, 6), inkMat)); return m; };
+  const legPair = (parent, mat, top, spread = 0.4, r = 0.13, foot = '#2a1a10') => { for (const sx of [-1, 1]) { const l = mesh(new THREE.CylinderGeometry(r, r*1.1, top, 8), mat, 1.12); l.position.set(sx*spread, top/2, 0); parent.add(l);
+    const f = mesh(new THREE.SphereGeometry(r*2.3, 10, 8), charMat(foot), 1.1); f.scale.set(1, 0.55, 1.4); f.position.set(sx*spread, 0.15, 0.12); parent.add(f); } };
+
+  // every builder adds the body to `bob` and returns the rig: shoulder height and spread (local −x is the player's
+  // right, the paddle side), arm segment lengths and thickness, arm and hand materials, and an optional tick(t)
+  const CREWS = {
+    pickle(pl, sp, bob){   // the Pickle Pirates: cucumbers in eye patches and tricorns
+      const body = mesh(new THREE.CapsuleGeometry(0.72, 2.6, 6, 14), charMat(sp.body), 1.07); body.position.y = 0.72 + 1.3 + 0.55; body.castShadow = true; bob.add(body);
+      for (let i = 0; i < 9; i++) { const a = i*2.4, y = -1.0 + (i % 5)*0.52; const w = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), charMat(sp.acc)); w.position.set(Math.cos(a)*0.71, y, Math.sin(a)*0.71); body.add(w); }
+      const shirt = mesh(new THREE.CylinderGeometry(0.76, 0.79, 0.9, 16, 1, true), charMat('#e8e0c8'), 1.04); shirt.position.y = -0.31; body.add(shirt);
+      const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.18, 16, 1, true), redMat); stripe.position.y = -0.31; body.add(stripe);
+      for (const sx of [-1, 1]) eye(0.2, [sx*0.3, 0.78, 0.62], body);
+      const patch = new THREE.Mesh(new THREE.CircleGeometry(0.26, 14), eyeB); patch.position.set(0.3, 0.78, 0.84); body.add(patch);
+      const strap = new THREE.Mesh(new THREE.TorusGeometry(0.73, 0.04, 4, 24), eyeB); strap.position.y = 0.86; strap.rotation.set(Math.PI/2 - 0.25, 0, 0); body.add(strap);
+      tricorn(body, 1.3 + 0.54);
+      for (const sx of [-1, 1]) { const f = mesh(new THREE.SphereGeometry(0.32, 10, 8), charMat('#2a1a10'), 1.1); f.scale.set(1, 0.6, 1.4); f.position.set(sx*0.4, 0.2, 0.15); bob.add(f); }
+      return { sy:3.0, sx:0.72, L1:0.85, L2:0.85, r:0.13, arm:charMat(sp.body), hand:charMat(sp.acc) };
+    },
+    crab(pl, sp, bob){   // the Barnacle Boys: a wide red shell on six legs, eye stalks, barnacles, a bandana
+      const shellM = charMat(sp.body), legM = charMat('#b8432c');
+      const shell = mesh(new THREE.SphereGeometry(1, 18, 12), shellM, 1.07); shell.scale.set(1.3, 0.72, 1.0); shell.position.y = 1.75; shell.castShadow = true; bob.add(shell);
+      const belly = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI*2, Math.PI/2, Math.PI/2), charMat(sp.acc)); belly.scale.set(1.18, 0.5, 0.9); belly.position.y = 1.62; bob.add(belly);
+      for (let i = 0; i < 7; i++) { const a = i*2.1 + 0.4, r = 0.55 + (i % 3)*0.18; const bn = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.16, 6), charMat(sp.acc)); bn.position.set(Math.cos(a)*r*1.1, 2.18 + 0.05*(i % 2), Math.sin(a)*r*0.7 - 0.15); bob.add(bn); }
+      const band = mesh(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI*2, 0, Math.PI*0.32), bandanaMat, 1.05); band.scale.set(1.0, 0.72, 0.8); band.position.set(0, 1.83, -0.05); bob.add(band);
+      const knot = mesh(new THREE.SphereGeometry(0.16, 8, 6), bandanaMat, 1.1); knot.position.set(0.15, 2.3, -0.62); bob.add(knot);
+      for (const sx of [-1, 1]) { const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.75, 6), shellM); stalk.position.set(sx*0.36, 2.55, 0.55); stalk.rotation.x = 0.25; bob.add(stalk); eye(0.21, [sx*0.38, 2.98, 0.66], bob); }
+      const legs = [];
+      for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) {
+        const leg = new THREE.Group(); leg.position.set(sx*1.05, 1.55, 0.45 - k*0.45); leg.rotation.y = sx*(k - 1)*0.35;
+        const up = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.9, 6), legM); up.rotation.z = sx*1.0; up.position.set(sx*0.38, 0.22, 0); leg.add(up);
+        const down = mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.75, 6), legM, 1.12); down.rotation.z = -sx*0.28; down.position.set(sx*0.95, -0.55, 0); leg.add(down);
+        bob.add(leg); legs.push(leg);
+      }
+      return { sy:1.95, sx:1.05, sz:0.45, L1:0.75, L2:0.8, r:0.11, arm:legM, hand:shellM, claw:true, tick:(t, moving) => legs.forEach((l, i) => { l.rotation.x = moving ? Math.sin(t*16 + i*1.7)*0.25 : 0; }) };
+    },
+    skeleton(pl, sp, bob){   // the Skeleton Scallywags: bones, a grin and a battered hat
+      const bone = charMat(sp.body);
+      const skull = mesh(new THREE.SphereGeometry(0.58, 14, 10), bone, 1.08); skull.scale.set(1, 1.05, 1.05); skull.position.y = 4.05; bob.add(skull);
+      const jaw = mesh(new THREE.BoxGeometry(0.62, 0.22, 0.5), bone, 1.08); jaw.position.set(0, 3.55, 0.12); bob.add(jaw);
+      for (const sx of [-1, 1]) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), eyeB); s.position.set(sx*0.22, 4.1, 0.46); bob.add(s); const g = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), (glow(2.6, 0.5, 0.3))); g.position.set(sx*0.22, 4.1, 0.6); bob.add(g); }
+      for (let i = 0; i < 4; i++) { const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.04), eyeB); tooth.position.set(-0.15 + i*0.1, 3.62, 0.38); bob.add(tooth); }
+      const spine = mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.9, 6), bone, 1.15); spine.position.y = 2.6; bob.add(spine);
+      for (let i = 0; i < 4; i++) { const rib = mesh(new THREE.TorusGeometry(0.55 - i*0.07, 0.06, 6, 18), bone, 1.15); rib.rotation.x = Math.PI/2; rib.scale.set(1, 0.75, 1); rib.position.y = 3.25 - i*0.28; bob.add(rib); }
+      const pelvis = mesh(new THREE.TorusGeometry(0.36, 0.1, 6, 14), bone, 1.12); pelvis.rotation.x = Math.PI/2; pelvis.position.y = 1.6; bob.add(pelvis);
+      legPair(bob, bone, 1.55, 0.3, 0.08, '#1b1410');
+      tricorn(bob, 4.6, 0.85, (celMat('#2a2226')));
+      const sash = mesh(new THREE.TorusGeometry(0.42, 0.09, 6, 16), redMat, 1.08); sash.rotation.x = Math.PI/2; sash.position.y = 1.85; bob.add(sash);
+      return { sy:3.3, sx:0.62, L1:0.85, L2:0.85, r:0.07, arm:bone, hand:bone, tick:t => { jaw.position.y = 3.55 - Math.max(0, Math.sin(t*9))*0.06; } };
+    },
+    monkey(pl, sp, bob){   // the Powder Monkeys: quick, long-armed, a tail and a red bandana
+      const fur = charMat(sp.body), tan = charMat(sp.acc);
+      const body = mesh(new THREE.SphereGeometry(0.8, 14, 10), fur, 1.07); body.scale.set(0.95, 1.1, 0.85); body.position.y = 2.05; body.castShadow = true; bob.add(body);
+      const belly = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 8), tan); belly.scale.set(0.9, 1.1, 0.5); belly.position.set(0, 1.95, 0.45); bob.add(belly);
+      const head = mesh(new THREE.SphereGeometry(0.62, 14, 10), fur, 1.07); head.position.y = 3.35; bob.add(head);
+      const face = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), tan); face.scale.set(1, 0.85, 0.6); face.position.set(0, 3.25, 0.38); bob.add(face);
+      for (const sx of [-1, 1]) { const ear = mesh(new THREE.SphereGeometry(0.24, 10, 8), fur, 1.1); ear.scale.set(1, 1, 0.5); ear.position.set(sx*0.62, 3.45, 0); bob.add(ear); const inner = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), tan); inner.position.set(sx*0.64, 3.45, 0.08); bob.add(inner); eye(0.13, [sx*0.18, 3.45, 0.55], bob, 0.6); }
+      const band = mesh(new THREE.SphereGeometry(0.64, 14, 8, 0, Math.PI*2, 0, Math.PI*0.35), redMat, 1.05); band.position.y = 3.38; bob.add(band);
+      const tail = tube([[0, 1.5, -0.6], [0.2, 1.2, -1.3], [0.7, 1.8, -1.7], [0.6, 2.5, -1.5], [0.3, 2.6, -1.1]], 0.08, fur);
+      bob.add(tail);
+      legPair(bob, fur, 1.3, 0.38, 0.13, sp.acc);
+      return { sy:2.75, sx:0.72, L1:1.0, L2:1.0, r:0.11, arm:fur, hand:tan, tick:t => { tail.rotation.y = Math.sin(t*2.5)*0.4; } };
+    },
+    magma(pl, sp, bob){   // the Magma Mutineers: black rock with molten seams that glow
+      const rock = charMat(sp.acc), hot = glow(2.6, 0.9, 0.2);
+      const core = mesh(new THREE.DodecahedronGeometry(1.0, 0), rock, 1.06); core.scale.set(1.1, 1.25, 0.95); core.position.y = 2.2; core.castShadow = true; bob.add(core);
+      const head = mesh(new THREE.DodecahedronGeometry(0.58, 0), rock, 1.07); head.position.y = 3.6; head.rotation.y = 0.5; bob.add(head);
+      for (const [y, r] of [[1.7, 0.95], [2.5, 1.05], [3.0, 0.75]]) { const seam = new THREE.Mesh(new THREE.TorusGeometry(r, 0.06, 6, 18), hot); seam.rotation.x = Math.PI/2 + (y - 2.4)*0.3; seam.position.y = y; bob.add(seam); }
+      for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), (glow(2.8, 2.2, 0.5))); e.position.set(sx*0.2, 3.65, 0.5); bob.add(e); }
+      const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.07, 0.05), hot); mouth.position.set(0, 3.38, 0.52); bob.add(mouth);
+      legPair(bob, rock, 1.2, 0.42, 0.2, '#1a1008');
+      return { sy:2.95, sx:0.95, L1:0.85, L2:0.85, r:0.17, arm:rock, hand:hot, tick:t => { const k = 0.75 + 0.35*Math.sin(t*3.1); hot.color.setRGB(2.6*k, 0.9*k, 0.2*k); } };
+    },
+    squid(pl, sp, bob){   // the Squid Squad: a tall mantle, big eyes, tentacles that never keep still
+      const skin = charMat(sp.body), pink = charMat(sp.acc);
+      const mantle = mesh(new THREE.SphereGeometry(0.75, 16, 12), skin, 1.07); mantle.scale.set(1, 1.6, 0.95); mantle.position.y = 3.25; mantle.castShadow = true; bob.add(mantle);
+      for (const sx of [-1, 1]) { const fin = mesh(new THREE.ConeGeometry(0.35, 0.8, 4), skin, 1.08); fin.rotation.z = sx*1.1; fin.position.set(sx*0.6, 4.2, 0); bob.add(fin); eye(0.26, [sx*0.33, 2.55, 0.55], bob, 0.55); }
+      for (let i = 0; i < 5; i++) { const spot = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), pink); const a = i*1.3 - 2.4; spot.position.set(Math.sin(a)*0.72, 3.4 + (i % 2)*0.5, Math.cos(a)*0.66); bob.add(spot); }
+      const patch = new THREE.Mesh(new THREE.CircleGeometry(0.3, 14), eyeB); patch.position.set(-0.33, 2.55, 0.83); bob.add(patch);
+      const tents = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i/6)*Math.PI*2 + 0.3, g = new THREE.Group(); g.position.set(Math.cos(a)*0.45, 2.0, Math.sin(a)*0.4);
+        g.add(tube([[0, 0, 0], [Math.cos(a)*0.25, -0.7, Math.sin(a)*0.25], [Math.cos(a)*0.55, -1.4, Math.sin(a)*0.5], [Math.cos(a)*0.95, -1.85, Math.sin(a)*0.85]], 0.1, skin));
+        bob.add(g); tents.push(g);
+      }
+      return { sy:2.35, sx:0.62, L1:0.95, L2:1.0, r:0.09, arm:skin, hand:pink, tick:t => tents.forEach((g, i) => { g.rotation.x = Math.sin(t*3 + i)*0.15; g.rotation.z = Math.cos(t*2.6 + i*1.3)*0.15; }) };
+    },
+    ghost(pl, sp, bob){   // the Drowned Crew: a glowing sheet with a ragged hem, hollow eyes, a waterlogged hat
+      const sheet = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(sp.body).multiplyScalar(1.25), transparent:true, opacity:0.78, side:THREE.DoubleSide, depthWrite:false });
+      const prof = []; for (let i = 0; i <= 14; i++) { const u = i/14, y = 0.5 + u*3.6, r = u > 0.75 ? Math.sqrt(Math.max(0, 1 - ((u - 0.75)/0.25)**2))*0.85 : 0.85 + (0.75 - u)*0.35; prof.push(new THREE.Vector2(Math.max(0.01, r), y)); }
+      const geo = new THREE.LatheGeometry(prof, 24), P = geo.attributes.position;
+      for (let i = 0; i < P.count; i++) if (P.getY(i) < 0.9) { const a = Math.atan2(P.getZ(i), P.getX(i)); P.setY(i, P.getY(i) + Math.sin(a*7)*0.18); }
+      const body = new THREE.Mesh(geo, sheet); body.castShadow = true; bob.add(body);
+      const inner = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), (glow(0.6, 1.8, 1.6))); inner.position.y = 3.0; inner.scale.set(1, 1.2, 1); bob.add(inner);
+      for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), eyeB); e.scale.set(1, 1.4, 0.5); e.position.set(sx*0.28, 3.55, 0.72); bob.add(e); }
+      const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), eyeB); mouth.scale.set(1, 1.3, 0.4); mouth.position.set(0, 3.1, 0.78); bob.add(mouth);
+      tricorn(bob, 4.15, 0.85, (celMat(sp.acc)));
+      const ghostArm = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(sp.body).multiplyScalar(1.2), transparent:true, opacity:0.7, depthWrite:false });
+      return { sy:3.1, sx:0.8, L1:0.9, L2:0.9, r:0.12, arm:ghostArm, hand:ghostArm, float:0.35, tick:t => { body.rotation.y = Math.sin(t*1.3)*0.08; sheet.opacity = 0.72 + 0.08*Math.sin(t*2); } };
+    },
+    deep(pl, sp, bob){   // Davy's Deep Ones: anglerfish on legs, all teeth and a glowing lure
+      const skin = charMat(sp.body), lure = glow(0.8, 2.4, 3.0);
+      const body = mesh(new THREE.SphereGeometry(1.15, 16, 12), skin, 1.06); body.scale.set(1, 0.95, 1.05); body.position.y = 2.3; body.castShadow = true; bob.add(body);
+      const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.75, 14, 8, 0, Math.PI*2, Math.PI*0.55, Math.PI*0.3), eyeB); mouth.position.set(0, 2.55, 0.55); mouth.rotation.x = -0.4; bob.add(mouth);
+      for (let i = 0; i < 7; i++) { const a = -0.9 + i*0.3, tooth = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 4), eyeW); tooth.position.set(Math.sin(a)*0.62, 2.2 + Math.abs(a)*0.12, 0.88 + Math.cos(a)*0.1); tooth.rotation.x = Math.PI; bob.add(tooth); }
+      for (const sx of [-1, 1]) { eye(0.14, [sx*0.45, 3.05, 0.88], bob, 0.6); const fin = mesh(new THREE.ConeGeometry(0.3, 0.75, 3), charMat(sp.acc), 1.08); fin.rotation.z = sx*Math.PI/2; fin.position.set(sx*1.15, 2.3, -0.1); bob.add(fin); }
+      const stalk = tube([[0, 3.35, 0.1], [0, 4.2, 0.3], [0, 4.4, 0.9], [0, 4.0, 1.35]], 0.05, skin, 1.6); bob.add(stalk);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), lure); bulb.position.set(0, 3.9, 1.38); bob.add(bulb);
+      const tailFin = mesh(new THREE.ConeGeometry(0.5, 0.9, 3), charMat(sp.acc), 1.08); tailFin.rotation.x = -Math.PI/2; tailFin.position.set(0, 2.3, -1.4); bob.add(tailFin);
+      legPair(bob, skin, 1.3, 0.45, 0.14, '#1a3040');
+      return { sy:2.65, sx:1.05, L1:0.8, L2:0.85, r:0.13, arm:skin, hand:charMat(sp.acc), tick:t => { const k = 0.7 + 0.4*Math.sin(t*4); lure.color.setRGB(0.8*k, 2.4*k, 3.0*k); bulb.position.y = 3.9 + Math.sin(t*2)*0.06; } };
+    },
+  };
+
+  // the rig: arm segments (unit cylinders stretched between joints), a hand, and a paddle
+  const unitCyl = new THREE.CylinderGeometry(1, 1, 1, 8).translate(0, 0.5, 0);
+  const paddleFace = new THREE.CylinderGeometry(0.42, 0.42, 0.07, 18).rotateX(Math.PI/2).scale(1, 1.25, 1);   // face normal +z, long axis +y
+  const paddleRim = new THREE.TorusGeometry(0.42, 0.035, 4, 24).scale(1, 1.25, 1);
+  const paddleGrip = new THREE.CylinderGeometry(0.07, 0.07, 0.55, 8);
+  function mkPaddle(){
+    const g = new THREE.Group();
+    const face = withInk(new THREE.Mesh(paddleFace, paddleMat), 1.12); face.position.y = 0.8; g.add(face);
+    const rim = new THREE.Mesh(paddleRim, paddleEdge); rim.position.y = 0.8; g.add(rim);
+    const grip = new THREE.Mesh(paddleGrip, gripMat); grip.position.y = 0.1; g.add(grip);
+    return g;
+  }
+  function mkArm(rig, limbs, withPaddle){
+    const up = withInk(new THREE.Mesh(unitCyl, rig.arm), 1.0), fore = withInk(new THREE.Mesh(unitCyl, rig.arm), 1.0);
+    up.children[0].scale.set(1.35, 1, 1.35); fore.children[0].scale.set(1.35, 1, 1.35);   // ink a little fatter, not longer
+    const hand = withInk(new THREE.Mesh(new THREE.SphereGeometry(rig.r*1.7, 10, 8), rig.hand), 1.15);
+    limbs.add(up, fore, hand);
+    const a = { up, fore, hand, paddle:null, pincer:null };
+    if (withPaddle) { a.paddle = mkPaddle(); limbs.add(a.paddle); }
+    else if (rig.claw) {   // the crab's spare claw: a big pincer instead of a hand
+      const p = new THREE.Group(), palm = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), rig.hand), 1.1); palm.scale.set(0.8, 1.15, 0.7); p.add(palm);
+      const pin = withInk(new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.6, 6), rig.hand), 1.12); pin.position.set(0.12, 0.65, 0); p.add(pin);
+      const dac = withInk(new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.55, 6), rig.hand), 1.12); dac.position.set(-0.12, 0.6, 0); p.add(dac);
+      hand.visible = false; limbs.add(p); a.pincer = p; a.dactyl = dac;
     }
-    // three legs a side: up and out from the shell, then down to the deck
-    for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) {
-      const z = 0.45 - k*0.45, leg = new THREE.Group(); leg.position.set(sx*1.05, 1.55, z); leg.rotation.y = sx*(k - 1)*0.35;
-      const up = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.9, 6), shellLeg); up.rotation.z = sx*1.0; up.position.set(sx*0.38, 0.22, 0); leg.add(up);
-      const down = withInk(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.75, 6), shellLeg), 1.12); down.rotation.z = -sx*0.28; down.position.set(sx*0.95, -0.55, 0); leg.add(down);
-      bob.add(leg);
-    }
-    // the off claw, held up in front: a pincer that snaps between shots
-    const offClaw = new THREE.Group(); offClaw.position.set(pl.team === 'home' ? -1.1 : 1.1, 1.9, 0.75); bob.add(offClaw);
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.8, 6), shellLeg); arm.rotation.x = Math.PI/2.4; offClaw.add(arm);
-    const palm = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), shellM), 1.1); palm.scale.set(0.8, 0.7, 1.15); palm.position.set(0, 0.25, 0.45); offClaw.add(palm);
-    const pin = withInk(new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.6, 6), shellM), 1.12); pin.rotation.x = Math.PI/2; pin.position.set(0, 0.38, 0.95); offClaw.add(pin);
-    const dactyl = withInk(new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.55, 6), shellM), 1.12); dactyl.rotation.x = Math.PI/2; dactyl.position.set(0, 0.12, 0.9); offClaw.add(dactyl);
-    return { claw: dactyl };
+    return a;
   }
   function mkFigure(pl){
-    const sp = SPEC[pl.species] || SPEC.pickle, pickle = pl.species === 'pickle';
+    const sp = SPEC[pl.species] || SPEC.pickle;
     const root = new THREE.Group(), bob = new THREE.Group(); root.add(bob);
-    if (pl.species === 'crab') {
-      const c = mkCrab(pl, sp, root, bob);
-      const pivot = new THREE.Group(); pivot.position.set(pl.team === 'home' ? 0.9 : -0.9, 1.9, 0); bob.add(pivot);
-      const paddle = withInk(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.07, 18), paddleMat), 1.15); paddle.scale.set(1, 1, 1.25); paddle.rotation.z = Math.PI/2; paddle.position.set(0.35, -0.2, 0.75); pivot.add(paddle);
-      const grip = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), charMat(sp.body)), 1.1); grip.scale.set(0.8, 0.8, 1.1); grip.position.set(0.2, -0.2, 0.18); pivot.add(grip);   // the claw round the handle
-      const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2), blobMat); blob.scale.set(3.4, 1, 2.8); blob.position.y = 0.04; blob.renderOrder = 1; root.add(blob);
-      dyn.add(root);
-      return { root, bob, pivot, claw:c.claw, v:{ x:pl.x, z:pl.y, yaw:0 } };
-    }
-    const bodyH = pickle ? 2.6 : 2.0, bodyR = pickle ? 0.72 : 0.8;
-    const body = withInk(new THREE.Mesh(new THREE.CapsuleGeometry(bodyR, bodyH, 6, 14), charMat(sp.body)), 1.07); body.position.y = bodyR + bodyH/2 + 0.55; body.castShadow = true; bob.add(body);
-    if (pickle) for (let i = 0; i < 9; i++) { const a = i*2.4, y = -bodyH/2 + 0.3 + (i % 5)*bodyH/5; const w = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), charMat(sp.acc)); w.position.set(Math.cos(a)*bodyR*0.98, y, Math.sin(a)*bodyR*0.98); body.add(w); }
-    // shirt band in the crew's colors
-    const shirt = withInk(new THREE.Mesh(new THREE.CylinderGeometry(bodyR*1.06, bodyR*1.1, 0.9, 16, 1, true), charMat(pl.team === 'home' ? '#e8e0c8' : sp.acc)), 1.04); shirt.position.y = -bodyH*0.12; body.add(shirt);
-    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(bodyR*1.08, bodyR*1.08, 0.18, 16, 1, true), charMat(pl.team === 'home' ? '#c8302a' : '#1b1410')); stripe.position.y = -bodyH*0.12; body.add(stripe);
-    // eyes (one under a patch for the pirates)
-    for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), eyeW); e.position.set(sx*0.3, bodyH*0.3, bodyR*0.86); const p = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), eyeB); p.position.z = 0.14; e.add(p); body.add(e); }
-    if (pickle) { const patch = new THREE.Mesh(new THREE.CircleGeometry(0.26, 14), eyeB); patch.position.set(0.3, bodyH*0.3, bodyR*0.86 + 0.22); body.add(patch); const strap = new THREE.Mesh(new THREE.TorusGeometry(bodyR*1.01, 0.04, 4, 24), eyeB); strap.position.y = bodyH*0.33; strap.rotation.set(Math.PI/2 - 0.25, 0, 0); body.add(strap); }
-    // tricorn hat for the pirates, a bandana for the rest
-    if (pickle) { const hat = withInk(new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.1, 0.35, 3), hatMat), 1.08); hat.position.y = bodyH/2 + bodyR*0.75; hat.rotation.y = Math.PI/6; body.add(hat); const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 0.55, 12), hatMat); crown.position.y = 0.35; hat.add(crown); const trim = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.05, 4, 16).rotateX(Math.PI/2), goldMat); trim.position.y = 0.08; crown.add(trim); }
-    else { const band = withInk(new THREE.Mesh(new THREE.TorusGeometry(bodyR*0.98, 0.13, 6, 20).rotateX(Math.PI/2), faceMat), 1.1); band.position.y = bodyH*0.42; body.add(band); }
-    // feet
-    for (const sx of [-1, 1]) { const f = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), charMat('#2a1a10')), 1.1); f.scale.set(1, 0.6, 1.4); f.position.set(sx*0.4, 0.2, 0.15); bob.add(f); }
-    // paddle on a pivot at the shoulder: swings forehand
-    const pivot = new THREE.Group(); pivot.position.set(pl.team === 'home' ? 0.9 : -0.9, bodyR + bodyH*0.55, 0); bob.add(pivot);
-    const paddle = withInk(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.07, 18), paddleMat), 1.15); paddle.scale.set(1, 1, 1.25); paddle.rotation.z = Math.PI/2; paddle.position.set(0.35, -0.2, 0.75); pivot.add(paddle);
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.6, 8), celMat('#1b1410')); handle.position.set(0.2, -0.2, 0.2); handle.rotation.x = Math.PI/2; pivot.add(handle);
-    const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2), blobMat); blob.scale.set(2.6, 1, 2.6); blob.position.y = 0.04; blob.renderOrder = 1; root.add(blob);
-    dyn.add(root);
-    return { root, bob, pivot, v:{ x:pl.x, z:pl.y, yaw:0 } };
+    const rig = (CREWS[pl.species] || CREWS.pickle)(pl, sp, bob);
+    const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2), blobMat); blob.scale.set(pl.species === 'crab' ? 3.4 : 2.6, 1, pl.species === 'crab' ? 2.8 : 2.6); blob.position.y = 0.04; blob.renderOrder = 1; root.add(blob);
+    const limbs = new THREE.Group();
+    const main = mkArm(rig, limbs, true), off = mkArm(rig, limbs, false);
+    dyn.add(root); dyn.add(limbs);
+    return { root, bob, limbs, rig, main, off, v:{ x:pl.x, z:pl.y, yaw:0 } };
   }
-  let figs = [];
+  // two-bone reach from the shoulder S to the target T: the elbow bends down and out; stretches a little if it must
+  const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3(), _e = new THREE.Vector3(), _q = new THREE.Quaternion(), _Y = new THREE.Vector3(0, 1, 0), _m = new THREE.Matrix4();
+  function segment(m, from, to, r){
+    _a.subVectors(to, from); const len = Math.max(0.01, _a.length());
+    m.position.copy(from); m.quaternion.setFromUnitVectors(_Y, _a.divideScalar(len)); m.scale.set(r, len, r);
+  }
+  function reach(arm, S, T, rig, outward, elbowOut){
+    const L1 = rig.L1, L2 = rig.L2; _b.subVectors(T, S); let d = _b.length(); const dir = _b.clone().divideScalar(Math.max(0.001, d));
+    const k = d > (L1 + L2)*0.995 ? d/((L1 + L2)*0.995) : 1;   // out of reach: stretch (it's a cartoon)
+    const l1 = L1*k, l2 = L2*k; d = Math.max(Math.abs(l1 - l2) + 0.01, d);
+    const a = (l1*l1 - l2*l2 + d*d)/(2*d), h = Math.sqrt(Math.max(0, l1*l1 - a*a));
+    _c.set(0, -1, 0).addScaledVector(outward, 0.8); _c.addScaledVector(dir, -_c.dot(dir)); if (_c.lengthSq() < 1e-6) _c.set(0, -1, 0); _c.normalize();
+    elbowOut.copy(S).addScaledVector(dir, a).addScaledVector(_c, h);
+    segment(arm.up, S, elbowOut, rig.r); segment(arm.fore, elbowOut, T, rig.r*0.9);
+    arm.hand.position.copy(T);
+  }
+  // the paddle: grip at the hand, face pointing the way the swing is going (or at the net when still)
+  function placePaddle(arm, hand, head, faceDir){
+    _d.subVectors(head, hand).normalize(); _e.copy(faceDir).addScaledVector(_d, -faceDir.dot(_d)); if (_e.lengthSq() < 1e-6) _e.set(0, 1, 0).addScaledVector(_d, -_d.y); _e.normalize();
+    _c.crossVectors(_d, _e); _m.makeBasis(_c, _d, _e); arm.paddle.quaternion.setFromRotationMatrix(_m); arm.paddle.position.copy(hand);
+  }
+  function buildFigures(G){ for (const f of figs) { dyn.remove(f.root); dyn.remove(f.limbs); disposeFigure(f.root); disposeFigure(f.limbs); } figs = G.players.map(mkFigure); }
+
   // a new match builds new figures: free the old ones' geometry and their own materials (the shared ones stay)
-  const SHARED_MATS = new Set([eyeW, eyeB, hatMat, goldMat, paddleMat, faceMat, blobMat, inkMat]);
+  const SHARED_GEOS = new Set([unitCyl, paddleFace, paddleRim, paddleGrip]);
   function disposeFigure(root){
     const geos = new Set(), mats = new Set();
-    root.traverse(o => { if (o.geometry) geos.add(o.geometry); for (const m of [].concat(o.material || [])) if (!SHARED_MATS.has(m)) mats.add(m); });
+    root.traverse(o => { if (o.geometry && !SHARED_GEOS.has(o.geometry)) geos.add(o.geometry); for (const m of [].concat(o.material || [])) if (!SHARED_MATS.has(m)) mats.add(m); });
     geos.forEach(g => g.dispose()); mats.forEach(m => m.dispose());
   }
-  function buildFigures(G){ for (const f of figs) { dyn.remove(f.root); disposeFigure(f.root); } figs = G.players.map(mkFigure); }
 
   // ------------------------------------------------ post: ink edges, bloom, halftone, vignette
   let post = null, bloomNode = null;
@@ -603,17 +725,24 @@ async function init(){
       f.root.rotation.y = v.yaw;
       const sp = Math.hypot(pl.vx, pl.vy), hop = pl.split > 0 ? Math.sin(pl.split/0.18*Math.PI)*0.5 : 0;
       f.bob.position.y = hop + (sp > 1 ? Math.abs(Math.sin(t*14 + i))*0.22 : Math.sin(t*3 + i)*0.04);
-      // a lunge leans the whole body toward the ball
-      const lk = pl.lunge > 0 ? pl.lunge/0.45 : 0;
+      // a lunge leans the whole body toward the ball; the swing twists, crouches and hops it (swings.js)
+      const rig = f.rig, pose = paddlePose(pl, G.time, rig.sy), lk = pl.lunge > 0 ? pl.lunge/0.45 : 0;
+      f.bob.position.y += pose.hop - pose.crouch*0.6 + (rig.float ? rig.float + Math.sin(t*2 + i)*0.15 : 0);
       f.bob.rotation.z = (sp > 1 ? Math.sin(t*14 + i)*0.06 : 0) - pl.lungeSide*0.45*lk;
+      f.bob.rotation.y = -pose.twist; f.bob.rotation.x = pose.lean + pose.crouch*0.25;
       f.bob.position.x = 0;
-      // the paddle: ready in front, then a swing across on whichever side the ball was (forehand or backhand)
-      const s = pl.swing > 0 ? 1 - pl.swing/0.28 : 0, side = pl.swing > 0 ? pl.swingSide : 1;
-      // forehand is the figure's local −x for both crews (each faces the net)
-      f.pivot.position.x = -side*0.9;
-      f.pivot.rotation.y = -side*(s > 0 ? 1.2 - s*2.6 : 0.9);
-      if (f.claw) f.claw.rotation.y = Math.max(0, Math.sin(t*5 + i*2))*0.5;   // the crab's spare claw snaps
-      f.pivot.rotation.x = (pl.swingKind === 'lob' || pl.swingKind === 'drop' || pl.swingKind === 'dink') && s > 0 ? -s*0.9 : pl.swingKind === 'smash' && s > 0 ? 1.4 - s*2.2 : 0;
+      if (rig.tick) rig.tick(t + i, sp > 1);
+      f.root.updateMatrixWorld(true);
+      // arms: the paddle arm reaches the paddle (its face center is the swing point), the other arm its own pose
+      const S1 = f.bob.localToWorld(tmpV.set(-rig.sx, rig.sy, rig.sz || 0)).clone(), S2 = f.bob.localToWorld(tmpV.set(rig.sx, rig.sy, rig.sz || 0)).clone();
+      const head = W(pose.head[0], pose.head[1], pose.head[2], new THREE.Vector3()), off = W(pose.off[0], pose.off[1], pose.off[2], new THREE.Vector3());
+      const fwd = new THREE.Vector3(Math.sin(v.yaw), 0, Math.cos(v.yaw)), out1 = new THREE.Vector3(-Math.cos(v.yaw), 0, Math.sin(v.yaw)), out2 = out1.clone().negate();
+      const u = head.clone().sub(S1); const ul = u.length(); u.divideScalar(Math.max(0.001, ul));
+      const hand = head.clone().addScaledVector(u, -Math.min(0.8, ul*0.6));
+      reach(f.main, S1, hand, rig, out1, f.elbow1 || (f.elbow1 = new THREE.Vector3()));
+      placePaddle(f.main, hand, head, fwd);
+      reach(f.off, S2, off, rig, out2, f.elbow2 || (f.elbow2 = new THREE.Vector3()));
+      if (f.off.pincer) { f.off.pincer.position.copy(off); tmpV.subVectors(off, f.elbow2).normalize(); f.off.pincer.quaternion.setFromUnitVectors(_Y, tmpV); f.off.dactyl.rotation.z = -Math.max(0, Math.sin(t*5 + i*2))*0.5; }
     });
     // each human's reach ring, kitchen warning and aim reticle (P1 gold, P2 blue)
     { const aids = (!G.attract && G.aids) || [], rings = [[reachRing, reachCol, reachA, [2.2, 1.5, 0.25]], [reachRing2, reachCol2, reachA2, [0.4, 1.6, 2.4]]];

@@ -136,7 +136,7 @@ function aiServe(pl){
   // the better tiers go deep to the backhand; the deckhand just gets it in
   const xk = T.iq > 0.8 ? -handOf(rec)*rand(0.3, 0.9) : rand(-0.6, 0.6), depth = rand(T.deep[0], T.deep[1]);
   pl.ai.goNet = false;
-  return doServe(pl, kind, null, { xk, depth });
+  return requestServe(pl, kind, null, { xk, depth });
 }
 // a new point: forget the old plan
 function aiNewPoint(pl){

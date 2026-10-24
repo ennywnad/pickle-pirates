@@ -24,6 +24,7 @@ function endRally(loser, kind, x, y){
     return;
   }
   const winner = other(loser);
+  G.lastPoint = { winner, t:G.time };   // for the celebrations (swings.js)
   // an unreturned serve that landed in is an ace
   if (G.mode === 'game' && G.hits === 1 && kind === 'double bounce') kind = 'ace';
   call(kind, x, y);
@@ -80,8 +81,8 @@ function startPoint(){
     const pos = servePositions(isNear(server), court);
     for (const pl of G.players) { const p = pl.team === server ? pos.server : pos.receiver; pl.setTo = { x:p.x, y:p.y }; }
   }
-  for (const pl of G.players) { pl.queue = null; pl.momentum = 0; pl.spot = null; if (!pl.human) aiNewPoint(pl); }
-  G.pendingEnd = null;
+  for (const pl of G.players) { pl.queue = null; pl.momentum = 0; pl.spot = null; pl.wind = null; pl.hit = null; if (!pl.human) aiNewPoint(pl); }
+  G.pendingEnd = null; G.serveReq = null;
 }
 // glide everyone to their spots, then wait for the serve
 function serveSetup(dt){
@@ -104,7 +105,17 @@ function holdServe(dt){
   const srv = serverPl(), B = G.ball;
   G.serveT += dt;
   Object.assign(B, { x:srv.x + handOf(srv)*0.5, y:srv.y - backDir(srv.team)*0.6, z:1.6 + Math.sin(G.serveT*5)*0.05, vx:0, vy:0, vz:0, sx:0, sy:0, sz:0 });
+  if (G.serveReq) { if (G.time >= G.serveReq.at) { const r = G.serveReq; G.serveReq = null; doServe(r.pl, r.kind, r.aim, r.place); } return; }
   if (!srv.human && G.serveT > (G.attract ? 0.9 : 1.2)) aiServe(srv);
+}
+// a serve press: the server winds up (an underhand swing) and the ball goes when the paddle reaches it
+function serveHand(pl){ return { x:pl.x + handOf(pl)*0.5, y:pl.y - backDir(pl.team)*0.6, z:1.5 }; }
+function requestServe(pl, kind, aim, place){
+  if (G.state !== 'serve' || pl !== serverPl() || G.serveReq) return false;
+  const h = serveHand(pl), at = G.time + WIND;
+  pl.wind = { at, x:h.x, y:h.y, z:h.z, sw:'serve' };
+  G.serveReq = { pl, kind, aim, place, at };
+  return true;
 }
 // serve: drive = a hard serve, soft = a slower deep one, lob = a high lob serve. aim picks the spot inside the service court.
 function doServe(pl, kind, aim, place){
@@ -123,7 +134,8 @@ function doServe(pl, kind, aim, place){
   const q = pl.human ? 0.92 : tierOf(pl).serve, spread = (1 - q)*(1 - 0.6*TUNE.forgive);
   tx += gauss()*(0.2 + 4*spread); depth += gauss()*(0.2 + 4*spread);
   const ty = deepY + dir*depth;
-  const from = { x:pl.x + handOf(pl)*0.5, y:pl.y - backDir(pl.team)*0.6, z:1.5 };   // from the server's hand, wherever the ball was last drawn
+  const from = serveHand(pl);   // from the server's hand, wherever the ball was last drawn
+  recordHit(pl, 'serve', 1, false, from);
   const v = kind === 'lob' ? launchFor('lob', from, tx, ty, { arcK:0.7 }) : launchFor('serve', from, tx, ty, { speedK: kind === 'soft' ? 0.78 : 1 });
   Object.assign(B, from, v, { live:true, bounces:0, lastBy:pl.team, lastKind:'serve', serve:{ court, recNear }, still:0, trail:[] });
   pl.swing = 0.28; pl.swingKind = 'serve'; pl.swingSide = 1;

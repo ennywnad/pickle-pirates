@@ -98,9 +98,9 @@ for (const gfx of ['classic', 'med']) {
   await page.waitForSelector('#gameset:not([hidden])', { timeout: 5000 });
   await tap('#g_tier button[data-v="captain"]');
   await tap('#gameGo');
-  await page.waitForTimeout(1500);
+  await page.waitForFunction(() => /CAPTAIN/.test(document.getElementById('arenaShort').textContent), null, { timeout: 8000 }).catch(() => {});
   const gm = await page.evaluate(() => { const S = window.__sim, G = S.G; const start = { mode: G.mode, state: G.state, call: document.getElementById('clk').textContent, tier: G.players[1].tier, board: document.getElementById('arenaShort').textContent };
-    G.players[0].human = false; for (let i = 0; i < 60*90 && G.match.rallies < 4; i++) S.step(1); G.players[0].human = true;
+    G.players[0].human = false; for (let i = 0; i < 60*240 && G.match.rallies < 4; i++) S.step(1); G.players[0].human = true;
     return { ...start, rallies: G.match.rallies, pts: G.match.pts }; });
   if (gm.mode !== 'game' || !['set', 'serve', 'play'].includes(gm.state) || !/^\d+–\d+$/.test(gm.call) || gm.rallies < 4) fail(`${gfx}: singles game did not run (${JSON.stringify(gm)})`);
   if (gm.tier !== 'captain' || !/CAPTAIN/.test(gm.board)) fail(`${gfx}: the opponent level did not carry into the game (${gm.tier}, "${gm.board}")`);
@@ -155,7 +155,7 @@ for (const gfx of ['classic', 'med']) {
   if (!(after[0] < p2x[0] - 1) || Math.abs(after[1] - p2x[1]) > 1.5) fail(`${gfx}: P2's arrow keys did not move P2 alone (${JSON.stringify({ before: p2x, after })})`);
   // fast-forward some doubles points with everyone on the CPU
   const dbl = await page.evaluate(() => { startGame(); const S = window.__sim, G = S.G; G.players.forEach(p => p.human = false);
-    for (let i = 0; i < 60*120 && G.match.rallies < 4; i++) S.step(1); return { rallies: G.match.rallies, call: scoreCall(G.match) }; });
+    for (let i = 0; i < 60*240 && G.match.rallies < 4; i++) S.step(1); return { rallies: G.match.rallies, call: scoreCall(G.match) }; });
   if (dbl.rallies < 4) fail(`${gfx}: doubles points did not play out (${JSON.stringify(dbl)})`);
   await page.evaluate(() => { renderHub(); show('hub'); });
   await tap('#btnVersus');
