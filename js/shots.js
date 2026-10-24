@@ -99,7 +99,8 @@ function strike(pl, Q, c){
     if (Math.random() < 0.45) { tx = B.x + rand(-2, 2); ty = NETY + backDir(pl.team)*1.5; }
     else { tx = rand(3, CW - 3); ty = isNear(pl.team) ? rand(NETY - 12, NETY - 5) : rand(NETY + 5, NETY + 12); }
   }
-  const v = launchFor(kind, from, tx, ty, { spin:spinFor(kind, Q.mod), speedK:powerK*(1 + gauss()*0.04*spread), arcK:(Q.arcK || 1)*softSpray });
+  const bootyK = bootyStroke(pl, kind, B);   // Cannonball, Peg-Leg and Fog Bank booty shape this shot
+  const v = launchFor(kind, from, tx, ty, { spin:spinFor(kind, Q.mod), speedK:powerK*bootyK*(1 + gauss()*0.04*spread), arcK:(Q.arcK || 1)*softSpray });
   Object.assign(B, v, { z:from.z, bounces:0, lastBy:pl.team, lastKind:kind, still:0 });
   assignTaker(other(pl.team));   // who on the other side goes for it
   // body: face the shot, swing on the side the ball was on, lunge if stretched

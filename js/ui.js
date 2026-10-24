@@ -155,6 +155,7 @@ function openGameSetup(){
       ${tog('kitchen', 'Kitchen rule', 'Volleying with a foot in the kitchen, or stepping in right after a volley, is a fault')}
       ${tog('twoBounce', 'Two-bounce rule', 'The serve and the return must bounce before they\'re hit')}
       ${tog('hazards', 'Island hazard', 'The island\'s own twist: gulls, a tilted deck, cannon fire, steam vents, tentacles or fog. Never changes the rules')}
+      ${tog('booty', 'Booty', 'Win a rally of 6+ shots for a power-up crate; press Booty (E, or B on a controller) to use it. Never changes the rules')}
     </div>
     <div class="card pset"><h3 class="h">Reading the ball</h3>
       ${tog('marker', 'Landing marker', 'Off by default in games')}
@@ -162,7 +163,7 @@ function openGameSetup(){
     </div>
     <div class="btns"><button class="btn" id="gameGo" type="button">Start the game</button><button class="btn ghost" id="gameBack" type="button">Back to the dock</button></div>`;
   for (const k of ['to', 'scoring', 'tier']) $('g_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { gameCfg[k] = k === 'to' ? Number(b.dataset.v) : b.dataset.v; saveGameCfg(); $('g_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
-  for (const k of ['kitchen', 'twoBounce', 'marker', 'height', 'hazards']) $('g_' + k).onchange = e => { gameCfg[k] = e.target.checked; saveGameCfg(); };
+  for (const k of ['kitchen', 'twoBounce', 'marker', 'height', 'hazards', 'booty']) $('g_' + k).onchange = e => { gameCfg[k] = e.target.checked; saveGameCfg(); };
   $('g_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('g_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
   $('gameGo').onclick = $('gameGoTop').onclick = () => startGame(null, {});
   $('gameBack').onclick = () => { renderHub(); show('hub'); };
@@ -202,6 +203,8 @@ function openHow(from){
         <li><b>Let the serve and the return bounce.</b> After that you can volley (hit it out of the air).</li>
         <li><b>No volleys from the kitchen</b>, the zone either side of the net. It glows red when a volley from where you stand would be a fault.</li>
       </ul>
+      <h3 class="h">Islands and booty</h3>
+      <p>Every island has its own hazard: gulls, a tilted deck, cannon fire, steam vents, tentacles or fog. The scoreboard says which. Win a rally of 6 shots or more and your crew gets a <b>booty</b> crate: press Booty ${touch ? '' : K('E', 'B')} to use it. Neither ever changes the rules.</p>
       <h3 class="h">The crew levels</h3>
       <p><b>Deckhand</b> is slow and pops up dinks. <b>Bosun</b> comes to the net and punishes high balls. <b>Captain</b> reads everything early. Practice with the ball cannon any time from the dock.</p>
     </div>

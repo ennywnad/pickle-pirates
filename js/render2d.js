@@ -182,6 +182,7 @@ function drawReticle(x, y, r){
 }
 // island hazards from above: rings, vents and tentacles on the court; fog and the gull over everything
 function drawHazardsUnder(t){
+  drawBootyUnder(t);
   const H = G.haz; if (!H) return;
   ctx.save();
   if (H.kind === 'cannon') for (const z of H.zones) { const k = Math.min(1, z.t/z.warn), rx = z.r*scale, ry = z.r*scale*(sy(1) - sy(0) || scale)/scale;
@@ -194,6 +195,30 @@ function drawHazardsUnder(t){
     if (T.h < 1) { ctx.strokeStyle = 'rgba(200,140,255,.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, scale*(0.9 + (T.t % 0.5)*2), 0, 7); ctx.stroke(); }
     else { ctx.fillStyle = '#8a4ab0'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - T.r*scale, y); ctx.quadraticCurveTo(x - T.r*scale*0.3, sy(T.y, T.h*0.6), x + Math.sin(t*2)*scale*0.4, sy(T.y, T.h)); ctx.quadraticCurveTo(x + T.r*scale*0.5, sy(T.y, T.h*0.5), x + T.r*scale, y); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
   if (H.kind === 'tilt') { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '12px Bungee, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(FLIP ? '◀ DOWNHILL' : 'DOWNHILL ▶', sx(CW/2), sy(NETY + (FLIP ? -1 : 1)*KD*0.5)); }
+  ctx.restore();
+}
+// the Treasure Map's X, and the deck swabber's wet stripe
+function drawBootyUnder(t){
+  const Y = G.booty, z = Y && Y.zone, S = G.swab;
+  ctx.save();
+  if (z) { const x = sx(z.x), y = sy(z.y), r = z.r*scale; ctx.strokeStyle = `rgba(255,216,96,${0.65 + 0.3*Math.sin(t*6)})`; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.lineWidth = 5; ctx.strokeStyle = '#c8302a'; ctx.beginPath(); ctx.moveTo(x - r*0.45, y - r*0.45); ctx.lineTo(x + r*0.45, y + r*0.45); ctx.moveTo(x + r*0.45, y - r*0.45); ctx.lineTo(x - r*0.45, y + r*0.45); ctx.stroke(); }
+  if (S) { const k = S.t/1.6, x = sx(S.dir > 0 ? -4 + k*(CW + 8) : CW + 4 - k*(CW + 8)), y = sy(S.y), x0 = sx(S.dir > 0 ? -4 : CW + 4), fade = Math.max(0, 1 - Math.max(0, S.t - 1.2)/1.2);
+    ctx.fillStyle = `rgba(190,230,255,${0.35*fade})`; ctx.fillRect(Math.min(x0, x), y - scale*0.8, Math.abs(x - x0), scale*1.6);
+    if (k <= 1) { ctx.fillStyle = '#5aa83e'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y - scale*0.8, scale*0.45, scale*0.65, 0, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y - scale*0.6); ctx.lineTo(x - S.dir*scale*1.2, y + scale*0.3); ctx.stroke(); } }
+  ctx.restore();
+}
+// Kraken Ink: blots over the screen while your crew is inked
+function drawInk(){
+  const Y = G && G.booty; if (!Y) return;
+  const tm = humansAll().map(h => h.team).find(t => fxOn(t, 'ink')); if (!tm) return;
+  const until = Y.fx[tm].ink, left = until - G.time, a = Math.min(1, left/0.6)*0.92;
+  let s = Math.floor(until*1000) % 9973; const r = () => (s = (s*16807) % 2147483647)/2147483647;
+  ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = `rgba(28,10,40,${a})`;
+  for (let i = 0; i < 6; i++) { const x = r()*cw, y = ch*0.15 + r()*ch*0.75, R = Math.min(cw, ch)*(0.12 + r()*0.12);
+    ctx.beginPath(); for (let k = 0; k <= 14; k++) { const ang = k/14*Math.PI*2, rr = R*(0.75 + 0.35*Math.sin(k*2.7 + i)); ctx.lineTo(x + Math.cos(ang)*rr, y + Math.sin(ang)*rr); } ctx.fill();
+    for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.arc(x + (r() - 0.5)*R*3, y + (r() - 0.5)*R*3, R*0.15*r() + 3, 0, 7); ctx.fill(); } }
   ctx.restore();
 }
 function drawHazardsOver(t){
@@ -254,6 +279,7 @@ function render(now){
   for (const p of G.pops) drawPop(p, sx(p.x), sy(p.y, p.lift || 4));
   for (const h of humansAll()) { drawQueue(h, sx(h.x), sy(h.y) - PL_R*scale*3.2); drawTag(h, sx(h.x), sy(h.y) - PL_R*scale*2.6); }
   ctx.restore();
+  drawInk();
   drawJoy();
 }
 function drawJoy(){
@@ -268,6 +294,11 @@ const hudCache = {};
 const setT = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } };
 function updateHud(){
   if (!G || G.attract) return;
+  // booty held by each crew, and the touch button for P1's crew
+  { const Y = G.booty, hb = Y && Y.held.home, ab = Y && Y.held.away, me = humanPl(), mine = Y && me && Y.held[me.team];
+    setT('hBooty', hb ? '✦ ' + BOOTY_SHORT[hb].toUpperCase() : ''); $('hBooty').hidden = !hb;
+    setT('aBooty', ab ? '✦ ' + BOOTY_SHORT[ab].toUpperCase() : ''); $('aBooty').hidden = !ab;
+    const bb = $('bBooty'); if (bb) { bb.hidden = !mine; if (mine) bb.firstElementChild.textContent = BOOTY_SHORT[mine].toUpperCase(); } }
   setT('sH', String(G.score.home)); setT('sA', String(G.score.away));
   if (G.mode !== 'game') { setT('clk', `RALLY ${G.rally}`); setT('objProg', `Best rally ${G.best}`); return; }
   const S = G.match, gp = gamePoint(S), srv = serverPl(), two = humansAll().length > 1, vs = G.view === 'side';

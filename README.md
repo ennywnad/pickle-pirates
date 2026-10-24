@@ -6,7 +6,7 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–5 of 11 are done. Milestones 6 (the first playable, v0.1), 7 (doubles and two players, v0.2) and 8 (crews and swings, v0.3) are built and live; 6 is done once it's been played. What changed in each version is in the [changelog](CHANGELOG.md).
+Milestones 1–5 of 11 are done. Milestones 6 to 9 (v0.1 to v0.5) are built and live; 6 is done once it's been played. What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
@@ -21,7 +21,10 @@ Milestones 1–5 of 11 are done. Milestones 6 (the first playable, v0.1), 7 (dou
 
 - **v0.3, crews and swings:** all seven crews (crabs, skeletons, powder monkeys, magma men, squid, ghosts and anglerfish), arms that swing a paddle, a separate swing for every shot that meets the ball on the contact frame, and celebrations between points.
 
-- **v0.4, islands and hazards:** all seven islands have their own set and hazard. Booty (power-ups) and the deck swabber finish milestone 9 next.
+- **v0.4, islands and hazards:** all seven islands have their own set and hazard.
+- **v0.5, booty:** win a rally of 6+ shots for a power-up crate, then press Booty (E, or B on a controller): Cannonball Shot, Peg-Leg Spin, Kraken Ink, Parrot Spotter, Anchor Drop, Fog Bank or Treasure Map. Plus a deck swabber who mops between points.
+
+Voyage and polish, v1.0 (milestone 10) comes next.
 
 | Island | Court | Hazard |
 |---|---|---|
@@ -155,6 +158,7 @@ js/rules.js       the rules engine: scoring, serving, two-bounce, kitchen, ends 
 js/referee.js     runs points: serving, faults and calls, side outs, switching ends, the ball cannon
 js/players.js     footwork, move-to-ball assist, kitchen guard
 js/hazards.js     the islands' hazards: gulls, tilt, cannon fire, steam vents, tentacles, fog
+js/booty.js       power-ups: earning crates, the seven effects, the CPU using them
 js/ai.js          the CPU: three levels, reading the ball, positioning, shot choice, serves
 js/input.js       remappable keys, controllers, touch, controls screen
 js/update.js      per-frame step

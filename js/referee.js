@@ -25,6 +25,7 @@ function endRally(loser, kind, x, y){
   }
   const winner = other(loser);
   G.lastPoint = { winner, t:G.time };   // for the celebrations (swings.js)
+  bootyRally(winner, G.rally);           // a long rally earns a booty crate (booty.js)
   // an unreturned serve that landed in is an ace
   if (G.mode === 'game' && G.hits === 1 && kind === 'double bounce') kind = 'ace';
   call(kind, x, y);
@@ -52,6 +53,7 @@ function endPoint(winner, kind){
     else if (res.switchEnds) band('noodle', 1.2);
   }
   G.state = 'dead'; G.stT = 1.7; G.pendingSwitch = res.switchEnds;
+  if (!res.gameOver && S.rallies % 4 === 0) G.swab = { t:0, y:rand(5, CL - 5), dir:Math.random() < 0.5 ? 1 : -1 };   // the deck swabber mops a stripe
   if (res.gameOver) { G.state = 'over'; G.stT = 2.2; announce('Game!', `${teamName(winner)} win ${S.pts[winner]}–${S.pts[other(winner)]}`, 2200); return; }
   if (res.sideOut) announce('Side out', `${teamName(S.server)} to serve`, 1200);
   else if (res.secondServer) announce('Second server', `${scoreCall(S)}`, 1100);
@@ -137,7 +139,8 @@ function doServe(pl, kind, aim, place){
   const ty = deepY + dir*depth;
   const from = serveHand(pl);   // from the server's hand, wherever the ball was last drawn
   recordHit(pl, 'serve', 1, false, from);
-  const v = kind === 'lob' ? launchFor('lob', from, tx, ty, { arcK:0.7 }) : launchFor('serve', from, tx, ty, { speedK: kind === 'soft' ? 0.78 : 1 });
+  const bootyK = bootyStroke(pl, kind === 'lob' ? 'lob' : 'serve', B);
+  const v = kind === 'lob' ? launchFor('lob', from, tx, ty, { arcK:0.7 }) : launchFor('serve', from, tx, ty, { speedK:(kind === 'soft' ? 0.78 : 1)*bootyK });
   Object.assign(B, from, v, { live:true, bounces:0, lastBy:pl.team, lastKind:'serve', serve:{ court, recNear }, still:0, trail:[] });
   pl.swing = 0.28; pl.swingKind = 'serve'; pl.swingSide = 1;
   for (const r of oppsOf(pl)) { r.split = 0.18; r.burst = 0.5; }
@@ -169,6 +172,7 @@ function onBallEvent(e, B, vin){
       } else if (!landedIn(B.x, B.y)) return endRally(hitter, 'out', B.x, B.y);
       if (G.mode === 'practice' && G.cfg.opp === 'none' && side === 'away') return endRally('away', 'in', B.x, B.y);   // cannon only: a return that lands in scores
       if (lineMargin(B.x, B.y) < 0.3) call('close', B.x, B.y, 'close', true);   // close to a line: show the call
+      bootyBounce(B);   // Treasure Map: landed in the X
     }
     if (B.bounces >= 2) return endRally(side, 'double bounce', B.x, B.y);
   } else if (e === 'net') { sfx('net'); G.shake = Math.max(G.shake, 0.3); }

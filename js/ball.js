@@ -100,6 +100,8 @@ function courtBounce(B, ev){
   B.sx += dy/(SHELL_K*R); B.sy += -dx/(SHELL_K*R);
   B.sz *= 0.7;
   if (ev) ev('bounce', B, vin);
+  if (B.kick) { B.vx += B.kick; B.kick = 0; }   // Peg-Leg Spin (booty.js): a sideways kick off the first bounce
+  if (B.skid) { B.vz *= 0.45; B.vx *= 1.18; B.vy *= 1.18; B.skid = false; }   // Cannonball Shot: it skids low and fast
   if (HZ) {
     if (HZ.tilt) B.vx += HZ.tilt;   // the tilted deck kicks every bounce downhill
     for (const v of HZ.vents) if (ventOn(v, B.clock || 0) && hyp(B.x - v.x, B.y - v.y) < v.r) {
@@ -134,7 +136,7 @@ const landedIn = (x, y) => inCourt(x, y, LINE_GRACE);
 const lineMargin = (x, y) => Math.min(x, CW - x, y, CL - y);   // negative = out, by that many feet
 
 // copy of the parts of the ball the simulation needs
-const ballCopy = B => ({ x:B.x, y:B.y, z:B.z, vx:B.vx, vy:B.vy, vz:B.vz, sx:B.sx, sy:B.sy, sz:B.sz, clock:B.clock || 0 });
+const ballCopy = B => ({ x:B.x, y:B.y, z:B.z, vx:B.vx, vy:B.vy, vz:B.vz, sx:B.sx, sy:B.sy, sz:B.sz, clock:B.clock || 0, kick:B.kick || 0, skid:!!B.skid });
 // simulate forward; returns samples (every `every` steps), the first bounce, and whether the net stopped it
 function predict(B, T = 3, dt = BALL_DT, every = 8){
   const b = ballCopy(B), pts = []; let first = null, netted = false, apex = b.z, netZ = null;

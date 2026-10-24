@@ -86,7 +86,11 @@ function pressShot(p, kind){
   queueShot(pl, kind, { hold: kind === 'drive', aim: readAim(p), mod: actionHeld(p, 'top') ? 'top' : actionHeld(p, 'slice') ? 'slice' : null });
 }
 function releaseDrive(p){ const pl = humanFor(p); if (pl) releaseShot(pl); }
-function pressBooty(p = 0){ if (!playing()) return; toast('No booty yet', 'Power-ups wash up in milestone 9', 1200, 'small'); }
+function pressBooty(p = 0){
+  if (!playing()) return; const pl = humanFor(p); if (!pl) return;
+  if (!G.booty) return toast('No booty here', 'Booty is switched off for this game', 1200, 'small');
+  if (!useBooty(pl.team)) toast('No booty yet', `Win a rally of ${BOOTY_RALLY}+ shots to earn a crate`, 1300, 'small');
+}
 cv.addEventListener('pointerdown', e => {
   ensureAudio();
   if (!playing()) return;

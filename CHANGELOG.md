@@ -2,6 +2,37 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.5.0 · Booty and the deck swabber (milestone 9 complete) · 2026-10-23
+
+Power-ups. Win a rally of 6 shots or more and your crew gets a booty crate. You hold one at a time and press Booty to use it: E on the keyboard, B on a controller, or the Booty button on touch.
+
+**The seven power-ups**
+
+| Power-up | What it does | Why the call can't change |
+|---|---|---|
+| Cannonball Shot | Your next drive, smash or serve leaves a smoke trail and skids low and fast off the bounce | The skid happens after it lands |
+| Peg-Leg Spin | Your next shot kicks sideways when it bounces | The kick happens after it lands |
+| Kraken Ink | Ink blots the other crew's view for 4 s (a CPU crew reads the ball three times worse) | It only affects what they can see |
+| Parrot Spotter | For 8 s your crew sees where every ball will land (a CPU crew reads it almost perfectly) | It only affects what you can see |
+| Anchor Drop | The other crew runs at about two-thirds speed for 5 s | It only affects movement |
+| Fog Bank | Your next shot vanishes once it crosses the net, until it bounces or is hit | It only affects what they can see |
+| Treasure Map | A gold X on their court: land a shot in it and you get another booty | It pays booty, never points |
+
+- The scoreboard shows each crew's booty. The CPU uses its crew's booty when it's about to hit, and leaves it to you if you share a crew.
+- Booty is on in games and can be switched off in a custom game. Practice has none.
+
+**The deck swabber**
+- Every few rallies a pickle swabber dashes across the court with a mop, leaving a wet stripe that dries. It's just for looks.
+
+**Other changes**
+- Brine Bay's gulls now go for any ball above 11 ft, up from 13, and more often, so lobs are riskier there.
+- How to play has a short section on islands and booty.
+
+**Tests**
+- New `tests/booty.mjs` (run in CI) checks each power-up directly. The cannonball and peg-leg change only what happens after the bounce, and the landing spot is unchanged to the thousandth of a foot. Ink and Parrot change CPU reads, Anchor slows the other crew to about 65%, the Fog Bank hides only over the far side, and the Treasure Map pays booty, not points.
+- It also plays CPU games where every rally earns a crate and the CPU uses it at once. Every point is scored by the rules, every out call was really out, nothing stalls, and all seven power-ups get used.
+- The CPU strength tests now run without hazards or booty, so they measure the CPU alone.
+
 ## v0.4.0 · Islands and hazards (milestone 9, part 1) · 2026-10-23
 
 All seven islands now look and play differently. Booty and the deck swabber come next to finish milestone 9.

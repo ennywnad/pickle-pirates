@@ -316,3 +316,5 @@ details.statsbox[open] summary{margin-bottom:8px}
 .card.how ul{margin:0 0 6px;padding-left:20px;display:flex;flex-direction:column;gap:6px}
 .card.how kbd{font:400 11px/1 var(--block);padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--well);color:var(--hazard)}
 .card.how small{color:var(--muted)}
+/* v0.5: booty held by each crew */
+.bchip{display:inline-block;margin-top:3px;font:400 10px/1 var(--block);letter-spacing:.06em;color:var(--hazard-ink);background:var(--hazard);border-radius:4px;padding:3px 5px;white-space:nowrap}

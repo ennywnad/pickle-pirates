@@ -76,7 +76,7 @@ const FEED_DELAY = { fast:0.6, normal:1.4, slow:2.4 }, PACE = { slow:0.85, norma
 
 // ---------------- singles game settings (saved per browser)
 const GAME_OPTS = { to:[[11,'11'],[15,'15'],[21,'21']], scoring:[['sideout','Side-out (standard)'],['rally','Rally scoring']], tier:[['deckhand','Deckhand · easy'],['bosun','Bosun · medium'],['captain','Captain · hard']] };
-const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true, tier:'bosun', hazards:true });
+const gameDef = () => ({ to:11, scoring:'sideout', kitchen:true, twoBounce:true, marker:false, height:true, tier:'bosun', hazards:true, booty:true });
 let gameCfg = gameDef();
 try { const g = JSON.parse(localStorage.getItem('pickle-game') || 'null'); if (g && typeof g === 'object') for (const k in gameCfg) if (k in g && typeof g[k] === typeof gameCfg[k]) gameCfg[k] = g[k]; } catch(e) {}
 const saveGameCfg = () => { try { localStorage.setItem('pickle-game', JSON.stringify(gameCfg)); } catch(e) {} };
@@ -119,6 +119,7 @@ function newMatch(islandId, attract, mode, opts = {}){
   // two humans on opposite teams: a side-on view that favors neither
   G.view = new Set(G.players.filter(p => p.human).map(p => p.team)).size > 1 ? 'side' : 'behind';
   newHazards();   // the island's hazard (hazards.js)
+  newBooty();     // booty crates (booty.js)
   if (mode === 'game') {
     G.match = newScore({ to:cfg.to, scoring:cfg.scoring, doubles, server: Math.random() < 0.5 ? 'home' : 'away' });
     G.score = G.match.pts;

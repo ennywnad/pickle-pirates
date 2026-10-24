@@ -399,7 +399,30 @@ async function init(){
     carrier.userData.wings = [-1, 1].map(s => { const g = new THREE.Group(); const m = withInk(new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 0.9), w), 1.1); m.position.x = s*1.4; g.add(m);
       const tip = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.11, 0.8), gr); tip.position.x = s*2.6; g.add(tip); carrier.add(g); return g; }); }
   carrier.visible = false; hazG.add(carrier);
+  // booty on the court: the Treasure Map's X, and the deck swabber with the wet stripe it leaves
+  const xMark = new THREE.Group();
+  { const gold = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.4, 1.9, 0.5), transparent:true, opacity:0.85, depthWrite:false }), red = celMat('#c8302a');
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 40).rotateX(-Math.PI/2), gold); ring.renderOrder = 2; xMark.add(ring);
+    for (const r of [Math.PI/4, -Math.PI/4]) { const bar = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.04, 0.22), red); bar.rotation.y = r; bar.position.y = 0.03; xMark.add(bar); } }
+  xMark.visible = false; hazG.add(xMark);
+  const swabber = new THREE.Group();
+  { const body = withInk(new THREE.Mesh(new THREE.CapsuleGeometry(0.45, 1.2, 4, 10), celMat('#5aa83e')), 1.08); body.position.y = 1.1; swabber.add(body);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.2, 12, 1, true), celMat('#c8302a')); band.position.y = 1.7; swabber.add(band);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), celMat('#8a6a44')); handle.position.set(0, 0.9, 0.9); handle.rotation.x = 0.9; swabber.add(handle);
+    const mop = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), celMat('#e8e0c8')), 1.1); mop.scale.set(1.3, 0.5, 1); mop.position.set(0, 0.15, 1.9); swabber.add(mop); }
+  swabber.visible = false; hazG.add(swabber);
+  const wetMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(1.2, 1.5, 1.8), transparent:true, opacity:0.3, depthWrite:false });
+  const wet = new THREE.Mesh(new THREE.PlaneGeometry(1, 1.6).rotateX(-Math.PI/2), wetMat); wet.position.y = 0.035; wet.renderOrder = 1; wet.visible = false; hazG.add(wet);
+  function updateBooty(G, t){
+    const z = G.booty && G.booty.zone; xMark.visible = !!z;
+    if (z) { W(z.x, z.y, 0.04, xMark.position); xMark.scale.setScalar(z.r); xMark.rotation.y = Math.sin(t*2)*0.1; }
+    const S = G.swab; swabber.visible = wet.visible = !!S;
+    if (S) { const k = Math.min(1, S.t/1.6), x0 = S.dir > 0 ? -4 : CW + 4, x = x0 + S.dir*k*(CW + 8);
+      swabber.visible = k < 1; W(x, S.y, Math.abs(Math.sin(S.t*14))*0.15, swabber.position); swabber.rotation.y = S.dir > 0 ? -Math.PI/2 : Math.PI/2;
+      W((x0 + x)/2, S.y, 0.035, wet.position); wet.scale.set(Math.max(0.01, Math.abs(x - x0)), 1, 1); wetMat.opacity = 0.32*Math.max(0, 1 - Math.max(0, S.t - 1.2)/1.2); }
+  }
   function updateHazards(G, t){
+    updateBooty(G, t);
     const H = G.haz, kind = H && H.kind;
     // the tilted deck: the whole court leans toward its downhill side
     const tilt = kind === 'tilt' ? -0.065 : 0; world.rotation.z += (tilt - world.rotation.z)*0.08; dyn.rotation.z = world.rotation.z;

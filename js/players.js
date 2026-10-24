@@ -5,7 +5,7 @@ function movePlayer(pl, ix, iy, dt){
   for (const k of ['split', 'burst', 'lunge']) if (pl[k] > 0) pl[k] = Math.max(0, pl[k] - dt);
   if (pl.stun > 0) { ix = 0; iy = 0; pl.vx *= Math.exp(-4*dt); pl.vy *= Math.exp(-4*dt); }   // knocked down by a cannonball
   // a split step lands into a quick first step; a lunge has to recover before you can run again
-  const top = TUNE.runSpeed*(pl.speedK || 1)*(pl.lunge > 0 ? 0.35 : 1), acc = TUNE.runAccel*(pl.burst > 0 && pl.split <= 0 ? 1.8 : 1)*(pl.split > 0 ? 0.3 : 1);
+  const top = TUNE.runSpeed*(pl.speedK || 1)*bootySlow(pl.team)*(pl.lunge > 0 ? 0.35 : 1), acc = TUNE.runAccel*(pl.burst > 0 && pl.split <= 0 ? 1.8 : 1)*(pl.split > 0 ? 0.3 : 1);
   const tvx = ix*top, tvy = iy*top, a = acc*dt;
   const dvx = tvx - pl.vx, dvy = tvy - pl.vy, dm = hyp(dvx, dvy);
   if (dm > a) { pl.vx += dvx/dm*a; pl.vy += dvy/dm*a; } else { pl.vx = tvx; pl.vy = tvy; }

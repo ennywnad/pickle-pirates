@@ -13,7 +13,7 @@ const sandbox = { document:{ getElementById:stubEl, createElement:stubEl }, wind
   sfx(){}, band(){}, toast(){}, humans:() => 1, startAttract(){}, showResults(){},
   readInput:() => [0, 0], readAim:() => [0, 0], actionHeld:() => false };
 vm.createContext(sandbox);
-for (const f of ['js/core.js', 'js/match.js', 'js/ball.js', 'js/rules.js', 'js/shots.js', 'js/swings.js', 'js/referee.js', 'js/players.js', 'js/hazards.js', 'js/ai.js', 'js/update.js'])
+for (const f of ['js/core.js', 'js/match.js', 'js/ball.js', 'js/rules.js', 'js/shots.js', 'js/swings.js', 'js/referee.js', 'js/players.js', 'js/hazards.js', 'js/booty.js', 'js/ai.js', 'js/update.js'])
   vm.runInContext(readFileSync(new URL(f, root), 'utf8'), sandbox, { filename:f });
 let seed = 9090; Math.random = () => (seed = (seed*16807) % 2147483647)/2147483647;
 const run = src => vm.runInContext(src, sandbox);
@@ -77,7 +77,7 @@ for (const isl of islands) {
   const r = run(`(() => {
     const ev = {}, errs = [], kindsSeen = new Set(); let rallies = 0, strokes = 0, minutes = 0;
     for (let g = 0; g < ${GAMES}; g++) {
-      Object.assign(gameCfg, { to:11, scoring:'sideout', tier:'bosun', hazards:true }); newMatch('${isl}', false, 'game', { format: g % 2 ? 'doubles' : 'singles', seats:[] });
+      Object.assign(gameCfg, { to:11, scoring:'sideout', tier:'bosun', hazards:true, booty:false }); newMatch('${isl}', false, 'game', { format: g % 2 ? 'doubles' : 'singles', seats:[] });
       const S = G.match;
       const ope = endPoint; endPoint = (w, kind) => { const before = { ...S.pts }, server = S.server; ope(w, kind);
         const d = { home:S.pts.home - before.home, away:S.pts.away - before.away };

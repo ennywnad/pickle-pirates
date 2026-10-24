@@ -34,7 +34,7 @@ function aiPlayer(pl, dt){
   if (incoming && ai.rollFor !== G.shotN) {
     ai.rollFor = G.shotN;
     ai.react = T.react*(0.75 + Math.random()*0.5) + (hyp(B.vx, B.vy) > 60 ? 0.05 : 0);
-    const a = Math.random()*Math.PI*2, e = T.read*(0.4 + Math.random()*0.6)*fogPenalty();   // a ball in the fog is harder to read
+    const a = Math.random()*Math.PI*2, e = T.read*(0.4 + Math.random()*0.6)*fogPenalty()*bootyRead(pl.team);   // a ball in the fog is harder to read
     ai.err = [Math.cos(a)*e, Math.sin(a)*e];
     ai.pressAt = Math.random() < T.whiff ? -1 : clamp(rand(T.press[0], T.press[1]) + gauss()*T.pressSd, 0.02, 1.0);
     ai.plan = null; ai.think = 0;
@@ -63,6 +63,7 @@ function aiPlayer(pl, dt){
     const plan = chooseShot(pl, pl.spot);
     const tired = clamp((G.hits - 16)/40, 0, 0.25);   // a very long rally wears on the crew: shots get looser
     queueShot(pl, plan.kind, { skill:T.skill*(1 - tired), target:plan.target, mod:plan.mod, arcK:plan.arcK });
+    aiBooty(pl);
     ai.lastPlan = plan;
   }
 }

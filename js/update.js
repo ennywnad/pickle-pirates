@@ -40,6 +40,9 @@ function update(dt){
   }
   // landing marker for the live ball (where it bounces next)
   G.landing = null;
-  if (G.cfg.marker && B.live && B.z > 0.3) { const pr = predict(B, 2.5, BALL_DT, 1e4); if (pr.first) { G.landing = pr.first; G.landing.in = landedIn(pr.first.x, pr.first.y); } }
+  const parrot = G.booty && humansAll().some(h => fxOn(h.team, 'parrot'));   // Parrot Spotter shows the landing for its crew
+  if (B.cannonShot && B.live && !B.bounces && Math.random() < 0.6) G.parts.push({ x:B.x, y:B.y, z:B.z, vx:rand(-1, 1), vy:rand(-1, 1), vz:rand(0, 1), life:0.5, max:0.5, s:rand(0.25, 0.45), c:'#6a6470' });
+  if (G.swab) { G.swab.t += dt; if (G.swab.t > 2.4) G.swab = null; }
+  if ((G.cfg.marker || parrot) && B.live && B.z > 0.3) { const pr = predict(B, 2.5, BALL_DT, 1e4); if (pr.first) { G.landing = pr.first; G.landing.in = landedIn(pr.first.x, pr.first.y); } }
   G.cannon.kick = Math.max(0, G.cannon.kick - dt*3);
 }

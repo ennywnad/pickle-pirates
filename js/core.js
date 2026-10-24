@@ -30,7 +30,7 @@ const ICON = {
 };
 const svg = (k, fill) => `<svg viewBox="0 0 24 24" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="${fill?0:1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 
-// first-draft booty (power-ups); none of them is wired up yet
+// booty (power-ups): see js/booty.js
 const BOOTY = {
   cannonball:{ name:'Cannonball Shot', desc:'Your next drive leaves a smoke trail and skids on the bounce.' },
   pegleg:    { name:'Peg-Leg Spin',    desc:'Your next shot hooks hard after it bounces.' },
@@ -84,7 +84,7 @@ let save = normSave({});
 try { const s = JSON.parse(localStorage.getItem(SKEY) || 'null'); if (s && typeof s.xp === 'number') save = normSave(s); } catch(e) {}
 let muted = false;
 try { muted = localStorage.getItem('pickle-mute') === '1'; } catch(e) {}
-const GAME_VERSION = 'v0.4.0';
+const GAME_VERSION = 'v0.5.0';
 // save codes: "PKP1." + base64url(JSON)
 function exportSave(){ const j = JSON.stringify({ ...save, updatedAt:Date.now() }); return 'PKP1.' + btoa(unescape(encodeURIComponent(j))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function importSave(code){

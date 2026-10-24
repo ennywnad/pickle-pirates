@@ -10,6 +10,7 @@ function renderOverlay3D(R3){
     const [px, py] = R3.project(pl.x, pl.y, 0);
     if (py < 8 || py > ch - 8 || px < 4 || px > cw - 4) { const ex = clamp(px, 16, cw - 16), ey = clamp(py, 16, ch - 16), a = Math.atan2(py - ey, px - ex); ctx.save(); ctx.translate(ex, ey); ctx.rotate(a); ctx.fillStyle = '#ffc23a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(-7, -9); ctx.lineTo(-7, 9); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore(); }
   }
+  drawInk();
   drawJoy();
 }
 // ---------------- graphics setting

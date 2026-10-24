@@ -12,7 +12,7 @@
 const ISLAND_HAZ = { brine:'gulls', wreck:'tilt', cannon:'cannon', volcano:'vents', kraken:'tentacles', ghost:'fog', locker:'rotate' };
 const HAZ_ROTATION = ['gulls', 'tilt', 'cannon', 'vents', 'tentacles', 'fog'];
 const HAZ_NAME = { gulls:'Gulls', tilt:'Tilted deck', cannon:'Cannon fire', vents:'Steam vents', tentacles:'Tentacles', fog:'Fog' };
-const HAZ_TIP = { gulls:'High lobs get snatched', tilt:'Bounces kick downhill', cannon:'Stay out of the red rings', vents:'Bounces on a vent fly high', tentacles:'Tentacles block the ball', fog:'The ball hides in the fog' };
+const HAZ_TIP = { gulls:'High balls get snatched', tilt:'Bounces kick downhill', cannon:'Stay out of the red rings', vents:'Bounces on a vent fly high', tentacles:'Tentacles block the ball', fog:'The ball hides in the fog' };
 const hazardsOn = () => !!G && G.cfg.hazards !== false && !!G.island && (G.mode === 'game' || G.cfg.hazards === true);
 function newHazards(){
   G.haz = null; HZ = null;
@@ -51,9 +51,9 @@ function hazardStep(dt){
   switch (H.kind) {
     case 'gulls': {
       // a high ball near the top of its flight: a gull may take it (once per shot)
-      if (!H.gull && live && B.lastBy && B.z > 13 && B.vz < 6 && H.gullFor !== G.shotN) {
+      if (!H.gull && live && B.lastBy && B.z > 11 && B.vz < 6 && H.gullFor !== G.shotN) {
         H.gullFor = G.shotN;
-        if (Math.random() < 0.55) {
+        if (Math.random() < 0.65) {
           const to = other(B.lastBy), d = rand(KD + 2, 16);
           H.gull = { t:0, dur:1.0, from:{ x:B.x, y:B.y, z:B.z }, to:{ x:rand(3, CW - 3), y: isNear(to) ? NETY + d : NETY - d, z:9.5 }, team:to };
           B.carried = true; B.vx = B.vy = B.vz = 0; B.sx = B.sy = B.sz = 0; count('gulls');
@@ -124,6 +124,7 @@ function hazardStep(dt){
 // the ball is inside a fog bank (low enough to be in it)
 function ballHidden(){
   const H = G.haz, B = G.ball;
+  if (fogShotHidden(B)) return true;   // a Fog Bank shot (booty.js)
   if (!H || H.kind !== 'fog' || B.z > 9 || B.z < -1) return false;
   return H.fog.some(f => ((B.x - f.x)/f.w)**2 + ((B.y - f.y)/f.h)**2 < 1);
 }
