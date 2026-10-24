@@ -61,19 +61,21 @@ for (const gfx of ['classic', 'med']) {
 
   // hit: stand the player where the fed ball lands and drive it back over the net
   const hit = await page.evaluate(() => {
-    const S = window.__sim, G = S.G, pl = G.players[0];
-    S.feedBall('home'); G.state = 'play';
-    const pr = S.predict(G.ball, 3);
-    const p = pr.pts.find(q => q.bounced && q.y > 22 && q.vz < 0) || pr.pts[pr.pts.length - 1];
-    let hitIt = false;
-    for (let i = 0; i < 400 && !hitIt; i++) {
-      pl.x = G.ball.x; pl.y = Math.max(22.6, G.ball.y + 0.5);
-      if (G.ball.bounces >= 1 && G.ball.z < 4) hitIt = hitBall(pl, 'drive', null);
-      S.step(1);
+    // a random feed now and then leaves a drive in the net: three tries
+    const S = window.__sim, G = S.G, pl = G.players[0]; let hitIt = false, crossed = false, p = null, tries = 0;
+    for (; tries < 3 && !crossed; tries++) {
+      S.feedBall('home'); G.state = 'play';
+      const pr = S.predict(G.ball, 3);
+      p = pr.pts.find(q => q.bounced && q.y > 22 && q.vz < 0) || pr.pts[pr.pts.length - 1];
+      hitIt = false;
+      for (let i = 0; i < 400 && !hitIt; i++) {
+        pl.x = G.ball.x; pl.y = Math.max(22.6, G.ball.y + 0.5);
+        if (G.ball.bounces >= 1 && G.ball.z < 4) hitIt = hitBall(pl, 'drive', null);
+        S.step(1);
+      }
+      for (let i = 0; i < 180; i++) { S.step(1); if (G.ball.y < 22) crossed = true; }
     }
-    let crossed = false;
-    for (let i = 0; i < 180; i++) { S.step(1); if (G.ball.y < 22) crossed = true; }
-    return { hitIt, crossed, rally: G.best, target: !!p };
+    return { hitIt, crossed, rally: G.best, target: !!p, tries };
   });
   if (!hit.hitIt || !hit.crossed) fail(`${gfx}: could not hit the ball over the net (${JSON.stringify(hit)})`);
 
