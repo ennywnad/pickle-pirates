@@ -6,7 +6,7 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–5 of 11 are done. Milestones 6 to 9 (v0.1 to v0.5) are built and live; 6 is done once it's been played. What changed in each version is in the [changelog](CHANGELOG.md).
+Milestones 1–9 of 11 are done (v0.1 to v0.5 are live and play-tested). What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.
