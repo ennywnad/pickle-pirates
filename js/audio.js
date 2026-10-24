@@ -1,17 +1,19 @@
 // Pickle Pirates · Audio: sample pack loader, mixer, crowd bed, sound effects, synth fallback and music cues
 'use strict';
 // ---------------- audio
-// Sample pack in assets/sfx (built by tools/gen_sfx.py; the rink's pack stands in until the pickleball sounds exist).
+// Sample pack in assets/sfx, built by tools/gen_sfx.py: paddle pops, deck bounces, the net, pilings, the ball cannon,
+// the referee parrot, the ship's bell, the harbor bed, the dockside crowd and the shanty band.
 // Mixer: effects + crowd buses -> compressor -> master volume. A sample that hasn't loaded plays its synthesised version instead.
 let AC = null, noise = null, master = null, sfxBus = null, crowdBus = null, crowdGain = null, crowdSrc = null;
 let volume = 0.8, crowdVol = 0.6, musicVol = 0.6, musicBus = null;
 try { const v = parseFloat(localStorage.getItem('pickle-vol')); if (v >= 0 && v <= 1) volume = v; const c = parseFloat(localStorage.getItem('pickle-crowdvol')); if (c >= 0 && c <= 1) crowdVol = c; const m = parseFloat(localStorage.getItem('pickle-musicvol')); if (m >= 0 && m <= 1) musicVol = m; } catch(e) {}
-// sound name -> files; paddle pops and court bounces borrow the rink's stick and pad samples for now
-const SFX_SET = { stick:4, shot:3, slap:3, pad:3, post:2, whistle:1, splash:1, pickup:1, level:1, cheer:1, aww:1, crowd:1 };
-const SFX_ALIAS = { paddle:'stick', drive:'slap', bounce:'pad', net:'post' };
-const SFX_GAIN = { stick:0.55, shot:0.7, slap:0.8, pad:0.45, post:0.5, whistle:0.42, splash:0.6, pickup:0.45, level:0.5, cheer:0.75, aww:0.55 };
-const SFX_GAP = { bounce:0.04, paddle:0.04, cheer:1.5, aww:1.5 };
-const NO_PITCH = new Set(['whistle', 'level', 'pickup', 'cheer', 'aww']);
+// sound name -> number of files (name_0.mp3 ...)
+const SFX_SET = { paddle:4, drive:3, smash:2, bounce:4, net:2, tape:1, post:2, cannon:1, splash:1, bell:1, pickup:1, level:1, cheer:1, aww:1, parrot:3, crowd:1 };
+// fixed picks: the parrot's three calls mean different things
+const SFX_PICK = { call:['parrot', 0], fault:['parrot', 1], good:['parrot', 2] };
+const SFX_GAIN = { paddle:0.5, drive:0.62, smash:0.75, bounce:0.4, net:0.5, tape:0.4, post:0.5, cannon:0.45, splash:0.55, bell:0.4, pickup:0.45, level:0.5, cheer:0.6, aww:0.5, parrot:0.42 };
+const SFX_GAP = { bounce:0.04, paddle:0.04, drive:0.04, cheer:1.5, aww:1.5, call:0.3, fault:0.3, good:0.3, bell:0.8 };
+const NO_PITCH = new Set(['level', 'pickup', 'cheer', 'aww', 'bell']);
 const sfxRaw = {}, sfxBuf = {}, sfxLast = {};
 // fetch the bytes right away; decode once the audio context exists (after the first tap / key / button)
 for (const [name, n] of Object.entries(SFX_SET)) for (let i=0;i<n;i++) {
@@ -23,7 +25,7 @@ function decodeSfx(){
   if (sfxDecoding || !AC) return; sfxDecoding = true;
   for (const [name, n] of Object.entries(SFX_SET)) for (let i=0;i<n;i++) {
     sfxRaw[`${name}_${i}`].then(ab => ab && new Promise((res, rej) => AC.decodeAudioData(ab, res, rej))).then(buf => {
-      if (!buf) return; (sfxBuf[name] || (sfxBuf[name] = [])).push(buf);
+      if (!buf) return; (sfxBuf[name] || (sfxBuf[name] = []))[i] = buf;   // by index: fixed picks need the right file
       if (name === 'crowd') startCrowd();
     }).catch(() => {});
   }
@@ -63,9 +65,14 @@ function updateCrowd(){
   if (G && !G.attract) target = paused || G.state === 'end' ? 0.05 : 0.18 + 0.05*Math.min(8, G.rally || 0);
   crowdGain.gain.setTargetAtTime(target, AC.currentTime, 0.5);
 }
-function playSample(name, gain, rate){
-  const list = sfxBuf[name]; if (!list || !list.length) return false;
-  let i = Math.floor(Math.random()*list.length); if (list.length > 1 && i === sfxLast[name]) i = (i + 1) % list.length; sfxLast[name] = i;
+function playSample(name, gain, rate, pick){
+  const list = sfxBuf[name]; if (!list) return false;
+  let i = pick;
+  if (i == null) {
+    const have = list.map((b, k) => b ? k : -1).filter(k => k >= 0); if (!have.length) return false;
+    const alt = have.filter(k => k !== sfxLast[name]); i = (alt.length ? alt : have)[Math.floor(Math.random()*(alt.length ? alt : have).length)];
+  }
+  if (!list[i]) return false; sfxLast[name] = i;
   const src = AC.createBufferSource(); src.buffer = list[i]; src.playbackRate.value = rate;
   const g = AC.createGain(); g.gain.value = gain; src.connect(g); g.connect(sfxBus); src.start();
   return true;
@@ -75,10 +82,10 @@ function sfx(type, v=1){
   if (!AC || muted || (G && G.attract)) return;
   const t = AC.currentTime;
   if (lastSfx[type] && t - lastSfx[type] < (SFX_GAP[type] || 0.05)) return; lastSfx[type] = t;
-  const name = SFX_ALIAS[type] || type;
-  const g = type === 'bounce' || type === 'paddle' ? clamp(v, 0.25, 1.1) : 1;
-  const rate = NO_PITCH.has(name) ? 1 : type === 'bounce' ? 1.35 + Math.random()*0.1 : type === 'paddle' ? 1.2 + Math.random()*0.15 : 0.95 + Math.random()*0.1;
-  if (playSample(name, (SFX_GAIN[name] || 0.5)*g, rate)) return;
+  const [name, pick] = SFX_PICK[type] || [type, null];
+  const g = clamp(v, 0.2, 1.2);
+  const rate = NO_PITCH.has(name) ? 1 : name === 'parrot' ? 0.97 + Math.random()*0.08 : 0.95 + Math.random()*0.1;
+  if (playSample(name, (SFX_GAIN[name] || 0.5)*g, rate, pick)) return;
   synthSfx(type, v);
 }
 function synthSfx(type, v){
@@ -98,7 +105,12 @@ function synthSfx(type, v){
   };
   switch(type){
     case 'paddle': burst(0.04,'bandpass',1500,1.6,0.25*v); tone('triangle',520,0.05,0.1*v); break;
-    case 'drive': burst(0.06,'bandpass',1800,1.2,0.4); tone('triangle',440,0.06,0.14); break;
+    case 'drive': case 'smash': burst(0.06,'bandpass',1800,1.2,0.4); tone('triangle',440,0.06,0.14); break;
+    case 'tape': burst(0.03,'highpass',3000,0.8,0.15); break;
+    case 'post': tone('triangle',250,0.12,0.15); break;
+    case 'cannon': tone('sine',90,0.25,0.3,0.004,40); burst(0.15,'bandpass',600,0.8,0.2); break;
+    case 'bell': tone('sine',880,0.9,0.12); tone('sine',1760,0.5,0.05); break;
+    case 'call': case 'fault': case 'good': tone('sawtooth',1500,0.18,0.04,0.01,1200); break;
     case 'bounce': burst(0.035,'bandpass',900,1.8,0.2*v); tone('sine',300,0.04,0.08*v); break;
     case 'net': burst(0.18,'lowpass',500,0.7,0.3); break;
     case 'splash': burst(0.5,'bandpass',1400,0.6,0.5,300); break;
@@ -109,11 +121,11 @@ function synthSfx(type, v){
 }
 
 // ---------------- music cues
-// Same slots as the rink's organ (intro, rally, point won, point lost, end tag, stoppage noodles, menu loop).
-// The organ recordings stand in until the shanty band is decided and generated.
+// The shanty band (squeezebox, fiddle, bass, stomps, tambourine): match start, a long rally, point won, point lost,
+// game won, between-points noodles, and the menu loop. All original tunes, generated by tools/gen_sfx.py.
 const MUSIC_SET = { intro:1, rally:1, won:1, lost:1, end:1, noodle:3, loop:1 };
-const MUSIC_FILE = { intro:'org_intro', rally:'org_rally', won:'org_goal', lost:'org_sad', end:'org_end', noodle:'org_noodle', loop:'org_loop' };
-const LOOP_LEN = 16*4*60/112;          // 16 bars at 112 bpm
+const MUSIC_FILE = { intro:'mus_intro', rally:'mus_rally', won:'mus_won', lost:'mus_lost', end:'mus_end', noodle:'mus_noodle', loop:'mus_loop' };
+const LOOP_LEN = 16*4*60/116;          // 16 bars at 116 bpm
 const musBuf = {};
 let musCue = null, musLoop = null, musSheet = 'hub', musDecoding = false;
 function decodeMusic(){

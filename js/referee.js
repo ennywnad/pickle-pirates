@@ -7,8 +7,9 @@ const CALL_TEXT = { out:'Out!', net:'Net!', short:'Short!', fault:'Fault!', kitc
 function call(kind, x, y, kindCol, small){
   const text = (CALL_TEXT[kind] || kind + '!').toUpperCase();
   G.pops.push({ text, x, y, life:small ? 0.8 : 1.2, max:small ? 0.8 : 1.2, size:small ? 14 : 18, color:CALL_COL[kindCol || kind] || '#ffc23a' });
-  if (!small) G.lastCall = kind;
+  if (!small) { G.lastCall = kind; if (!G.attract) sfx(PARROT[kind] || 'call'); }   // the referee parrot squawks the big calls
 }
+const PARROT = { out:'fault', net:'fault', short:'fault', fault:'fault', kitchen:'fault', 'two bounce':'fault', post:'fault', winner:'good', ace:'good', in:'good' };
 // a banner across the screen for big moments (side out, game point, switch ends, game)
 function announce(text, sub, ms = 1400){ if (G.attract) return; G.banner = { text, sub:sub || '', t:0, ms }; if (typeof toast === 'function') toast(text, sub || '', ms, 'small'); }
 
@@ -43,7 +44,11 @@ function endPoint(winner, kind){
   const S = G.match, wasServer = S.server, res = awardRally(S, winner);
   if (!G.attract) {
     const mine = G.players.find(p => p.human);
-    if (mine && winner === mine.team) { sfx('cheer'); if (res.scored) band('won', 0.4); } else sfx('aww');
+    if (mine && winner === mine.team) { sfx('cheer'); if (res.scored && !res.gameOver) band('won', 0.4); }
+    else { sfx('aww'); if (res.scored && !res.gameOver) band('lost', 0.3); }
+    if (res.gameOver) band(mine && winner === mine.team ? 'end' : 'lost', 0.5);
+    else if (res.sideOut) sfx('bell');
+    else if (res.switchEnds) band('noodle', 1.2);
   }
   G.state = 'dead'; G.stT = 1.7; G.pendingSwitch = res.switchEnds;
   if (res.gameOver) { G.state = 'over'; G.stT = 2.2; announce('Game!', `${teamName(winner)} win ${S.pts[winner]}–${S.pts[other(winner)]}`, 2200); return; }
@@ -137,8 +142,8 @@ function onBallEvent(e, B, vin){
     }
     if (B.bounces >= 2) return endRally(side, 'double bounce', B.x, B.y);
   } else if (e === 'net') { sfx('net'); G.shake = Math.max(G.shake, 0.3); }
-  else if (e === 'tape') sfx('net', 0.5);
-  else if (e === 'post') { sfx('bounce', 1); if (B.live && B.lastBy) endRally(B.lastBy, 'post', B.x, B.y); }
+  else if (e === 'tape') sfx('tape');
+  else if (e === 'post') { sfx('post'); if (B.live && B.lastBy) endRally(B.lastBy, 'post', B.x, B.y); }
 }
 // a stroke was just made: check it against the two-bounce and kitchen rules
 // (called before the stroke counts, so G.hits is the number of strokes before this one); true = a fault, the rally is over
@@ -206,13 +211,14 @@ function feedBall(to){
   const v = launchFor(kind, from, tx, ty, { speedK:PACE[cfg.pace] || 1, spin:spin*spinAmt*RPM });
   Object.assign(B, from, v, { live:true, bounces:0, lastBy:null, lastKind:'feed:' + kind, serve:null, still:0, trail:[] });
   Object.assign(G.cannon, from, { kick:1, kind });
-  G.shotN++; G.hits = 1; G.rally = 0; sfx('drive', 0.7);
+  G.shotN++; G.hits = 1; G.rally = 0; sfx('cannon');
 }
 // called every frame while the rally is live
 function rallyWatch(dt){
   const B = G.ball;
   if (!B.live) return;
   if (Math.abs(B.x - CW/2) > 40 || B.y < -24 || B.y > CL + 24) {
+    sfx('splash', 0.7);   // off the dock and into the harbor
     const cx = clamp(B.x, 0, CW), cy = clamp(B.y, 0, CL);
     if (B.bounces) return endRally(B.lastBy ? other(B.lastBy) : G.feedTo, 'winner', cx, cy);   // bounced in, then got away
     return endRally(B.lastBy || G.feedTo, 'out', cx, cy);

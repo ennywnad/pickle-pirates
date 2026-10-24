@@ -50,7 +50,7 @@
     <canvas id="gl" hidden aria-hidden="true"></canvas>
     <canvas id="court" aria-label="Pickleball court"></canvas>
     <div class="ctrls">
-      <button class="cb" id="bBooty" type="button" aria-label="Use booty power-up"><span class="pl">NO BOOTY</span></button>
+      <button class="cb" id="bBooty" type="button" hidden aria-label="Use booty power-up"><span class="pl">NO BOOTY</span></button>
       <button class="cb" id="bSoft" type="button"><span>SOFT</span></button>
       <button class="cb" id="bHit" type="button"><span>HIT</span></button>
       <button class="cb" id="bLob" type="button"><span>LOB</span></button>
@@ -66,6 +66,7 @@
         <button class="btn ghost" id="btnTune" type="button">Feel tuning</button>
         <button class="btn ghost" id="btnMute" type="button">Sound: on</button>
         <button class="btn ghost" id="btnPauseCtrls" type="button">Controls</button>
+        <button class="btn ghost" id="btnPauseHow" type="button">How to play</button>
         <button class="btn ghost" id="btnRestart" type="button">Restart practice</button>
         <button class="btn ghost" id="btnQuit" type="button">Back to the dock</button>
       </div>
@@ -73,6 +74,7 @@
     <div class="sheet" id="ctrls" hidden><div class="wrap" id="ctrlsWrap"></div></div>
     <div class="sheet" id="prac" hidden><div class="wrap" id="pracWrap"></div></div>
     <div class="sheet" id="gameset" hidden><div class="wrap" id="gameWrap"></div></div>
+    <div class="sheet" id="howto" hidden><div class="wrap" id="howWrap"></div></div>
     <div class="sheet" id="results" hidden><div class="wrap center"><div class="card" id="resCard" style="width:100%;max-width:420px"></div></div></div>
   </div>
 </div>

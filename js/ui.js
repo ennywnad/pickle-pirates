@@ -7,14 +7,21 @@ function segHtml(id, opts, cur){ return `<div class="seg" id="${id}">${opts.map(
 function renderHub(){
   $('hubWrap').innerHTML = `
     <div class="logo"><p class="eyebrow">Arcade pickleball · pirate crews · real rules</p><h1>Pickle <em>Pirates</em></h1><div class="tape"></div>
-      <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup. Early build: play singles against a CPU crew at three levels on a placeholder court while the real game gets built.</p></div>
+      <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup. The first island, Brine Bay, is open: take on the Barnacle Boys in singles.</p></div>
+    <div class="card feat">
+      <div class="feathead"><p class="eyebrow">BRINE BAY · HARBOR DOCK · SINGLES TO 11</p><h2 class="ct">Play the Barnacle Boys</h2>
+        <p class="gfxnote">The crabs of Brine Bay hold the harbor dock. Pick how tough a crew you want across the net.</p></div>
+      ${segHtml('h_tier', GAME_OPTS.tier, gameCfg.tier)}
+      <p class="rec" id="hubRec">${recordLine()}</p>
+      <div class="btns row"><button class="btn" id="btnPlay" type="button">Play</button><button class="btn ghost" id="btnHow" type="button">How to play</button></div>
+    </div>
     <button class="chal prac" type="button" id="btnPractice">
       <span class="num">P</span>
       <span class="cinfo"><span class="arena">PRACTICE · BALL CANNON</span><span class="ct">Practice</span><span class="co">The cannon feeds serves, drives, drops, dinks and lobs. Hit them back over the net and keep the rally going.</span></span>
       <span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal prac" type="button" id="btnGame">
       <span class="num">1v1</span>
-      <span class="cinfo"><span class="arena">SINGLES · FULL RULES</span><span class="ct">Singles game</span><span class="co">You against a CPU crew at three levels, under the full rules: serves, the kitchen, the two-bounce rule, side-out scoring, switching ends.</span></span>
+      <span class="cinfo"><span class="arena">SINGLES · YOUR RULES</span><span class="ct">Custom game</span><span class="co">Pick the island, the crew level, games to 11, 15 or 21, side-out or rally scoring, and which rules and reading aids are on.</span></span>
       <span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">THE CAREER · v1.0</span><span class="ct">Voyage</span><span class="co">One match per island, objectives, stars and booty unlocks.</span></span><span class="lock">Coming later</span></button>
     <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">SINGLES OR DOUBLES</span><span class="ct">Versus</span><span class="co">P1 vs P2, two players vs the CPU, or solo; games to 11, 15 or 21.</span></span><span class="lock">Coming later</span></button>
@@ -57,11 +64,14 @@ function renderHub(){
     $('saveMsg').textContent = `Loaded: ${save.plays} practice session${save.plays === 1 ? '' : 's'}.`;
   };
   $('btnPractice').onclick = () => openPractice(false);
+  $('h_tier').querySelectorAll('button').forEach(b => b.onclick = () => { gameCfg.tier = b.dataset.v; saveGameCfg(); $('h_tier').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+  $('btnPlay').onclick = () => playBrine();
+  $('btnHow').onclick = () => openHow('hub');
   $('btnGame').onclick = () => openGameSetup();
 }
 function show(which){
-  for (const id of ['hub','pause','ctrls','prac','gameset','results']) $(id).hidden = id !== which;
-  app.classList.toggle('menu', which === 'hub' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive));
+  for (const id of ['hub','pause','ctrls','prac','gameset','results','howto']) $(id).hidden = id !== which;
+  app.classList.toggle('menu', which === 'hub' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive) || (which === 'howto' && howFrom !== 'pause'));
   musicSheet(which);
   if (which) $(which).scrollTop = 0;
   requestAnimationFrame(resize);
@@ -151,13 +161,65 @@ function openGameSetup(){
   for (const k of ['to', 'scoring', 'tier']) $('g_' + k).querySelectorAll('button').forEach(b => b.onclick = () => { gameCfg[k] = k === 'to' ? Number(b.dataset.v) : b.dataset.v; saveGameCfg(); $('g_' + k).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
   for (const k of ['kitchen', 'twoBounce', 'marker', 'height']) $('g_' + k).onchange = e => { gameCfg[k] = e.target.checked; saveGameCfg(); };
   $('g_island').querySelectorAll('button').forEach(b => b.onclick = () => { practiceIsland = b.dataset.v; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {} $('g_island').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); startAttract(); });
-  $('gameGo').onclick = $('gameGoTop').onclick = () => startGame();
+  $('gameGo').onclick = $('gameGoTop').onclick = () => startGame(null);
   $('gameBack').onclick = () => { renderHub(); show('hub'); };
   show('gameset');
 }
-function startGame(){
-  ensureAudio();
+// ---------------- v0.1: Brine Bay against the Barnacle Boys, a record per crew level, and how to play
+const TIER_NAMES = { deckhand:'Deckhand', bosun:'Bosun', captain:'Captain' };
+function recordLine(){
+  const parts = AI_ORDER.map(t => { const r = save.record[t] || { w:0, l:0 }; return `<span><b>${TIER_NAMES[t]}</b> ${r.w}–${r.l}</span>`; });
+  return `Your record · ${parts.join(' · ')}`;
+}
+function playBrine(){
+  practiceIsland = 'brine'; try { localStorage.setItem('pickle-practice-island', practiceIsland); } catch(e) {}
+  if (!save.seenHow) return openHow('play');
+  startGame(STANDARD);
+}
+let howFrom = 'hub';
+function openHow(from){
+  howFrom = from; const touch = matchMedia('(pointer: coarse)').matches, K = (kb, pad) => touch ? '' : `<kbd>${kb}</kbd> <small>or ${pad}</small>`;
+  $('howWrap').innerHTML = `
+    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">How to play</h2><span class="slots">PICKLEBALL, PIRATE STYLE</span></div><button class="btn small" id="howGoTop" type="button">${from === 'play' ? 'Play' : 'Got it'}</button></div>
+    <div class="card how">
+      <h3 class="h">Win the game</h3>
+      <p>First to 11, win by 2. Only the serving side scores: win a rally on your serve for a point, lose it and the serve passes over (a side out). The ends switch at 6.</p>
+      <h3 class="h">Move, then pick a shot</h3>
+      <ul>
+        <li><b>Move</b> ${touch ? 'by dragging on the left of the screen' : K('WASD', 'the left stick')}. The game runs you to the ball; you choose where to stand.</li>
+        <li><b>Press a shot as the ball comes</b> and the game times the swing. Up to half a second early is perfect; much earlier strays.</li>
+        <li><b>Drive</b> ${K('Space', 'A')}: hard and low. Hold it for more power.</li>
+        <li><b>Soft</b> ${K('Shift', 'X')}: a dink at the kitchen line, a drop from the back.</li>
+        <li><b>Lob</b> ${K('Q', 'Y')}: high over a player at the net.</li>
+        <li><b>Aim</b> ${touch ? 'with a swipe off the shot button' : K('IJKL', 'the right stick')}, or leave it and the shot goes away from the other player. High balls near the net get smashed.</li>
+      </ul>
+      <h3 class="h">Three rules to know</h3>
+      <ul>
+        <li><b>Serve</b> diagonally, past the kitchen line. ${touch ? 'Tap Drive or Soft' : 'Press Drive or Soft'} when it's your serve.</li>
+        <li><b>Let the serve and the return bounce.</b> After that you can volley (hit it out of the air).</li>
+        <li><b>No volleys from the kitchen</b>, the zone either side of the net. It glows red when a volley from where you stand would be a fault.</li>
+      </ul>
+      <h3 class="h">The crew levels</h3>
+      <p><b>Deckhand</b> is slow and pops up dinks. <b>Bosun</b> comes to the net and punishes high balls. <b>Captain</b> reads everything early. Practice with the ball cannon any time from the dock.</p>
+    </div>
+    <div class="btns"><button class="btn" id="howGo" type="button">${from === 'play' ? 'Got it, play' : from === 'pause' ? 'Back to the pause menu' : 'Got it'}</button></div>`;
+  const go = () => {
+    save.seenHow = true; persist();
+    if (from === 'play') startGame(STANDARD);
+    else if (from === 'pause') { preparePause(); show('pause'); }
+    else { renderHub(); show('hub'); }
+  };
+  $('howGo').onclick = go; $('howGoTop').onclick = go;
+  show('howto');
+}
+// over: settings that win over the custom-game ones for this game (Play uses the standard rules); rematches repeat it
+const STANDARD = { to:11, scoring:'sideout', kitchen:true, twoBounce:true };
+let lastOver = null;
+function startGame(over = lastOver){
+  ensureAudio(); lastOver = over;
+  const keep = { ...gameCfg }; if (over) Object.assign(gameCfg, over);
   newMatch(practiceIsland, false, 'game');
+  Object.assign(gameCfg, keep);
   Object.keys(hudCache).forEach(k => delete hudCache[k]);
   $('aAbbr').textContent = G.island.opp.abbr; $('aSw').style.background = G.island.opp.shirt; $('aSw').style.boxShadow = `inset 0 -3px 0 ${G.island.opp.trim}`;
   save.plays++; persist();
@@ -168,14 +230,20 @@ function startGame(){
   wake();
 }
 function showResults(){
-  const S = G.match, won = S.winner === 'home', st = G.stats;
+  const S = G.match, won = S.winner === 'home', st = G.stats, tier = G.players[1].tier;
+  // the record: finished games against each crew level
+  const rec = save.record[tier] || (save.record[tier] = { w:0, l:0 }), firstWin = won && rec.w === 0;
+  if (won) rec.w++; else rec.l++; persist();
+  const next = AI_ORDER[AI_ORDER.indexOf(tier) + 1];
   const faults = Object.entries(st.faults).filter(([k]) => !['double bounce', 'winner', 'ace', 'in'].includes(k)).map(([k, n]) => `${CALL_TEXT[k].replace('!', '').toLowerCase()} ${n}`).join(', ');
   $('resCard').innerHTML = `
     <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · GAME TO ${S.to} · VS ${tierOf(G.players[1]).name.toUpperCase()}</p><h2>${won ? 'Victory!' : 'Sunk!'}</h2></div>
     <div class="final"><div><div class="n">${S.pts.home}</div><div class="who">${HOME.abbr}</div></div><div class="dash">–</div><div><div class="n">${S.pts.away}</div><div class="who">${G.island.opp.abbr}</div></div></div>
     <dl class="xprows"><div><dt>Rallies</dt><dd>${S.rallies}</dd></div><div><dt>Side outs</dt><dd>${S.sideOuts}</dd></div><div><dt>Longest rally</dt><dd>${st.longest} shots</dd></div><div><dt>Aces</dt><dd>${st.aces}</dd></div>${faults ? `<div><dt>Faults</dt><dd>${faults}</dd></div>` : ''}</dl>
-    <div class="btns"><button class="btn" id="resAgain" type="button">Rematch</button><button class="btn ghost" id="resHub" type="button">Back to the dock</button></div>`;
+    <p class="rec">${firstWin ? `<b class="new">First win over the ${TIER_NAMES[tier]}!</b> ` : ''}Your record vs the ${TIER_NAMES[tier]}: ${rec.w}–${rec.l}</p>
+    <div class="btns">${won && next ? `<button class="btn" id="resNext" type="button">Try the ${TIER_NAMES[next]}</button><button class="btn ghost" id="resAgain" type="button">Rematch</button>` : `<button class="btn" id="resAgain" type="button">Rematch</button>`}<button class="btn ghost" id="resHub" type="button">Back to the dock</button></div>`;
   $('resAgain').onclick = () => startGame();
+  if ($('resNext')) $('resNext').onclick = () => { gameCfg.tier = next; saveGameCfg(); startGame(); };
   $('resHub').onclick = () => { renderHub(); show('hub'); startAttract(); };
   show('results');
   if (won) sfx('level');
@@ -238,6 +306,7 @@ $('btnRestart').onclick = () => { paused = false; if (G && G.mode === 'game') st
 $('btnTune').onclick = () => toggleTune(true);
 $('btnPracSet').onclick = () => openPractice(true);
 $('btnPauseCtrls').onclick = () => openControls('pause');
+$('btnPauseHow').onclick = () => openHow('pause');
 applyA11y();
 $('btnQuit').onclick = () => { paused = false; tuneHold = null; renderHub(); show('hub'); startAttract(); };
 function syncSound(){

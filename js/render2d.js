@@ -62,7 +62,19 @@ function drawPlayer(pl, t){
   const pa = pl.face + (FLIP ? Math.PI : 0) + side*(0.9 - sw*1.8), px = x + Math.cos(pa)*r*1.5, py = y - r*0.6 + Math.sin(pa)*r*1.5*0.6;
   ctx.fillStyle = '#3a2a1a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(px, py, r*0.45, r*0.55, pa, 0, 7); ctx.fill(); ctx.stroke();
-  // body
+  // body (the Barnacle Boys are crabs: a wide shell on legs, eyes on stalks)
+  if (pl.species === 'crab') {
+    ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2.5;
+    ctx.save(); ctx.strokeStyle = '#b8432c'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const kx = x + s*r*0.8, ky = y - r*0.5 + k*r*0.18, step = Math.sin(t*14 + k*2)*(Math.hypot(pl.vx, pl.vy) > 1 ? r*0.15 : 0);
+      ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(kx + s*r*0.55, ky - r*0.35 + step); ctx.lineTo(kx + s*r*0.85, ky + r*0.45); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = sp.body; ctx.beginPath(); ctx.ellipse(x, y - r*0.55, r*1.05, r*0.62, 0, 0, 7); ctx.fill(); ctx.stroke();
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + s*r*0.3, y - r*1.05); ctx.lineTo(x + s*r*0.35, y - r*1.45); ctx.stroke();
+      ctx.fillStyle = '#f4f0e4'; ctx.beginPath(); ctx.arc(x + s*r*0.36, y - r*1.55, r*0.2, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#0b0710'; ctx.beginPath(); ctx.arc(x + s*r*0.36, y - r*1.55, r*0.08, 0, 7); ctx.fill(); }
+    ctx.fillStyle = '#1f3a6a'; ctx.beginPath(); ctx.ellipse(x, y - r*0.95, r*0.6, r*0.18, 0, Math.PI, 0); ctx.fill();
+    return;
+  }
   ctx.fillStyle = sp.body; ctx.beginPath(); ctx.ellipse(x, y - r*0.7, r*0.75, r*1.05, 0, 0, 7); ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke();
   // tricorn hat for the pirates, a band for everyone else
   if (pl.species === 'pickle') { ctx.fillStyle = '#1b1410'; ctx.beginPath(); ctx.moveTo(x - r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*2.5, x + r*0.95, y - r*1.55); ctx.quadraticCurveTo(x, y - r*1.75, x - r*0.95, y - r*1.55); ctx.fill(); }

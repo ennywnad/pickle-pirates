@@ -81,7 +81,7 @@ for (const [cfg, label] of [[{ to:11, scoring:'sideout' }, 'game to 11, side-out
       G.state = 'play'; G.hits = 4; G.rally = 4; G.match.server = 'home'; const pl = G.players[0], B = G.ball;
       Object.assign(B, { x:10.5, y:27.5, z:3, vx:0, vy:10, vz:0, sx:0, sy:0, sz:0, live:true, lastBy:'away', bounces:0 }); return pl; };
     // sideways: volley from just wide of the kitchen, drift in along the line
-    let pl = setup(); pl.x = -1.2; pl.y = 27; Object.assign(G.ball, { x:-0.8, y:26.8 }); hitBall(pl, 'drive', null); const wideLegal = G.ball.live;
+    let pl = setup(); pl.x = -1.2; pl.y = 27; Object.assign(G.ball, { x:-0.8, y:26.8 }); hitBall(pl, 'drive', null); const wideLegal = G.ball.live; out.counted = { hits: G.hits, rally: G.rally, strokes: G.stats.strokes };
     pl.vx = 6; pl.vy = 0; for (let i = 0; i < 20; i++) { pl.x += 0.1; kitchenWatch(1/60); } out.sideways = { legal: wideLegal, call: G.lastCall };
     // a put-away that's already over (double bounce) before the volleyer's momentum carries them in
     pl = setup(); pl.x = 10; pl.y = 29.6; Object.assign(G.ball, { y:29.4 }); hitBall(pl, 'drive', null);
@@ -97,6 +97,7 @@ for (const [cfg, label] of [[{ to:11, scoring:'sideout' }, 'game to 11, side-out
     pl = setup(); G.stats.longest = 0; pl.x = 10; pl.y = 27; hitBall(pl, 'drive', null);
     out.illegal = { call: G.lastCall, rally: G.rally, longest: G.stats.longest, hits: G.hits };
     return out; })()`);
+  check('a legal stroke counts (hits, rally, strokes)', r.counted.hits === 5 && r.counted.rally === 5 && r.counted.strokes === 1, JSON.stringify(r.counted));
   check('momentum carrying you sideways into the kitchen is a fault', r.sideways.legal && r.sideways.call === 'kitchen', JSON.stringify(r.sideways));
   check('momentum into the kitchen after the put-away is dead still faults', r.afterDead.held && r.afterDead.ptsHeld.home === 0 && r.afterDead.call === 'kitchen' && r.afterDead.pts.home === 0 && r.afterDead.server === 'away', JSON.stringify(r.afterDead));
   check('a put-away stands once the volley\'s momentum is spent', r.stands.call === 'double bounce' && r.stands.pts.home === 1, JSON.stringify(r.stands));

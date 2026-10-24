@@ -23,6 +23,18 @@ for (const gfx of ['classic', 'med']) {
   await page.goto(base + '?debug');
   await page.waitForSelector('#hub:not([hidden]) #btnPractice', { timeout: 20000 });
 
+  // every sound and music file the audio engine asks for is there
+  if (gfx === 'classic') {
+    const missing = await page.evaluate(async () => {
+      const files = [];
+      for (const [n, k] of Object.entries(SFX_SET)) for (let i = 0; i < k; i++) files.push(`${n}_${i}`);
+      for (const [n, k] of Object.entries(MUSIC_SET)) for (let i = 0; i < k; i++) files.push(k > 1 ? `${MUSIC_FILE[n]}_${i}` : MUSIC_FILE[n]);
+      const r = await Promise.all(files.map(f => fetch(`assets/sfx/${f}.mp3`, { method:'HEAD' }).then(x => x.ok ? null : f).catch(() => f)));
+      return r.filter(Boolean);
+    });
+    if (missing.length) fail(`missing sound files: ${missing.join(', ')}`);
+  }
+
   // attract mode: the CPU crews rally behind the menu
   const att = await page.evaluate(() => { const S = window.__sim; S.step(600); return { attract: S.G.attract, score: S.G.score.home + S.G.score.away, hits: S.G.best }; });
   if (!att.attract || att.score + att.hits === 0) fail(`${gfx}: attract rally did not run (${JSON.stringify(att)})`);
@@ -122,6 +134,29 @@ for (const gfx of ['classic', 'med']) {
   await tap('#saveLoad');
   const msg = await page.textContent('#saveMsg');
   if (!/Loaded/.test(msg)) fail(`${gfx}: save code did not load (${msg})`);
+
+  // v0.1: Play from the dock. First time shows How to play, then Brine Bay vs the chosen crew level under the standard
+  // rules; finishing the game records the result and offers the next level after a win
+  await page.evaluate(() => { renderHub(); show('hub'); });
+  await tap('#h_tier button[data-v="deckhand"]');
+  await tap('#btnPlay');
+  const howShown = await page.isVisible('#howto');
+  if (gfx === 'classic' && !howShown) fail(`${gfx}: How to play did not show on the first Play`);
+  if (howShown) await tap('#howGo');
+  await page.waitForTimeout(500);
+  const pg = await page.evaluate(() => { const S = window.__sim, G = S.G;
+    const out = { island: G.island.id, tier: G.players[1].tier, to: G.match.to, scoring: G.match.scoring, kitchen: G.cfg.kitchen, seen: save.seenHow, before: save.record.deckhand.w };
+    G.players[0].human = false; G.players[0].tier = 'captain'; G.match.pts.home = 10; G.match.pts.away = 0; G.match.server = 'home'; startPoint();
+    for (let i = 0; i < 60*120 && G.state !== 'end'; i++) S.step(1);
+    return { ...out, state: G.state, winner: G.match.winner, after: save.record.deckhand.w + save.record.deckhand.l - out.before - (save.record.deckhand.l ? 0 : 0) }; });
+  await page.waitForTimeout(400);
+  const res = await page.evaluate(() => ({ shown: !document.getElementById('results').hidden, text: document.getElementById('resCard').textContent, next: !!document.getElementById('resNext') }));
+  if (pg.island !== 'brine' || pg.tier !== 'deckhand' || pg.to !== 11 || pg.scoring !== 'sideout' || !pg.kitchen || !pg.seen) fail(`${gfx}: Play did not start Brine Bay vs the Deckhand under the standard rules (${JSON.stringify(pg)})`);
+  if (pg.state !== 'end' || !res.shown || !/record vs the Deckhand/.test(res.text)) fail(`${gfx}: the game did not finish into a results card with the record (${JSON.stringify({ pg, res })})`);
+  if (pg.winner === 'home' && !res.next) fail(`${gfx}: no "try the next level" after a win`);
+  await tap('#resHub');
+  const hubRec = await page.textContent('#hubRec');
+  if (!/Deckhand \d+–\d+/.test(hubRec) || /Deckhand 0–0/.test(hubRec)) fail(`${gfx}: the dock does not show the record (${hubRec})`);
 
   if (gfx !== 'classic') {
     const r3 = await page.evaluate(() => ({ status: window.__r3d.status, active: window.__r3d.active, check: window.__r3d.lastCheck }));

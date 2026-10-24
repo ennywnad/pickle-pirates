@@ -301,3 +301,18 @@ table.stats thead th.sh{color:var(--crew)}
 details.statsbox{border:1px solid var(--line);border-radius:10px;padding:8px 12px}
 details.statsbox summary{cursor:pointer;font:600 14px/1.4 var(--body);color:var(--bone)}
 details.statsbox[open] summary{margin-bottom:8px}
+/* v0.1: the Brine Bay card on the dock, records, how to play */
+.card.feat{border:2px solid var(--hazard);background:linear-gradient(160deg,rgba(255,194,58,.10),transparent 60%),var(--panel)}
+.feathead{display:flex;flex-direction:column;gap:6px}
+.feathead .ct{margin:0;font:400 26px/1.05 var(--block);color:var(--bone)}
+.btns.row{flex-direction:row;flex-wrap:wrap}
+.btns.row .btn{flex:1 1 140px}
+.rec{margin:0;font:500 13px/1.4 var(--body);color:var(--muted)}
+.rec b{color:var(--bone);font-weight:600}
+.rec b.new{color:var(--hazard)}
+.card.how{gap:10px}
+.card.how p,.card.how li{font:500 15px/1.45 var(--body);color:var(--bone)}
+.card.how p{margin:0 0 6px}
+.card.how ul{margin:0 0 6px;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.card.how kbd{font:400 11px/1 var(--block);padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--well);color:var(--hazard)}
+.card.how small{color:var(--muted)}

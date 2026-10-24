@@ -156,6 +156,127 @@ async function init(){
     for (const sx of [-1.15, 1.15]) for (const sz of [-0.8, 0.8]) { const w = withInk(new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.25, 14), wood), 1.1); w.rotation.z = Math.PI/2; w.position.set(sx, 0.55, sz); cannon.add(w); } }
   W(CW/2, -3.4, 0, cannon.position); world.add(cannon);
 
+  // ------------------------------------------------ Brine Bay: the harbor around the dock (shown on Brine Bay only)
+  // A quay with a row of houses and hills behind the far end, a lighthouse, moored boats and the crew's own ship,
+  // buoys, and gulls wheeling overhead. Everything bobs or flaps in harbor.userData.tick(t).
+  const harbor = new THREE.Group(); harbor.visible = false; scene.add(harbor);
+  const bobbers = [], gulls = [];
+  {
+    const stone = celMat('#8d8577'), sand = celMat('#cdb88a'), hill = celVar('#4f7a3a'), hill2 = celVar('#3f6a33');
+    // quay, beach and hills
+    const quay = withInk(new THREE.Mesh(new THREE.BoxGeometry(280, 4, 26), stone), 1.002); quay.position.set(0, -0.4, -96); harbor.add(quay);
+    const beach = new THREE.Mesh(new THREE.BoxGeometry(280, 1, 10), sand); beach.position.set(0, -1.6, -80); harbor.add(beach);
+    for (const [x, z, sx, sy, sz, m] of [[-70, -150, 70, 30, 30, hill], [10, -165, 90, 42, 32, hill2], [90, -150, 70, 26, 30, hill], [-140, -140, 50, 20, 26, hill2]]) {
+      const h = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12), m); h.scale.set(sx, sy, sz); h.position.set(x, -6, z); harbor.add(h);
+    }
+    // houses along the quay: pastel walls, dark pitched roofs, a door and two windows each
+    const walls = ['#e8d6b0', '#d98c6a', '#9cc4cc', '#e8c25a', '#c8d8a8', '#e0a8a0', '#a8b8d8'].map(c => celMat(c));
+    const roofs = [celMat('#7a2e24'), celMat('#3a3030'), celMat('#5a4030')], dark = celMat('#2a2420');
+    let x = -118;
+    for (let i = 0; x < 118; i++) {
+      const w = 7 + (i*5 % 6), h = 6 + (i*7 % 7), d = 8;
+      if (Math.abs(x + w/2) > 6 || i % 3) {   // a gap at the middle for the street down to the water
+        const house = new THREE.Group();
+        const wall = withInk(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), walls[i % walls.length]), 1.02); wall.position.y = h/2; house.add(wall);
+        const rr = d*0.62, roof = withInk(new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, w + 0.6, 3, 1).rotateZ(Math.PI/2).rotateX(-Math.PI/2), roofs[i % roofs.length]), 1.03);
+        roof.position.y = h + rr*0.5; house.add(roof);   // a triangular prism along the house, ridge up
+        const door = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 0.2), dark); door.position.set(-w*0.2, 1.3, d/2 + 0.05); house.add(door);
+        for (const wx of [w*0.18, w*0.36]) { const win = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.3, 0.2), dark); win.position.set(wx - w*0.1, h*0.62, d/2 + 0.05); house.add(win); }
+        house.position.set(x + w/2, 1.6, -100 + (i % 2)*2.5); harbor.add(house);
+      }
+      x += w + 0.8;
+    }
+    // the lighthouse on a rocky point, front left
+    const rock = withInk(new THREE.Mesh(new THREE.DodecahedronGeometry(9, 0), celMat('#6e6a62')), 1.03); rock.scale.set(1.4, 0.6, 1.1); rock.position.set(-50, -1.5, -76); harbor.add(rock);
+    const lh = new THREE.Group(); lh.position.set(-50, 2, -76); harbor.add(lh);
+    const white = celMat('#f2ede0'), red = celMat('#c8302a');
+    const tower = withInk(new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.3, 22, 16), white), 1.04); tower.position.y = 11; lh.add(tower);
+    for (const y of [6, 14]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(2.92 - y*0.047, 3.0 - y*0.047, 3, 16), red); b.position.y = y; lh.add(b); }
+    const gallery = withInk(new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 0.6, 16), celMat('#2a2a30')), 1.05); gallery.position.y = 22.3; lh.add(gallery);
+    const lampMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color(2.4, 2.0, 0.9) });
+    const lamp = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 2.4, 12), lampMat); lamp.position.y = 23.8; lh.add(lamp);
+    const cap = withInk(new THREE.Mesh(new THREE.ConeGeometry(2.3, 2.6, 12), red), 1.05); cap.position.y = 26.3; lh.add(cap);
+    harbor.userData.lamp = lampMat;
+    // boats: an extruded side profile reads as a hull in the cel style
+    const hullGeo = (L, H, beam) => {
+      const s = new THREE.Shape(); s.moveTo(-L/2, H); s.lineTo(L/2 + L*0.12, H*1.15); s.quadraticCurveTo(L/2, H*0.1, L*0.2, 0); s.lineTo(-L/2 + L*0.08, 0); s.quadraticCurveTo(-L/2, H*0.2, -L/2, H);
+      const g = new THREE.ExtrudeGeometry(s, { depth:beam, bevelEnabled:true, bevelThickness:beam*0.18, bevelSize:H*0.12, bevelSegments:2, curveSegments:8 });
+      g.translate(0, 0, -beam/2);
+      // shape it: the beam narrows to a point at the bow and tucks in toward the keel
+      const P = g.attributes.position;
+      for (let i = 0; i < P.count; i++) {
+        const x = P.getX(i), y = P.getY(i), u = (x + L/2)/(L*1.12);
+        const plan = u < 0.55 ? 1 : Math.max(0.08, Math.cos((u - 0.55)/0.45*Math.PI/2)), keel = 0.45 + 0.55*Math.min(1, Math.max(0, y/H));
+        P.setZ(i, P.getZ(i)*plan*keel);
+      }
+      g.computeVertexNormals(); return g;
+    };
+    const deckWood = celMat('#6b4a2a');
+    const sailMat = new THREE.MeshBasicNodeMaterial({ color:new THREE.Color('#f2e8cc'), side:THREE.DoubleSide }), mastMat = celMat('#4a3420');
+    function boat({ L, H, beam, hull, trim, masts = 0, sails = 'tri', flag = null }){
+      const g = new THREE.Group();
+      const h = withInk(new THREE.Mesh(hullGeo(L, H, beam), celMat(hull)), 1.03); g.add(h);
+      // the deck, sunk a little below the gunwale so the hull reads as a boat, not a block
+      const ds = new THREE.Shape(); ds.moveTo(-L/2 + 0.4, -beam*0.42); ds.lineTo(L*0.08, -beam*0.42); ds.quadraticCurveTo(L*0.42, -beam*0.3, L/2 + L*0.05, 0); ds.quadraticCurveTo(L*0.42, beam*0.3, L*0.08, beam*0.42); ds.lineTo(-L/2 + 0.4, beam*0.42); ds.lineTo(-L/2 + 0.4, -beam*0.42);
+      const deckM = new THREE.Mesh(new THREE.ShapeGeometry(ds).rotateX(Math.PI/2), deckWood); deckM.position.y = H*0.92; g.add(deckM);
+      // a painted band along the topsides in the trim color
+      const band = new THREE.Mesh(hullGeo(L*0.999, H, beam*1.01), celMat(trim)); band.scale.set(1, 0.14, 1.02); band.position.y = H*0.74; g.add(band);
+      for (let m = 0; m < masts; m++) {
+        const mx = masts === 1 ? L*0.05 : -L*0.22 + m*L*0.42, mh = L*(m === 1 ? 0.95 : 0.8);
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, mh, 8), mastMat); mast.position.set(mx, H + mh/2, 0); g.add(mast);
+        if (sails === 'tri') {
+          const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(0, mh*0.85); sh.lineTo(-L*0.42, 0.4); sh.lineTo(0, 0);
+          const sail = new THREE.Mesh(new THREE.ShapeGeometry(sh), sailMat); sail.position.set(mx - 0.2, H + 1, 0); sail.rotation.y = 0.25; g.add(sail);
+        } else {
+          for (const [y, w] of [[0.38, 1.0], [0.68, 0.8]]) { const sq = new THREE.Mesh(new THREE.PlaneGeometry(beam*1.9*w, mh*0.26), sailMat); sq.position.set(mx + 0.3, H + mh*y, 0); sq.rotation.y = Math.PI/2 - 0.6; g.add(sq); }
+        }
+        if (flag && m === masts - 1) { const f = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2), flag); f.position.set(mx - 1.6, H + mh + 0.6, 0); g.add(f); g.userData.flag = f; }
+      }
+      return g;
+    }
+    // the crew's ship: a black jolly roger with crossed paddles
+    const flagC = document.createElement('canvas'); flagC.width = 128; flagC.height = 80;
+    { const c = flagC.getContext('2d'); c.fillStyle = '#121014'; c.fillRect(0, 0, 128, 80); c.fillStyle = '#f2ede0';
+      c.beginPath(); c.ellipse(64, 34, 15, 15, 0, 0, 7); c.fill(); c.fillRect(56, 44, 16, 9);
+      c.fillStyle = '#121014'; c.beginPath(); c.arc(58, 34, 4.5, 0, 7); c.arc(70, 34, 4.5, 0, 7); c.fill();
+      c.strokeStyle = '#f2ede0'; c.lineWidth = 5; c.lineCap = 'round';
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(64 - s*34, 70); c.lineTo(64 + s*26, 12); c.stroke(); c.beginPath(); c.ellipse(64 + s*28, 10, 7, 9, s*0.6, 0, 7); c.fillStyle = '#f2ede0'; c.fill(); } }
+    const flagMat = new THREE.MeshBasicNodeMaterial({ map:canvasTex(flagC), side:THREE.DoubleSide });
+    const fleet = [
+      [boat({ L:9, H:1.6, beam:3.4, hull:'#8a5a34', trim:'#e8d6b0' }), DECK_W/2 + 5.5, 6, 0.3],                                    // rowboats tied to the dock
+      [boat({ L:8, H:1.5, beam:3.2, hull:'#3f6f8a', trim:'#f2ede0' }), -(DECK_W/2 + 6), -14, -0.4],
+      [boat({ L:20, H:3.2, beam:6, hull:'#c8452c', trim:'#f2ede0', masts:1 }), -36, -40, -0.7],                                      // a sloop
+      [boat({ L:34, H:5.5, beam:10, hull:'#3a2a20', trim:'#c9a24a', masts:2, sails:'square', flag:flagMat }), 42, -52, 0.45],      // the Pickle Pirates' ship
+      [boat({ L:16, H:2.6, beam:5, hull:'#e8c25a', trim:'#3a3030', masts:1 }), 70, -30, 1.4],
+    ];
+    for (const [b, bx, bz, yaw] of fleet) { b.position.set(bx, -1.7, bz); b.rotation.y = yaw; harbor.add(b); bobbers.push({ o:b, y:-1.7, ph:bx*0.37, amp:0.18 + 0.02*Math.abs(bx)/10, roll:0.035 }); }
+    // buoys
+    for (const [bx, bz, col] of [[24, -18, '#c8302a'], [-26, 4, '#2e8a4a'], [30, 14, '#2e8a4a'], [-34, -30, '#c8302a']]) {
+      const b = new THREE.Group(); const cone = withInk(new THREE.Mesh(new THREE.ConeGeometry(1.1, 2.6, 10), celMat(col)), 1.08); cone.position.y = 1.3; b.add(cone);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.5, 10), celMat('#f2ede0')); ring.position.y = 0.2; b.add(ring);
+      b.position.set(bx, -1.8, bz); harbor.add(b); bobbers.push({ o:b, y:-1.8, ph:bx, amp:0.3, roll:0.12 });
+    }
+    // gulls: a white body, two wings that flap, wheeling on wide circles
+    const gullW = celMat('#f4f2ec'), gullG = celMat('#9aa0a8');
+    for (let i = 0; i < 6; i++) {
+      const g = new THREE.Group(), body = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), gullW), 1.12); body.scale.set(0.8, 0.7, 1.6); g.add(body);
+      const wings = [];
+      for (const s of [-1, 1]) { const w = new THREE.Group(); const m = withInk(new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 0.7), s < 0 ? gullW : gullW), 1.1); m.position.x = s*1.1; w.add(m);
+        const tip = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.09, 0.6), gullG); tip.position.x = s*2.0; w.add(tip); g.add(w); wings.push(w); }
+      harbor.add(g); gulls.push({ g, wings, r:20 + i*6, h:18 + (i % 3)*5, sp:0.12 + 0.03*(i % 3), ph:i*1.3, cx:(i % 2 ? -12 : 14), cz:-26 + (i % 3)*8 });
+    }
+    harbor.userData.tick = t => {
+      for (const b of bobbers) { b.o.position.y = b.y + Math.sin(t*1.1 + b.ph)*b.amp; b.o.rotation.z = Math.sin(t*0.9 + b.ph)*b.roll; b.o.rotation.x = Math.sin(t*0.7 + b.ph*1.3)*b.roll*0.6; }
+      for (const q of gulls) {
+        const a = t*q.sp + q.ph; q.g.position.set(q.cx + Math.cos(a)*q.r, q.h + Math.sin(t*0.5 + q.ph)*1.5, q.cz + Math.sin(a)*q.r*0.6);
+        q.g.rotation.y = Math.atan2(-Math.sin(a), Math.cos(a)*0.6); q.g.rotation.z = 0.25;   // nose along the circle
+        const flap = Math.sin(t*7 + q.ph*3)*0.5*(0.5 + 0.5*Math.sin(t*0.6 + q.ph));
+        q.wings[0].rotation.z = flap; q.wings[1].rotation.z = -flap;
+      }
+      lampMat.color.setRGB(2.4, 2.0 + 0.3*Math.sin(t*2), 0.9);
+    };
+  }
+
   // court surface with lines and kitchens, painted per island
   const PX = 52;   // texture pixels per foot
   const courtTexC = document.createElement('canvas'); courtTexC.width = (CW + 4)*PX; courtTexC.height = (CL + 4)*PX;
@@ -230,9 +351,49 @@ async function init(){
   // ------------------------------------------------ crew figures (stand-ins until milestone 8's rigged crews)
   const SPEC = S.SPECIES;
   const eyeW = celMat('#f4f0e4', 0.1), eyeB = new THREE.MeshBasicNodeMaterial({ color:0x0b0710 }), hatMat = celMat('#1b1410'), goldMat = celMat('#e0b030', 0.1), paddleMat = celMat('#3a2a1a'), faceMat = celMat('#c8452c');
+  // the Barnacle Boys: a wide red shell on six legs, eye stalks, barnacles, a bandana, and the paddle in a claw
+  const shellLeg = celMat('#b8432c'), bandanaMat = celMat('#1f3a6a');
+  function mkCrab(pl, sp, root, bob){
+    const shellM = charMat(sp.body);
+    const shell = withInk(new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), shellM), 1.07); shell.scale.set(1.3, 0.72, 1.0); shell.position.y = 1.75; shell.castShadow = true; bob.add(shell);
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI*2, Math.PI/2, Math.PI/2), charMat(sp.acc)); belly.scale.set(1.18, 0.5, 0.9); belly.position.y = 1.62; bob.add(belly);
+    // barnacles on the shell
+    for (let i = 0; i < 7; i++) { const a = i*2.1 + 0.4, r = 0.55 + (i % 3)*0.18; const bn = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.16, 6), charMat(sp.acc)); bn.position.set(Math.cos(a)*r*1.1, 2.18 + 0.05*(i % 2), Math.sin(a)*r*0.7 - 0.15); bob.add(bn); }
+    // a bandana knotted over the top of the shell
+    const band = withInk(new THREE.Mesh(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI*2, 0, Math.PI*0.32), bandanaMat), 1.05); band.scale.set(1.0, 0.72, 0.8); band.position.set(0, 1.83, -0.05); bob.add(band);
+    const knot = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), bandanaMat), 1.1); knot.position.set(0.15, 2.3, -0.62); bob.add(knot);
+    // eye stalks
+    for (const sx of [-1, 1]) {
+      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.75, 6), shellM); stalk.position.set(sx*0.36, 2.55, 0.55); stalk.rotation.x = 0.25; bob.add(stalk);
+      const e = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.21, 10, 8), eyeW), 1.12); e.position.set(sx*0.38, 2.98, 0.66); const p = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), eyeB); p.position.z = 0.14; e.add(p); bob.add(e);
+    }
+    // three legs a side: up and out from the shell, then down to the deck
+    for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) {
+      const z = 0.45 - k*0.45, leg = new THREE.Group(); leg.position.set(sx*1.05, 1.55, z); leg.rotation.y = sx*(k - 1)*0.35;
+      const up = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.9, 6), shellLeg); up.rotation.z = sx*1.0; up.position.set(sx*0.38, 0.22, 0); leg.add(up);
+      const down = withInk(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.75, 6), shellLeg), 1.12); down.rotation.z = -sx*0.28; down.position.set(sx*0.95, -0.55, 0); leg.add(down);
+      bob.add(leg);
+    }
+    // the off claw, held up in front: a pincer that snaps between shots
+    const offClaw = new THREE.Group(); offClaw.position.set(pl.team === 'home' ? -1.1 : 1.1, 1.9, 0.75); bob.add(offClaw);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.8, 6), shellLeg); arm.rotation.x = Math.PI/2.4; offClaw.add(arm);
+    const palm = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), shellM), 1.1); palm.scale.set(0.8, 0.7, 1.15); palm.position.set(0, 0.25, 0.45); offClaw.add(palm);
+    const pin = withInk(new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.6, 6), shellM), 1.12); pin.rotation.x = Math.PI/2; pin.position.set(0, 0.38, 0.95); offClaw.add(pin);
+    const dactyl = withInk(new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.55, 6), shellM), 1.12); dactyl.rotation.x = Math.PI/2; dactyl.position.set(0, 0.12, 0.9); offClaw.add(dactyl);
+    return { claw: dactyl };
+  }
   function mkFigure(pl){
     const sp = SPEC[pl.species] || SPEC.pickle, pickle = pl.species === 'pickle';
     const root = new THREE.Group(), bob = new THREE.Group(); root.add(bob);
+    if (pl.species === 'crab') {
+      const c = mkCrab(pl, sp, root, bob);
+      const pivot = new THREE.Group(); pivot.position.set(pl.team === 'home' ? 0.9 : -0.9, 1.9, 0); bob.add(pivot);
+      const paddle = withInk(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.07, 18), paddleMat), 1.15); paddle.scale.set(1, 1, 1.25); paddle.rotation.z = Math.PI/2; paddle.position.set(0.35, -0.2, 0.75); pivot.add(paddle);
+      const grip = withInk(new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), charMat(sp.body)), 1.1); grip.scale.set(0.8, 0.8, 1.1); grip.position.set(0.2, -0.2, 0.18); pivot.add(grip);   // the claw round the handle
+      const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2), blobMat); blob.scale.set(3.4, 1, 2.8); blob.position.y = 0.04; blob.renderOrder = 1; root.add(blob);
+      dyn.add(root);
+      return { root, bob, pivot, claw:c.claw, v:{ x:pl.x, z:pl.y, yaw:0 } };
+    }
     const bodyH = pickle ? 2.6 : 2.0, bodyR = pickle ? 0.72 : 0.8;
     const body = withInk(new THREE.Mesh(new THREE.CapsuleGeometry(bodyR, bodyH, 6, 14), charMat(sp.body)), 1.07); body.position.y = bodyR + bodyH/2 + 0.55; body.castShadow = true; bob.add(body);
     if (pickle) for (let i = 0; i < 9; i++) { const a = i*2.4, y = -bodyH/2 + 0.3 + (i % 5)*bodyH/5; const w = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), charMat(sp.acc)); w.position.set(Math.cos(a)*bodyR*0.98, y, Math.sin(a)*bodyR*0.98); body.add(w); }
@@ -371,6 +532,7 @@ async function init(){
     lastG = G; camCut = true;
     if (!G.attract) checkPlan = [2500, 8000, 20000].map(ms => performance.now() + ms);
     if (G.island.id !== lastTheme) applyTheme(G);
+    harbor.visible = G.island.id === 'brine';
     buildFigures(G);
   }
   const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpV = new THREE.Vector3(), tmpS = new THREE.Vector3();
@@ -437,6 +599,7 @@ async function init(){
       // forehand is the figure's local −x for both crews (each faces the net)
       f.pivot.position.x = -side*0.9;
       f.pivot.rotation.y = -side*(s > 0 ? 1.2 - s*2.6 : 0.9);
+      if (f.claw) f.claw.rotation.y = Math.max(0, Math.sin(t*5 + i*2))*0.5;   // the crab's spare claw snaps
       f.pivot.rotation.x = (pl.swingKind === 'lob' || pl.swingKind === 'drop' || pl.swingKind === 'dink') && s > 0 ? -s*0.9 : pl.swingKind === 'smash' && s > 0 ? 1.4 - s*2.2 : 0;
     });
     { const h = !G.attract && G.players.find(p => p.human);
@@ -467,6 +630,7 @@ async function init(){
     cannon.visible = G.mode !== 'game';   // stowed for games
     { const C = G.cannon, dir = C.y < NETY ? 1 : -1; W(C.x, C.y - dir*(1.4 + C.kick*0.6), 0, cannon.position); cannon.rotation.y = dir > 0 ? 0 : Math.PI; }
     { let n = 0; for (const p of G.parts) { if (n >= PART_MAX) break; tmpM.compose(W(p.x, p.y, p.z, tmpV), tmpQ.identity(), tmpS.setScalar(p.s*(p.life/p.max))); partMesh.setMatrixAt(n++, tmpM); } partMesh.count = n; partMesh.instanceMatrix.needsUpdate = true; }
+    if (harbor.visible) harbor.userData.tick(t);
     if (R3.cut) { R3.cut = false; camCut = true; }
     updateCamera(G, dt);
     { const db = renderer.getDrawingBufferSize(_dbSize); texelU.value.set(1/Math.max(1, db.x), 1/Math.max(1, db.y)); }

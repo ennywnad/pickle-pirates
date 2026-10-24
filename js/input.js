@@ -157,8 +157,9 @@ function padConfirm(){
   if (vis('pause')) return setPaused(false);
   if (vis('prac')) return $('pracGo').click();
   if (vis('gameset')) return $('gameGo').click();
-  if (vis('results')) return $('resAgain').click();
-  if (vis('hub')) { const c = $('btnPractice'); if (c) c.click(); }
+  if (vis('howto')) return $('howGo').click();
+  if (vis('results')) return ($('resNext') || $('resAgain')).click();
+  if (vis('hub')) { const c = $('btnPlay'); if (c) c.click(); }
 }
 function padBack(){
   const vis = id => $(id) && !$(id).hidden;
@@ -166,6 +167,7 @@ function padBack(){
   if (vis('prac')) return $('pracBack').click();
   if (vis('gameset')) return $('gameBack').click();
   if (vis('results')) return $('resHub').click();
+  if (vis('howto')) return $('howGo').click();
   if (vis('pause')) return setPaused(false);
 }
 function pollPad(){

@@ -3,7 +3,7 @@
 // How early you pressed, how high and how far away the ball is, how fast it's coming and how fast you're running
 // set the shot's quality, and quality sets how far the shot strays from where you aimed.
 'use strict';
-const SHOT_SOUND = { drive:'drive', smash:'drive', dink:'paddle', drop:'paddle', lob:'paddle', serve:'drive', pop:'paddle' };
+const SHOT_SOUND = { drive:'drive', smash:'smash', dink:'paddle', drop:'paddle', lob:'paddle', serve:'drive', pop:'paddle' };
 const SHOT_NAME = { drive:'Drive', smash:'Smash', dink:'Dink', drop:'Drop', lob:'Lob', pop:'Mishit' };
 // the first two shots of a rally (serve and return) must bounce before they're hit
 const mustBounce = () => G.cfg.twoBounce !== false && G.hits <= 2;
@@ -104,7 +104,9 @@ function strike(pl, Q, c){
   if (c.lunge) { pl.lunge = 0.45; pl.lungeSide = c.side; }
   // the other side split-steps as the ball is struck
   if (opp) { opp.split = 0.18; opp.burst = 0.5; }
-  G.rally++; G.best = Math.max(G.best, G.rally); G.shotN++; G.hits++; G.stats.strokes++;
+  G.rally++; G.best = Math.max(G.best, G.rally);
+  if (G.rally === 14 && G.mode === 'game') band('rally');   // a long rally: the band picks up
+  G.shotN++; G.hits++; G.stats.strokes++;
   G.lastShot = { team:pl.team, kind, q, grade:tq.grade, volley:c.volley, power:Q.power };
   sfx(SHOT_SOUND[kind] || 'paddle', kind === 'pop' ? 0.5 : 1);
   if (kind === 'pop') grade(pl, 'mishit');

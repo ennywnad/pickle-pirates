@@ -2,6 +2,41 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.1.0 · First playable: Brine Bay (milestone 6) · 2026-10-23
+
+The first playable build. Brine Bay is open: the Pickle Pirates against the Barnacle Boys, singles to 11.
+
+**Play the Barnacle Boys**
+- A new Brine Bay card at the top of the dock. Pick the crew level (Deckhand, Bosun or Captain) and press Play.
+- Play always uses the standard rules: to 11, side-out scoring, the kitchen and two-bounce rules on. The old Singles game card is now **Custom game**, for any island, format and rule set.
+- **How to play** shows before your first game and is always on the dock and in the pause menu. It covers scoring, moving, the four shots, aiming, the three rules to know and the crew levels, with your keys or controller buttons.
+- **Your record** against each crew level is saved (it moves with your save code) and shown on the dock and on the results card.
+- After a win, the results card offers the next level up. Your first win over a level gets called out.
+
+**Brine Bay**
+- The harbor dock now sits in a real harbor: a quay of colored houses with hills behind, a lighthouse with a glowing lamp, rowboats tied to the dock, a sloop, the Pickle Pirates' own two-masted ship with a jolly roger (crossed paddles), bobbing buoys, and gulls circling overhead.
+- The **Barnacle Boys** are crabs: a wide red shell on six legs, barnacles, eye stalks, a bandana, the paddle gripped in one claw and a spare claw that snaps. They're crabs in the classic view too.
+- The other islands keep the plain dock until milestone 9.
+
+**The first sound pack**
+Every sound is new, made by `tools/gen_sfx.py`.
+- Paddle pops for dinks, drives and smashes. Ball bounces on the dock planks, the net, the net cord, wooden pilings, and the ball cannon's thoomp.
+- A splash when a ball flies off the dock into the harbor.
+- The referee parrot squawks the calls: one squawk for a call, two for a fault, a whistle for a winner or an ace. The ship's bell rings on a side out.
+- A harbor ambience (water at the pilings, creaking planks, distant gulls, a small dockside crowd) that builds as a rally runs long. Cheers come with shouts of "Arrr!".
+
+**The shanty band**
+- The organ is gone. A squeezebox, fiddle, plucked bass, foot stomps and a tambourine play original shanty tunes in D Dorian and D major.
+- Cues: a fiddle run and a "Hey!" at the start of a game, the band picking up in a 14-shot rally, a quick jig when you score, a sagging squeezebox when they score, a finale when you win, a noodle when the ends switch, and a 16-bar menu loop.
+
+**Fixes**
+- The unused booty button no longer shows in the corner of the court. Booty comes in milestone 9.
+
+**Tests**
+- The smoke test checks that every sound and music file the game asks for exists.
+- It also plays the v0.1 flow: Play from the dock, How to play on the first game, Brine Bay against the chosen level under the standard rules, then the results record and the dock record.
+- `tests/game.mjs` checks that a legal stroke counts toward the rally. The smoke test caught a build where it didn't.
+
 ## v0.0.6 · Fixes from the issue list · 2026-10-23
 
 Fixes all ten open GitHub issues (#1–#10) before milestone 6.

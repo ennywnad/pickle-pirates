@@ -69,19 +69,22 @@ const SPECIES = {
 
 // ---------------- progression and save
 const SKEY = 'pickle-pirates-save';
-const defSave = () => ({ xp:0, stars:{}, plays:0, v:1 });
+const defSave = () => ({ xp:0, stars:{}, plays:0, v:1, record:{}, seenHow:false });   // record: { tier: { w, l } } from finished singles games
 function normSave(s){
   const o = { ...defSave(), ...s };
   o.xp = Math.max(0, Number(o.xp)||0);
   o.plays = Math.max(0, Number(o.plays)||0);
   o.stars = (s && typeof s.stars==='object' && s.stars) ? { ...s.stars } : {};
+  o.record = {};
+  for (const t of ['deckhand', 'bosun', 'captain']) { const r = s && s.record && s.record[t]; o.record[t] = { w:Math.max(0, Number(r && r.w)||0), l:Math.max(0, Number(r && r.l)||0) }; }
+  o.seenHow = !!(s && s.seenHow);
   return o;
 }
-let save = defSave();
+let save = normSave({});
 try { const s = JSON.parse(localStorage.getItem(SKEY) || 'null'); if (s && typeof s.xp === 'number') save = normSave(s); } catch(e) {}
 let muted = false;
 try { muted = localStorage.getItem('pickle-mute') === '1'; } catch(e) {}
-const GAME_VERSION = 'v0.0.6';
+const GAME_VERSION = 'v0.1.0';
 // save codes: "PKP1." + base64url(JSON)
 function exportSave(){ const j = JSON.stringify({ ...save, updatedAt:Date.now() }); return 'PKP1.' + btoa(unescape(encodeURIComponent(j))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function importSave(code){
