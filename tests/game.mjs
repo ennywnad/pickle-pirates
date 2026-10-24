@@ -10,7 +10,7 @@ const sandbox = { document:{ getElementById:stubEl, createElement:stubEl }, wind
   sfx(){}, band(){}, toast(){}, humans:() => 1, startAttract(){}, showResults(){ sandbox.RESULTS = true; },
   readInput:() => [0, 0], readAim:() => [0, 0], actionHeld:() => false };
 vm.createContext(sandbox);
-for (const f of ['js/core.js', 'js/match.js', 'js/ball.js', 'js/rules.js', 'js/shots.js', 'js/swings.js', 'js/referee.js', 'js/players.js', 'js/hazards.js', 'js/booty.js', 'js/ai.js', 'js/update.js'])
+for (const f of ['js/core.js', 'js/match.js', 'js/ball.js', 'js/rules.js', 'js/shots.js', 'js/swings.js', 'js/referee.js', 'js/players.js', 'js/hazards.js', 'js/booty.js', 'js/voyage.js', 'js/ai.js', 'js/update.js'])
   vm.runInContext(readFileSync(new URL(f, root), 'utf8'), sandbox, { filename:f });
 let seed = 4242; Math.random = () => (seed = (seed*16807) % 2147483647)/2147483647;
 const run = src => vm.runInContext(src, sandbox);

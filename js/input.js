@@ -159,7 +159,7 @@ function rumble(strong, weak, ms, p = 0){
 }
 // ---------------- the menus with a controller: the d-pad or left stick moves a highlight between buttons, toggles and
 // sliders (by where they are on screen), A picks the highlighted one, B goes back, left/right moves a slider
-const MENU_SHEETS = ['isle', 'pause', 'ctrls', 'prac', 'gameset', 'howto', 'logbook', 'results', 'hub'];
+const MENU_SHEETS = ['isle', 'pause', 'ctrls', 'prac', 'gameset', 'howto', 'logbook', 'voyage', 'results', 'hub'];
 let padFocus = null;
 const menuSheet = () => MENU_SHEETS.map(id => $(id)).find(el => el && !el.hidden) || null;
 function menuItems(sheet){
@@ -176,7 +176,7 @@ function padMove(dx, dy){
   const sheet = menuSheet(); if (!sheet) return;
   const items = menuItems(sheet); if (!items.length) return;
   if (!padFocus || !sheet.contains(padFocus) || !items.includes(padFocus)) {   // start on the button A would press
-    const first = ['isleGo', 'btnResume', 'pracGo', 'gameGo', 'vsGo', 'howGo', 'logGo', 'resNext', 'resAgain', 'btnPlay'].map(id => $(id)).find(el => el && sheet.contains(el));
+    const first = ['isleGo', 'btnResume', 'pracGo', 'gameGo', 'vsGo', 'howGo', 'logGo', 'voyGo', 'resNext', 'resAgain', 'btnVoyage', 'btnPlay'].map(id => $(id)).find(el => el && sheet.contains(el));
     return setPadFocus(first || items[0]);
   }
   if (padFocus.type === 'range' && dx) {   // a slider: left/right moves it
@@ -205,18 +205,20 @@ function padConfirm(){
   const vis = id => $(id) && !$(id).hidden;
   if (vis('isle')) return $('isleGo').click();
   if (vis('logbook')) return $('logGo').click();
+  if (vis('voyage')) { const b = $('voyGo') || $('voyBack'); return b.click(); }
   if (vis('ctrls')) return;
   if (vis('pause')) return setPaused(false);
   if (vis('prac')) return $('pracGo').click();
   if (vis('gameset')) return ($('gameGo') || $('vsGo')).click();
   if (vis('howto')) return $('howGo').click();
   if (vis('results')) return ($('resNext') || $('resAgain')).click();
-  if (vis('hub')) { const c = $('btnPlay'); if (c) c.click(); }
+  if (vis('hub')) { const c = $('btnVoyage') || $('btnPlay'); if (c) c.click(); }
 }
 function padBack(){
   const vis = id => $(id) && !$(id).hidden;
   if (vis('isle')) return $('isleBack').click();
   if (vis('logbook')) return $('logGo').click();
+  if (vis('voyage')) return $('voyBack').click();
   if (vis('ctrls')) return $('ctrlsDone').click();
   if (vis('prac')) return $('pracBack').click();
   if (vis('gameset')) return ($('gameBack') || $('vsBack')).click();

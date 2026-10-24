@@ -7,13 +7,14 @@ function segHtml(id, opts, cur){ return `<div class="seg" id="${id}">${opts.map(
 function renderHub(){
   $('hubWrap').innerHTML = `
     <div class="logo"><p class="eyebrow">Arcade pickleball · pirate crews · real rules</p><h1>Pickle <em>Pirates</em></h1><div class="tape"></div>
-      <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup. The first island, Brine Bay, is open: take on the Barnacle Boys in singles.</p></div>
-    <div class="card feat">
-      <div class="feathead"><p class="eyebrow">BRINE BAY · HARBOR DOCK · SINGLES TO 11</p><h2 class="ct">Play the Barnacle Boys</h2>
-        <p class="gfxnote">The crabs of Brine Bay hold the harbor dock. Pick how tough a crew you want across the net.</p></div>
+      <p class="lede">Sail the Pickle Pirates to seven island courts and the Davy's Locker Cup: one match on each island, each with its own hazard and its own crew.</p></div>
+    ${voyageCardHtml()}
+    <div class="card quick">
+      <div class="feathead"><p class="eyebrow">QUICK MATCH · BRINE BAY · SINGLES TO 11</p><h2 class="ct">Play the Barnacle Boys</h2>
+        <p class="gfxnote">A one-off game on the harbor dock. Pick how tough a crew you want across the net.</p></div>
       ${segHtml('h_tier', GAME_OPTS.tier, gameCfg.tier)}
       <p class="rec" id="hubRec">${recordLine()}</p>
-      <div class="btns row"><button class="btn" id="btnPlay" type="button">Play</button><button class="btn ghost" id="btnHow" type="button">How to play</button></div>
+      <div class="btns row"><button class="btn ghost" id="btnPlay" type="button">Play</button></div>
     </div>
     <button class="chal prac" type="button" id="btnPractice">
       <span class="num">P</span>
@@ -23,7 +24,6 @@ function renderHub(){
       <span class="num">1v1</span>
       <span class="cinfo"><span class="arena">SINGLES · YOUR RULES</span><span class="ct">Custom game</span><span class="co">Pick the island, both crews (even pickle vs pickle), the crew level, games to 11, 15 or 21, side-out or rally scoring, and which rules and reading aids are on.</span></span>
       <span class="lock" style="color:var(--hazard)">Set up</span></button>
-    <button class="chal" type="button" disabled><span class="num">${svg('lock')}</span><span class="cinfo"><span class="arena">THE CAREER · v1.0</span><span class="ct">Voyage</span><span class="co">One match per island, objectives, stars and booty unlocks.</span></span><span class="lock">Coming later</span></button>
     <button class="chal prac" type="button" id="btnVersus"><span class="num">2v2</span><span class="cinfo"><span class="arena">DOUBLES · ONE OR TWO PLAYERS</span><span class="ct">Versus</span><span class="co">Doubles or singles: solo with a CPU partner, P1 and P2 together against the crew, or P1 against P2. One keyboard or two controllers.</span></span><span class="lock" style="color:var(--hazard)">Set up</span></button>
     <button class="chal prac" type="button" id="btnLog"><span class="num">${svg('book')}</span><span class="cinfo"><span class="arena">ISLANDS · HAZARDS · BOOTY</span><span class="ct">Logbook</span><span class="co">What every island's hazard does, and all seven booty power-ups.</span></span><span class="lock" style="color:var(--hazard)">Read</span></button>
     <div class="card gfx"><h3 class="h">Sound</h3>
@@ -71,10 +71,55 @@ function renderHub(){
   $('btnHow').onclick = () => openHow('hub');
   $('btnGame').onclick = () => openGameSetup();
   $('btnLog').onclick = () => openLog('hub');
+  $('btnVoyage').onclick = () => save.seenHow ? openVoyage() : openHow('voyage');
+}
+// ---------------- Voyage: the dock card, the map of the seven legs, starting a leg
+const starRow = (s, cls = '') => `<span class="starrow ${cls}">${s.map(b => `<i class="${b ? 'on' : ''}">★</i>`).join('')}</span>`;
+function voyageCardHtml(){
+  const total = voyTotal(), next = voyNext(), L = next === null ? null : VOYAGE[next], I = L && ISLANDS.find(i => i.id === L.island);
+  const head = voyCupWon() ? 'The Cup is yours' : total === 0 ? 'Set sail' : 'Continue the voyage';
+  const line = !L ? `You hold the Davy's Locker Cup. Go back for any stars you missed: ${total} of ${VOYAGE.length*3}.`
+    : `Next: ${L.cup ? 'the Davy\'s Locker Cup' : I.name}, against the ${I.opp.name} (${TIER_NAMES[L.tier]}). Objective: ${L.obj.text.toLowerCase()}.`;
+  return `<div class="card feat">
+      <div class="feathead"><p class="eyebrow">VOYAGE · ${VOYAGE.length} ISLANDS · THE DAVY'S LOCKER CUP</p><h2 class="ct">${head}</h2><p class="gfxnote">${line}</p></div>
+      <div class="voytrack">${VOYAGE.map((V, i) => { const s = voyStars(V.island), isl = ISLANDS.find(x => x.id === V.island);
+        return `<span class="vstop${voyOpen(i) ? '' : ' locked'}${i === next ? ' next' : ''}" title="${isl.name}"><b>${i + 1}</b>${starRow(s)}</span>`; }).join('')}</div>
+      <p class="rec">★ ${total} of ${VOYAGE.length*3} · power-ups unlocked: ${voyUnlocked().length} of ${BOOTY_ORDER.length}</p>
+      <div class="btns row"><button class="btn" id="btnVoyage" type="button">${voyCupWon() ? 'Voyage map' : 'Set sail'}</button><button class="btn ghost" id="btnHow" type="button">How to play</button></div>
+    </div>`;
+}
+function openVoyage(){
+  const total = voyTotal(), next = voyNext(), have = voyUnlocked();
+  const legs = VOYAGE.map((L, i) => {
+    const I = ISLANDS.find(x => x.id === L.island), s = voyStars(L.island), open = voyOpen(i), kind = ISLAND_HAZ[I.id];
+    const haz = kind === 'rotate' ? 'all six hazards, under the sea' : HAZ_INFO[kind][0].name.toLowerCase();
+    const items = [STAR_NAMES[0], L.obj.text, STAR_NAMES[2]];
+    return `<div class="card leg${open ? '' : ' locked'}${i === next ? ' next' : ''}">
+      <div class="leghead"><span class="num">${open ? i + 1 : svg('lock')}</span><div><p class="eyebrow">${L.cup ? 'THE FINAL · ' : ''}${I.court.toUpperCase()} · ${TIER_NAMES[L.tier].toUpperCase()} · TO ${L.to}</p>
+        <h3 class="ct">${L.cup ? 'The Davy\'s Locker Cup' : I.name}</h3><p class="gfxnote">vs the ${I.opp.name} · ${haz}</p></div></div>
+      <ul class="stars">${items.map((t, k) => `<li class="${s[k] ? 'on' : ''}"><i>★</i>${t}</li>`).join('')}</ul>
+      ${open ? `<button class="btn${i === next ? '' : ' ghost'} small" type="button" data-leg="${i}"${i === next ? ' id="voyGo"' : ''}>${s[0] ? 'Sail again' : 'Sail'}</button>`
+        : `<p class="gfxnote lockline">Win at ${ISLANDS.find(x => x.id === VOYAGE[i - 1].island).name} to sail here.</p>`}
+    </div>`; }).join('');
+  const unlocks = VOYAGE_UNLOCKS.map(([need, k]) => `<div class="hzrow small${have.includes(k) ? '' : ' locked'}"><span class="ic">${svg(have.includes(k) ? 'bt_' + k : 'lock')}</span><div><b>${BOOTY[k].name}</b><p>${have.includes(k) ? BOOTY[k].desc : `Unlocks at ${need} ★ (you have ${total}).`}</p></div></div>`).join('');
+  $('voyWrap').innerHTML = `
+    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">Voyage</h2><span class="slots">★ ${total} OF ${VOYAGE.length*3} · ${have.length} OF ${BOOTY_ORDER.length} POWER-UPS</span></div><button class="btn small ghost" id="voyBackTop" type="button">Dock</button></div>
+    <p class="gfxnote">One match on each island, singles under the full rules. Each match has three stars: win it, meet the island's objective, and win by ${VOYAGE_MARGIN} or more. Winning opens the next island; stars unlock more booty for the Voyage.</p>
+    ${legs}
+    <div class="card how"><h3 class="h">Booty on the Voyage</h3><p>You start with three power-ups. Stars unlock the rest. Custom games and Versus always have all seven.</p><div class="hzgrid">${unlocks}</div></div>
+    <div class="btns"><button class="btn ghost" id="voyBack" type="button">Back to the dock</button></div>`;
+  $('voyWrap').querySelectorAll('button[data-leg]').forEach(b => b.onclick = () => startVoyage(Number(b.dataset.leg)));
+  $('voyBack').onclick = $('voyBackTop').onclick = () => { renderHub(); show('hub'); };
+  show('voyage');
+}
+function startVoyage(i){
+  const L = voyLeg(i); if (!L || !voyOpen(i)) return;
+  practiceIsland = L.island; try { localStorage.setItem('pickle-practice-island', L.island); } catch(e) {}
+  startGame(voyOver(L), { voyage:i });
 }
 function show(which){
-  for (const id of ['hub','pause','ctrls','prac','gameset','results','howto','isle','logbook']) $(id).hidden = id !== which;
-  app.classList.toggle('menu', which === 'hub' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive) || ((which === 'howto' || which === 'logbook') && howFrom !== 'pause'));
+  for (const id of ['hub','pause','ctrls','prac','gameset','results','howto','isle','logbook','voyage']) $(id).hidden = id !== which;
+  app.classList.toggle('menu', which === 'hub' || which === 'voyage' || which === 'gameset' || which === 'results' || (which === 'prac' && !pracLive) || ((which === 'howto' || which === 'logbook') && howFrom !== 'pause'));
   if (typeof setPadFocus === 'function') setPadFocus(null);
   musicSheet(which);
   if (which) $(which).scrollTop = 0;
@@ -207,7 +252,7 @@ let howFrom = 'hub';
 function openHow(from){
   howFrom = from; const touch = matchMedia('(pointer: coarse)').matches, K = (kb, pad) => touch ? '' : `<kbd>${kb}</kbd> <small>or ${pad}</small>`;
   $('howWrap').innerHTML = `
-    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">How to play</h2><span class="slots">PICKLEBALL, PIRATE STYLE</span></div><button class="btn small" id="howGoTop" type="button">${from === 'play' ? 'Play' : 'Got it'}</button></div>
+    <div class="sticky"><div style="display:flex;flex-direction:column;gap:6px"><h2 class="h">How to play</h2><span class="slots">PICKLEBALL, PIRATE STYLE</span></div><button class="btn small" id="howGoTop" type="button">${from === 'play' ? 'Play' : from === 'voyage' ? 'Voyage' : 'Got it'}</button></div>
     <div class="card how">
       <h3 class="h">Win the game</h3>
       <p>First to 11, win by 2. Only the serving side scores: win a rally on your serve for a point, lose it and the serve passes over (a side out). The ends switch at 6.</p>
@@ -229,13 +274,16 @@ function openHow(from){
       <h3 class="h">Islands and booty</h3>
       <p>Every island has its own hazard: gulls, a tilted deck, cannon fire, steam vents, tentacles or fog, and Davy's Locker has underwater versions of all six. A card before each match shows the island's hazard, the scoreboard keeps a reminder, and the first time it strikes it's named on screen.</p>
       <p>Win a rally of 6 shots or more and your crew gets a <b>booty</b> crate (one at a time): press Booty ${touch ? '' : K('E', 'B')} to use it. Neither hazards nor booty ever change the rules. The <b>Logbook</b> on the dock explains every hazard and power-up.</p>
+      <h3 class="h">The Voyage</h3>
+      <p>The career: one match on each of the seven islands, ending with the Davy's Locker Cup. Each match has three stars: win it, meet the island's objective (shown before the match and on the scoreboard), and win by ${VOYAGE_MARGIN} or more. Winning opens the next island, and stars unlock more power-ups.</p>
       <h3 class="h">The crew levels</h3>
       <p><b>Deckhand</b> is slow and pops up dinks. <b>Bosun</b> comes to the net and punishes high balls. <b>Captain</b> reads everything early. Practice with the ball cannon any time from the dock.</p>
     </div>
-    <div class="btns"><button class="btn" id="howGo" type="button">${from === 'play' ? 'Got it, play' : from === 'pause' ? 'Back to the pause menu' : 'Got it'}</button></div>`;
+    <div class="btns"><button class="btn" id="howGo" type="button">${from === 'play' ? 'Got it, play' : from === 'voyage' ? 'Got it, to the Voyage' : from === 'pause' ? 'Back to the pause menu' : 'Got it'}</button></div>`;
   const go = () => {
     save.seenHow = true; persist();
     if (from === 'play') startGame(STANDARD, {});
+    else if (from === 'voyage') openVoyage();
     else if (from === 'pause') { preparePause(); show('pause'); }
     else { renderHub(); show('hub'); }
   };
@@ -302,12 +350,13 @@ function showIsle(){
   $('isleCard').innerHTML = `
     <div><p class="eyebrow">ISLAND ${n} OF ${ISLANDS.length} · ${I.court.toUpperCase()} · ${G.match.doubles ? 'DOUBLES' : 'SINGLES'} TO ${G.match.to}</p><h2>${I.name}</h2></div>
     <div class="vs">${sw(C.home)}${sw(C.away)}<span>${crewLine}</span></div>
+    ${G.voyage ? `<h3 class="h">${G.voyage.cup ? 'The Davy\'s Locker Cup' : `Voyage · island ${G.voyage.leg + 1} of ${VOYAGE.length}`}</h3><ul class="stars">${[STAR_NAMES[0], G.voyage.obj.text + '. ' + G.voyage.obj.tip, STAR_NAMES[2]].map((t, k) => `<li class="${voyStars(G.voyage.island)[k] ? 'on' : ''}"><i>★</i>${t}</li>`).join('')}</ul>` : ''}
     <h3 class="h">The hazard</h3>${haz}
-    ${G.booty ? `<div class="hzrow small"><span class="ic">${svg('bt_treasure')}</span><div><b>Booty is on</b><p>Win a rally of ${BOOTY_RALLY}+ shots for a power-up crate, then press Booty (${bootyKey('home')}) to use it.</p></div></div>` : ''}
-    <div class="btns"><button class="btn" id="isleGo" type="button">Set sail</button><button class="btn ghost" id="isleBack" type="button">Back to the dock</button></div>
+    ${G.booty ? `<div class="hzrow small"><span class="ic">${svg('bt_treasure')}</span><div><b>Booty is on</b><p>Win a rally of ${BOOTY_RALLY}+ shots for a power-up crate, then press Booty (${bootyKey('home')}) to use it.${G.voyage ? ` In this match: ${G.voyage.pool.map(k => BOOTY[k].name).join(', ')}.` : ''}</p></div></div>` : ''}
+    <div class="btns"><button class="btn" id="isleGo" type="button">Set sail</button><button class="btn ghost" id="isleBack" type="button">${G.voyage ? 'Back to the Voyage map' : 'Back to the dock'}</button></div>
     <p class="hint">${matchMedia('(pointer: coarse)').matches ? '' : 'Enter or A to start · Esc or B to go back'}</p>`;
   $('isleGo').onclick = setSail;
-  $('isleBack').onclick = () => { paused = false; renderHub(); show('hub'); startAttract(); };
+  $('isleBack').onclick = () => { const voy = !!G.voyage; paused = false; startAttract(); if (voy) openVoyage(); else { renderHub(); show('hub'); } };
   paused = true; show('isle');
 }
 function setSail(){
@@ -324,22 +373,38 @@ function showResults(){
   const counts = !vs && hum.length === 1 && !S.doubles;
   const rec = save.record[tier] || (save.record[tier] = { w:0, l:0 }), firstWin = counts && won && rec.w === 0;
   if (counts) { if (won) rec.w++; else rec.l++; persist(); }
-  const next = counts ? AI_ORDER[AI_ORDER.indexOf(tier) + 1] : null;
+  const R = G.voyage ? voyFinish() : null;
+  const next = counts && !R ? AI_ORDER[AI_ORDER.indexOf(tier) + 1] : null;
   const winnerP = vs ? hum.find(s => s.team === S.winner) : null;
-  const title = vs ? `P${winnerP ? winnerP.pad + 1 : 1} wins!` : won ? 'Victory!' : 'Sunk!';
+  const title = vs ? `P${winnerP ? winnerP.pad + 1 : 1} wins!` : R && R.cup ? 'The Cup is yours!' : won ? 'Victory!' : 'Sunk!';
   const sub = vs ? 'P1 VS P2' : `VS ${tierOf(awayLead()).name.toUpperCase()}${hum.length > 1 ? ' · P1 + P2' : ''}`;
   const faults = Object.entries(st.faults).filter(([k]) => !['double bounce', 'winner', 'ace', 'in'].includes(k)).map(([k, n]) => `${CALL_TEXT[k].replace('!', '').toLowerCase()} ${n}`).join(', ');
   $('resCard').innerHTML = `
     <div class="resulthead ${won ? 'win' : 'lose'}" style="display:flex;flex-direction:column;gap:8px"><p class="eyebrow">${G.island.name.toUpperCase()} · ${S.doubles ? 'DOUBLES' : 'SINGLES'} TO ${S.to} · ${sub}</p><h2>${title}</h2></div>
     <div class="final"><div><div class="n">${S.pts.home}</div><div class="who">${teamAbbr('home')}</div></div><div class="dash">–</div><div><div class="n">${S.pts.away}</div><div class="who">${teamAbbr('away')}</div></div></div>
     <dl class="xprows"><div><dt>Rallies</dt><dd>${S.rallies}</dd></div><div><dt>Side outs</dt><dd>${S.sideOuts}</dd></div><div><dt>Longest rally</dt><dd>${st.longest} shots</dd></div><div><dt>Aces</dt><dd>${st.aces}</dd></div>${faults ? `<div><dt>Faults</dt><dd>${faults}</dd></div>` : ''}</dl>
+    ${R ? voyResultHtml(R) : ''}
     ${counts ? `<p class="rec">${firstWin ? `<b class="new">First win over the ${TIER_NAMES[tier]}!</b> ` : ''}Your record vs the ${TIER_NAMES[tier]}: ${rec.w}–${rec.l}</p>` : ''}
-    <div class="btns">${won && next ? `<button class="btn" id="resNext" type="button">Try the ${TIER_NAMES[next]}</button><button class="btn ghost" id="resAgain" type="button">Rematch</button>` : `<button class="btn" id="resAgain" type="button">Rematch</button>`}<button class="btn ghost" id="resHub" type="button">Back to the dock</button></div>`;
+    <div class="btns">${R ? (R.next !== null ? `<button class="btn" id="resNext" type="button">Sail to ${voyLegName(R.next)}</button><button class="btn ghost" id="resAgain" type="button">Play it again</button>` : `<button class="btn" id="resAgain" type="button">${won ? 'Play it again' : 'Try again'}</button>`) + `<button class="btn ghost" id="resMap" type="button">Voyage map</button>`
+      : won && next ? `<button class="btn" id="resNext" type="button">Try the ${TIER_NAMES[next]}</button><button class="btn ghost" id="resAgain" type="button">Rematch</button>` : `<button class="btn" id="resAgain" type="button">Rematch</button>`}<button class="btn ghost" id="resHub" type="button">Back to the dock</button></div>`;
   $('resAgain').onclick = () => startGame(lastOver, lastOpts, true);
-  if ($('resNext')) $('resNext').onclick = () => { gameCfg.tier = next; saveGameCfg(); startGame(lastOver, lastOpts, true); };
+  if ($('resNext')) $('resNext').onclick = R ? () => startVoyage(R.next) : () => { gameCfg.tier = next; saveGameCfg(); startGame(lastOver, lastOpts, true); };
+  if ($('resMap')) $('resMap').onclick = () => { startAttract(); openVoyage(); };
   $('resHub').onclick = () => { renderHub(); show('hub'); startAttract(); };
   show('results');
   if (won) sfx('level');
+  if (R && R.firstCup) setTimeout(() => sfx('cheer'), 600);
+}
+const voyLegName = i => { const L = VOYAGE[i]; return L.cup ? 'the Cup' : ISLANDS.find(x => x.id === L.island).name; };
+// the stars from this match, what's new, and any power-ups the new stars unlocked
+function voyResultHtml(R){
+  const V = G.voyage, items = [STAR_NAMES[0], V.obj.text, STAR_NAMES[2]];
+  return `<div class="voyres">
+    <ul class="stars">${items.map((t, k) => `<li class="${R.got[k] ? 'on' : ''}"><i>★</i>${t}${R.fresh[k] ? ' <b class="new">NEW</b>' : ''}</li>`).join('')}</ul>
+    <p class="rec">Voyage: ★ ${R.total} of ${VOYAGE.length*3}${R.gained ? ` (+${R.gained})` : ''}</p>
+    ${R.unlocked.map(k => `<div class="hzrow small"><span class="ic">${svg('bt_' + k)}</span><div><b>New power-up: ${BOOTY[k].name}</b><p>${BOOTY[k].desc}</p></div></div>`).join('')}
+    ${R.firstCup ? `<p class="rec"><b class="new">The Pickle Pirates hold the Davy's Locker Cup!</b> Every island is open: go back for any stars you missed.</p>` : ''}
+  </div>`;
 }
 // ---------------- feel tuning panel (` key or the pause menu); the game keeps running while it's open
 function buildTunePanel(){

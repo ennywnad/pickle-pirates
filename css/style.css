@@ -343,3 +343,26 @@ label.tog.padfocus,label.sl.padfocus{border-radius:8px}
 .logisle{display:flex;flex-direction:column;gap:8px}
 .logisle h3{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0;font:400 18px/1.2 var(--block);color:var(--bone)}
 .logisle h3 small{font:600 13px/1.2 var(--body);color:var(--muted);letter-spacing:.04em}
+/* Voyage: the dock card's track, the map's legs, stars */
+.voytrack{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.vstop{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px;background:var(--well);border:1px solid var(--line);border-radius:10px;min-width:0}
+.vstop b{font:400 16px/1 var(--block);color:var(--bone)}
+.vstop.next{border-color:var(--hazard);box-shadow:0 0 0 2px rgba(255,194,58,.25)}
+.vstop.locked{opacity:.45}
+.starrow{display:inline-flex;gap:1px;font-size:12px;line-height:1;color:var(--line-hi)}
+.starrow i{font-style:normal}.starrow i.on{color:var(--hazard)}
+.card.leg{gap:10px}
+.card.leg.next{border:2px solid var(--hazard)}
+.card.leg.locked{opacity:.6}
+.leghead{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start}
+.leghead .num{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;background:var(--well);border:1px solid var(--line-hi);font:400 20px/1 var(--block);color:var(--hazard)}
+.leghead .num svg{width:20px;height:20px;color:var(--muted)}
+.leghead .ct{margin:4px 0 2px;font:400 22px/1.1 var(--block);color:var(--bone)}
+ul.stars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+ul.stars li{display:flex;gap:8px;align-items:baseline;font:500 14px/1.35 var(--body);color:var(--muted)}
+ul.stars li i{font-style:normal;font-size:16px;color:var(--line-hi);flex:none}
+ul.stars li.on{color:var(--bone)}ul.stars li.on i{color:var(--hazard)}
+.lockline{font-style:italic}
+.hzrow.locked{opacity:.55}.hzrow.locked .ic{color:var(--muted);border-color:var(--line);background:transparent}
+.voyres{display:flex;flex-direction:column;gap:8px}
+ul.stars b.new{font:400 11px/1 var(--block);color:var(--hazard-ink);background:var(--hazard);border-radius:4px;padding:2px 4px;margin-left:4px}

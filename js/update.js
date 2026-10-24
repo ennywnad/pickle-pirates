@@ -25,6 +25,7 @@ function update(dt){
   }
   refreshTaker(dt);
   hazardStep(dt);
+  if (G.voyage) voyWatch();
   // reading aids for each human: the aim reticle and the kitchen warning
   G.aids = humansAll().map(h => ({ pl:h, aim:aimPreview(h), warn:kitchenWarn(h) }));
   G.aimPreview = G.aids[0] ? G.aids[0].aim : null; G.kitchenWarn = G.aids[0] ? G.aids[0].warn : false;

@@ -216,6 +216,24 @@ for (const gfx of ['classic', 'med']) {
   const hubRec = await page.textContent('#hubRec');
   if (!/Deckhand \d+–\d+/.test(hubRec) || /Deckhand 0–0/.test(hubRec)) fail(`${gfx}: the dock does not show the record (${hubRec})`);
 
+  // v0.7: the Voyage. The dock card opens the map, the first island sails with its objective on the island card, and
+  // a won match records its stars and offers the next island
+  await tap('#btnVoyage');
+  await page.waitForSelector('#voyage:not([hidden])', { timeout: 5000 }).catch(() => {});
+  const vm1 = await page.evaluate(() => ({ shown: !document.getElementById('voyage').hidden, legs: document.querySelectorAll('#voyWrap .card.leg').length, go: !!document.getElementById('voyGo') }));
+  if (!vm1.shown || vm1.legs !== 7 || !vm1.go) fail(`${gfx}: the Voyage map did not open with seven islands (${JSON.stringify(vm1)})`);
+  await page.evaluate(() => { save.stars = {}; persist(); openVoyage(); });
+  await tap('#voyGo');
+  const vc = await page.evaluate(() => ({ isle: !document.getElementById('isle').hidden, text: document.getElementById('isleCard').textContent, leg: G.voyage && G.voyage.leg, tier: G.players[1].tier }));
+  if (!vc.isle || vc.leg !== 0 || !/Hit 3 winners/.test(vc.text) || vc.tier !== 'deckhand') fail(`${gfx}: the first Voyage island did not start with its objective (${JSON.stringify({ ...vc, text: vc.text.slice(0, 120) })})`);
+  await tap('#isleGo');
+  const vr = await page.evaluate(() => { const S = window.__sim, G = S.G; G.players[0].human = false; G.players[0].tier = 'captain'; G.match.pts.home = 10; G.match.pts.away = 0; G.match.server = 'home'; startPoint();
+    for (let i = 0; i < 60*900 && G.state !== 'end'; i++) S.step(1); return { winner: G.match.winner, stars: voyStars('brine') }; });
+  await page.waitForTimeout(400);
+  const vres = await page.evaluate(() => ({ shown: !document.getElementById('results').hidden, next: document.getElementById('resNext') && document.getElementById('resNext').textContent, map: !!document.getElementById('resMap'), text: document.getElementById('resCard').textContent }));
+  if (vr.winner === 'home' && (!vr.stars[0] || !vres.shown || !/Shipwreck Shoals/.test(vres.next || '') || !vres.map || !/Voyage: ★/.test(vres.text))) fail(`${gfx}: a won Voyage match did not record its star and offer the next island (${JSON.stringify({ vr, ...vres, text: undefined })})`);
+  await tap('#resHub');
+
   if (gfx !== 'classic') {
     const r3 = await page.evaluate(() => ({ status: window.__r3d.status, active: window.__r3d.active, check: window.__r3d.lastCheck }));
     if (!r3.active) fail(`3D view not active (${JSON.stringify(r3)})`);

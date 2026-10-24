@@ -120,7 +120,7 @@ function hazardStep(dt){
           if (typeof sfx === 'function') sfx('cannon'), sfx('splash', 0.8);
           G.shake = Math.max(G.shake || 0, 0.5);
           for (const pl of G.players) { const dx = pl.x - z.x, dy = pl.y - z.y, d = hyp(dx, dy);
-            if (d < z.r + 0.4) { pl.stun = 0.8; const k = 9/(d || 1); pl.vx = dx*k; pl.vy = dy*k; count('stunned'); } }
+            if (d < z.r + 0.4) { pl.stun = 0.8; const k = 9/(d || 1); pl.vx = dx*k; pl.vy = dy*k; count('stunned'); statAdd(pl.team, 'stunned'); } }
           for (let k = 0; k < 18; k++) G.parts.push({ x:z.x + rand(-1, 1), y:z.y + rand(-1, 1), z:0.3, vx:rand(-5, 5), vy:rand(-5, 5), vz:rand(8, 16), life:0.9, max:0.9, s:rand(0.3, 0.7), c:'#dff3ff' });
         }
         if (z.t > z.warn + 0.6) H.zones.splice(i, 1);

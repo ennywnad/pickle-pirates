@@ -26,7 +26,8 @@ const bfx = tm => (G.booty && G.booty.fx[tm]) || {};
 const fxOn = (tm, k) => { const v = bfx(tm)[k]; return v === true || (typeof v === 'number' && v > G.time); };
 function earnBooty(team, kind){
   const Y = G.booty; if (!Y || Y.held[team]) return false;
-  Y.held[team] = kind || BOOTY_ORDER[Math.floor(Math.random()*BOOTY_ORDER.length)]; Y.ev.earned++;
+  const pool = (G.voyage && G.voyage.pool) || BOOTY_ORDER;   // a Voyage only deals the power-ups unlocked so far
+  Y.held[team] = kind || pool[Math.floor(Math.random()*pool.length)]; Y.ev.earned++; statAdd(team, 'crates');
   const pl = crewOf(team)[0];
   if (pl) G.pops.push({ text:'BOOTY: ' + BOOTY_SHORT[Y.held[team]].toUpperCase(), x:pl.x, y:pl.y, life:1.4, max:1.4, size:14, color:'#ffc23a', lift:4 });
   const mine = crewOf(team).some(p => p.human), B = BOOTY[Y.held[team]];
@@ -43,7 +44,7 @@ function bootyRally(winner, len){
 function useBooty(team){
   const Y = G.booty; if (!Y || !Y.held[team]) return false;
   const kind = Y.held[team], opp = other(team), fx = Y.fx[team], ofx = Y.fx[opp];
-  Y.held[team] = null; Y.ev.used[kind] = (Y.ev.used[kind] || 0) + 1;
+  Y.held[team] = null; Y.ev.used[kind] = (Y.ev.used[kind] || 0) + 1; statAdd(team, 'used');
   switch (kind) {
     case 'cannonball': fx.cannonball = true; break;
     case 'pegleg': fx.pegleg = true; break;

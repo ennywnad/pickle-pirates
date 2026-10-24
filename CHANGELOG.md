@@ -2,6 +2,49 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.7.0 · The Voyage (milestone 11, part 1) · 2026-10-23
+
+The career. Sail the Pickle Pirates to all seven islands, one match each, ending with the Davy's Locker Cup.
+
+**How it works**
+- **Set sail** on the dock opens the Voyage map. It shows the seven matches in order with your stars on each.
+- **Opening islands:** winning a match opens the next island. You can go back to any island you've opened to try for stars you missed.
+- **Rules:** every Voyage match plays the rules straight. That means singles, side-out scoring, the kitchen and two-bounce rules, the island's hazard, booty, and no landing marker.
+- **Stars:** each match has three stars:
+  - win it
+  - meet the island's objective
+  - win by 5 or more
+
+  You keep the best result for each star, so a loss never takes one away.
+- **Objectives:** the island card shows the objective before the match. During the match the scoreboard alternates between the objective's progress and the hazard. A message also pops up the moment you meet or miss the objective.
+
+| # | Island | Crew level | Objective |
+|---|---|---|---|
+| 1 | Brine Bay | Deckhand | Hit 3 winners (aces count) |
+| 2 | Shipwreck Shoals | Deckhand | Win a rally of 8 shots or more |
+| 3 | Cannon Cove | Bosun | Never get caught by a cannonball |
+| 4 | Volcano Isle | Bosun | Earn 2 booty crates |
+| 5 | Kraken's Reach | Bosun | Win without a kitchen fault |
+| 6 | Ghost Galleon | Captain | Win 4 rallies in a row |
+| 7 | The Davy's Locker Cup (game to 15) | Captain | Use 3 booty power-ups |
+
+**Stars unlock booty**
+- A Voyage starts with three power-ups: Cannonball Shot, Peg-Leg Spin and Parrot Spotter.
+- Stars unlock the rest:
+  - Kraken Ink at 3
+  - Anchor Drop at 6
+  - Fog Bank at 9
+  - Treasure Map at 12
+- The results card announces each new unlock, and the map lists what's still locked.
+- Custom games and Versus always have all seven.
+
+**Other changes**
+- The dock leads with the Voyage card: your next island, its objective, and your stars on all seven. The Brine Bay quick match moves underneath.
+- The results card for a Voyage match shows the stars you earned (new ones are tagged) and has a button to sail to the next island.
+- Winning the Cup for the first time gets its own celebration.
+- How to play explains the Voyage.
+- Save codes carry your Voyage stars.
+
 ## v0.6.0 · Clear islands, an underwater Locker, crew choice (milestone 10 complete) · 2026-10-23
 
 Play-test fixes. Every hazard and power-up now explains itself in the game, Davy's Locker looks like the bottom of the sea, and you can pick both crews, including pickle vs pickle.

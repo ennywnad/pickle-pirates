@@ -103,12 +103,14 @@ function newMatch(islandId, attract, mode, opts = {}){
   const cfg = attract ? { ...gameDef(), opp:'cpu' } : mode === 'game' ? { ...gameCfg, opp:'cpu' } : { kitchen:true, twoBounce:true, ...practice };
   G = { island:isl, theme:THEMES[isl.id], attract:!!attract, mode, state:'feed', stT:1.0, time:0,
     near:'home', hits:0, pendingEnd:null, ballAcc:0, score:{ home:0, away:0 }, rally:0, best:0, shotN:0, aimPreview:null, feedTo:'home', lastCall:null,
-    ball:mkBall(), landing:null, parts:[], pops:[], shake:0, cfg, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 }, stats:{ rallies:0, longest:0, aces:0, strokes:0, faults:{}, faultBy:{ home:{}, away:{} } } };
+    ball:mkBall(), landing:null, parts:[], pops:[], shake:0, cfg, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 }, stats:{ rallies:0, longest:0, aces:0, strokes:0, faults:{}, faultBy:{ home:{}, away:{} }, team:{ home:teamStats(), away:teamStats() } } };
   const doubles = mode === 'game' && (opts.format === 'doubles' || (attract && Math.random() < 0.4));
   const seats = attract ? [] : opts.seats || [{ team:'home', slot:0, pad:0 }];
   const seat = (team, slot) => seats.find(s => s.team === team && s.slot === slot);
   G.format = doubles ? 'doubles' : 'singles'; G.seats = seats;
   G.crew = resolveCrews(opts.crews && opts.crews.home, opts.crews && opts.crews.away, isl);
+  // a Voyage leg (voyage.js): its objective, and the booty unlocked so far
+  G.voyage = !attract && mode === 'game' && voyLeg(opts.voyage) ? { leg:opts.voyage, ...voyLeg(opts.voyage), pool:voyUnlocked() } : null;
   G.players = [];
   for (const team of ['home', 'away']) for (let slot = 0; slot < (doubles ? 2 : 1); slot++) {
     const s = seat(team, slot);

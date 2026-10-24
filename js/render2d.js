@@ -332,7 +332,7 @@ function updateHud(){
   setT('aSub', S.server === 'away' ? mark : teamName('away').toUpperCase());
   const yours = G.state === 'serve' && srv && srv.human;
   const whose = !yours ? '' : two ? `P${srv.pad + 1} to serve` : 'Your serve';
-  setT('objText', yours ? `${whose} · press Drive, Soft or Lob` : gp ? `Game point · ${teamName(gp)}` : G.haz ? `${G.island.name} · ${HAZ_NAME[G.haz.kind]}: ${HAZ_TIP[G.haz.kind].toLowerCase()}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
+  setT('objText', yours ? `${whose} · press Drive, Soft or Lob` : gp ? `Game point · ${teamName(gp)}` : G.voyage && Math.floor(G.time/7) % 2 === 0 ? `★ ${G.voyage.obj.text} · ${voyProgressText()}` : G.haz ? `${G.island.name} · ${HAZ_NAME[G.haz.kind]}: ${HAZ_TIP[G.haz.kind].toLowerCase()}` : `${G.island.name} · ${S.scoring === 'rally' ? 'rally scoring' : 'side-out scoring'}`);
   const srvName = srv ? (srv.human ? (two ? `P${srv.pad + 1}` : 'you') : `${teamAbbr(srv.team)}${S.doubles ? ' ' + (srv.slot + 1) : ''}`) : '';
   setT('objProg', G.state === 'play' ? `Rally ${G.rally}` : `Server ${srvName} · ${serverCourt(S)} court`);
 }

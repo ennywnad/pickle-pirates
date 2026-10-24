@@ -33,6 +33,7 @@ function endRally(loser, kind, x, y){
   if (kind === 'ace') G.stats.aces++;
   G.stats.faults[kind] = (G.stats.faults[kind] || 0) + 1;
   G.stats.faultBy[loser][kind] = (G.stats.faultBy[loser][kind] || 0) + 1;
+  statRally(winner, loser, kind);   // the per-crew counters Voyage objectives read (voyage.js)
   for (const pl of G.players) pl.queue = null;
   if (G.mode === 'game') return endPoint(winner, kind);
   // practice
