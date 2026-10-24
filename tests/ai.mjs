@@ -1,6 +1,6 @@
 // CPU checks: milestone 5's "done when" — the CPU wins and loses believably, and a 20-game soak runs clean.
 //   node tests/ai.mjs            full run: tier ladder, vs a human-like bot, strategy, 20-game soak
-//   SOAK=6 node tests/ai.mjs     shorter soak (what CI runs)
+//   SOAK=6 QUICK=1 node tests/ai.mjs   what CI runs: 3-game series, a 6-game soak, and no three-way ordering check
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
@@ -84,7 +84,8 @@ const quick = process.env.QUICK ? 3 : 5;
   check('a decent player beats the deckhand', deck.homeWins >= Math.ceil(quick*0.6), `${deck.homeWins}/${quick} · ${score(deck)}`);
   check('the captain beats a decent player', cap.homeWins <= Math.floor(quick*0.4), `bot won ${cap.homeWins}/${quick} · ${score(cap)}`);
   // wins are noisy over a few games; the share of points won is steadier
-  check('the bosun is in between', bos.share < deck.share + 0.06 && bos.share > cap.share, `bot won ${bos.homeWins}/${quick} · ${score(bos)} · bot's share of points: deckhand ${pc(deck.share)}, bosun ${pc(bos.share)}, captain ${pc(cap.share)}`);
+  if (process.env.QUICK) console.log('skip the bosun is in between  · three games each is too few to order three levels; the full run checks it');
+  else check('the bosun is in between', bos.share < deck.share + 0.06 && bos.share > cap.share, `bot won ${bos.homeWins}/${quick} · ${score(bos)} · bot's share of points: deckhand ${pc(deck.share)}, bosun ${pc(bos.share)}, captain ${pc(cap.share)}`);
 }
 check('every ladder and bot game finished cleanly', ALL.every(s => !s.errs.length), ALL.flatMap(s => s.errs).slice(0, 3).join('; '));
 // 3. how it plays: comes to the net, pops up dinks more at the easy tier

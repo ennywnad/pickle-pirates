@@ -44,7 +44,9 @@ const held = (prof, a) => !!prof && (binds[prof][a] || []).some(c => keys.has(c)
 // turn a screen-relative stick into court directions using the 3D camera's basis
 function orient(v){
   const R3 = window.__r3d;
-  if (R3 && R3.active && R3.basis && (v[0] || v[1])) { const b = R3.basis, m0 = hyp(v[0], v[1]); let x = v[0]*b.rx + (-v[1])*b.fx, y = v[0]*b.ry + (-v[1])*b.fy; const m = hyp(x, y); if (m > 1e-6) { x *= m0/m; y *= m0/m; } return [x, y]; }
+  // the ends can switch in the sim step before the camera catches up: turn a stale basis around rather than steer backwards for a frame
+  if (R3 && R3.active && R3.basis && (v[0] || v[1])) { const b = R3.basis, m0 = hyp(v[0], v[1]), k = (b.flip || 1) === (viewFlip() ? -1 : 1) ? 1 : -1;
+    let x = k*(v[0]*b.rx + (-v[1])*b.fx), y = k*(v[0]*b.ry + (-v[1])*b.fy); const m = hyp(x, y); if (m > 1e-6) { x *= m0/m; y *= m0/m; } return [x, y]; }
   return G && viewFlip() ? [-v[0], -v[1]] : v;   // classic view drawn from the other end
 }
 function readInputRaw(p = 0){

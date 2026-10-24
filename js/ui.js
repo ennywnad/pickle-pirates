@@ -204,10 +204,20 @@ function buildTunePanel(){
     $('tuneMsg').textContent = ok ? (Object.keys(chg).length ? 'Copied your changes.' : 'Nothing changed yet.') : txt;
   };
 }
+// Practice: tuning runs live, so you can feel each slider. A singles game holds while the drawer is open
+// and goes back to where you were when it closes (the pause menu, or play).
+let tuneHold = null;   // null, 'pause' or 'play': what a held game returns to
 function toggleTune(on){
   if (!$('tune')) buildTunePanel();
-  const el = $('tune'); el.hidden = on == null ? !el.hidden : !on;
-  if (!el.hidden && paused && G && !G.attract) setPaused(false);
+  const el = $('tune'), wasOpen = !el.hidden; el.hidden = on == null ? !el.hidden : !on;
+  const live = G && !G.attract;
+  if (!el.hidden && !wasOpen && live) {
+    if (G.mode === 'game') { tuneHold = paused ? 'pause' : 'play'; paused = true; keys.clear(); show(null); }
+    else if (paused) setPaused(false);
+  } else if (el.hidden && wasOpen && tuneHold) {
+    const back = tuneHold; tuneHold = null;
+    if (live && G.mode === 'game') { if (back === 'pause') setPaused(true); else setPaused(false); }
+  }
 }
 function preparePause(){
   const game = G.mode === 'game';
@@ -217,6 +227,7 @@ function preparePause(){
 }
 function setPaused(p){
   if (!G || G.attract) return;
+  tuneHold = null;
   paused = p;
   if (p) { preparePause(); keys.clear(); joy.id = null; show('pause'); }
   else show(null);
@@ -228,7 +239,7 @@ $('btnTune').onclick = () => toggleTune(true);
 $('btnPracSet').onclick = () => openPractice(true);
 $('btnPauseCtrls').onclick = () => openControls('pause');
 applyA11y();
-$('btnQuit').onclick = () => { paused = false; renderHub(); show('hub'); startAttract(); };
+$('btnQuit').onclick = () => { paused = false; tuneHold = null; renderHub(); show('hub'); startAttract(); };
 function syncSound(){
   $('btnSound').setAttribute('aria-pressed', String(muted)); $('btnSound').setAttribute('aria-label', muted ? 'Turn sound on' : 'Mute sound'); $('icoOn').hidden = muted; $('icoOff').hidden = !muted;
   const pm = $('btnMute'); if (pm) pm.textContent = muted ? 'Sound: off' : 'Sound: on';

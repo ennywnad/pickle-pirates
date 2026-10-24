@@ -74,5 +74,52 @@ for (const [cfg, label] of [[{ to:11, scoring:'sideout' }, 'game to 11, side-out
   check('volleying from the kitchen is a fault (side out when serving)', r.inKitchen.call === 'kitchen' && r.inKitchen.server === 'away' && r.inKitchen.pts.home === 0, JSON.stringify(r.inKitchen));
   check('stepping into the kitchen right after a volley is a fault', r.momentum.legal && r.momentum.call === 'kitchen', JSON.stringify(r.momentum));
 }
+// issue fixes: momentum sideways and after a put-away, a ball that bounces in and spins back, illegal strokes don't count
+{
+  const r = run(`(() => { const out = {};
+    const setup = () => { Object.assign(gameCfg, { to:11, scoring:'sideout', kitchen:true, twoBounce:true }); newMatch('brine', false, 'game'); G.players[0].human = false;
+      G.state = 'play'; G.hits = 4; G.rally = 4; G.match.server = 'home'; const pl = G.players[0], B = G.ball;
+      Object.assign(B, { x:10.5, y:27.5, z:3, vx:0, vy:10, vz:0, sx:0, sy:0, sz:0, live:true, lastBy:'away', bounces:0 }); return pl; };
+    // sideways: volley from just wide of the kitchen, drift in along the line
+    let pl = setup(); pl.x = -1.2; pl.y = 27; Object.assign(G.ball, { x:-0.8, y:26.8 }); hitBall(pl, 'drive', null); const wideLegal = G.ball.live;
+    pl.vx = 6; pl.vy = 0; for (let i = 0; i < 20; i++) { pl.x += 0.1; kitchenWatch(1/60); } out.sideways = { legal: wideLegal, call: G.lastCall };
+    // a put-away that's already over (double bounce) before the volleyer's momentum carries them in
+    pl = setup(); pl.x = 10; pl.y = 29.6; Object.assign(G.ball, { y:29.4 }); hitBall(pl, 'drive', null);
+    endRally('away', 'double bounce', 10, 5); const held = !!G.pendingEnd, ptsHeld = { ...G.match.pts };
+    pl.vy = -8; for (let i = 0; i < 20; i++) { pl.y -= 0.08; kitchenWatch(1/60); } out.afterDead = { held, ptsHeld, call: G.lastCall, pts: { ...G.match.pts }, server: G.match.server };
+    // ...and when the volleyer stays out, the put-away stands once the momentum is spent
+    pl = setup(); pl.x = 10; pl.y = 31; Object.assign(G.ball, { y:30.8 }); hitBall(pl, 'drive', null);
+    endRally('away', 'double bounce', 10, 5); pl.vx = pl.vy = 0; for (let i = 0; i < 40; i++) kitchenWatch(1/60); out.stands = { call: G.lastCall, pts: { ...G.match.pts } };
+    // bounced in on the far side, spun back over the net and bounced on the hitter's side: the receiver's point lost, not a net fault
+    pl = setup(); G.ball.lastBy = 'home'; G.ball.bounces = 1; G.ball.y = 23; G.lastCall = null; onBallEvent('bounce', G.ball, 5);
+    out.spinBack = { call: G.lastCall, pts: { ...G.match.pts } };
+    // a kitchen volley: the illegal stroke isn't counted in the rally
+    pl = setup(); G.stats.longest = 0; pl.x = 10; pl.y = 27; hitBall(pl, 'drive', null);
+    out.illegal = { call: G.lastCall, rally: G.rally, longest: G.stats.longest, hits: G.hits };
+    return out; })()`);
+  check('momentum carrying you sideways into the kitchen is a fault', r.sideways.legal && r.sideways.call === 'kitchen', JSON.stringify(r.sideways));
+  check('momentum into the kitchen after the put-away is dead still faults', r.afterDead.held && r.afterDead.ptsHeld.home === 0 && r.afterDead.call === 'kitchen' && r.afterDead.pts.home === 0 && r.afterDead.server === 'away', JSON.stringify(r.afterDead));
+  check('a put-away stands once the volley\'s momentum is spent', r.stands.call === 'double bounce' && r.stands.pts.home === 1, JSON.stringify(r.stands));
+  check('a ball that bounces in and spins back over is the receiver\'s miss', r.spinBack.call === 'double bounce' && r.spinBack.pts.home === 1, JSON.stringify(r.spinBack));
+  check('an illegal stroke ends the rally without counting', r.illegal.call === 'kitchen' && r.illegal.longest === 4 && r.illegal.hits === 4, JSON.stringify(r.illegal));
+}
+// the prediction is the flight: a fast drive's predicted bounce matches where the live ball bounces; an overhead at the net is planned as a volley
+{
+  const r = run(`(() => { const out = {};
+    Object.assign(gameCfg, { to:11, scoring:'sideout', kitchen:true }); newMatch('brine', false, 'game'); G.players.forEach(p => p.human = false);
+    G.state = 'play'; G.hits = 4; const B = G.ball;
+    Object.assign(B, launchFor('drive', { x:6, y:2, z:2.5 }, 14, 39), { x:6, y:2, z:2.5, live:true, lastBy:'away', bounces:0 });
+    G.players.forEach(p => { p.x = -30; p.y = p.team === 'home' ? 60 : -20; });   // out of the way
+    const pr = predict(B, 3), want = pr.first; let got = null;
+    const ob = onBallEvent; onBallEvent = (e, b, v) => { if (e === 'bounce' && !got) got = { x:b.x, y:b.y }; return ob(e, b, v); };
+    for (let i = 0; i < 240 && !got; i++) update(1/60);
+    onBallEvent = ob; out.drive = { off: got && want ? Math.hypot(got.x - want.x, got.y - want.y) : null };
+    newMatch('brine', false, 'game'); G.state = 'play'; G.hits = 4; const pl = G.players[0]; pl.x = 9; pl.y = 29.5;
+    Object.assign(G.ball, { x:10.5, y:24, z:10, vx:0, vy:12, vz:0, sx:0, sy:0, sz:0, live:true, lastBy:'away', bounces:0 });
+    const sp = contactSpot(pl, G.ball); out.overhead = sp ? { bz:+sp.bz.toFixed(2), y:+sp.y.toFixed(1) } : null;
+    return out; })()`);
+  check('the predicted bounce is where the live ball bounces (under an inch)', r.drive.off !== null && r.drive.off < 0.08, `${r.drive.off === null ? 'no bounce' : (r.drive.off*12).toFixed(2) + ' in'}`);
+  check('a high ball at the net is planned as an overhead volley, not a retreat', r.overhead && r.overhead.bz > 6 && r.overhead.y < 32, JSON.stringify(r.overhead));
+}
 console.log(failed ? `${failed} game check(s) failed` : 'all game checks passed');
 process.exit(failed ? 1 : 0);

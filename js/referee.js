@@ -17,6 +17,11 @@ function endRally(loser, kind, x, y){
   const B = G.ball;
   if (!B.live) return;
   B.live = false;
+  // the winner volleyed a moment ago: hold the call until their momentum is spent (kitchenWatch decides)
+  if (kind !== 'kitchen' && G.cfg.kitchen !== false && G.players.some(pl => pl.team !== loser && pl.momentum > 0)) {
+    G.pendingEnd = { loser, kind, x, y, rally:G.rally };
+    return;
+  }
   const winner = other(loser);
   // an unreturned serve that landed in is an ace
   if (G.mode === 'game' && G.hits === 1 && kind === 'double bounce') kind = 'ace';
@@ -56,6 +61,7 @@ function startPoint(){
   G.state = 'set'; G.stT = 0.9; G.hits = 0; G.rally = 0; G.serveT = 0;
   Object.assign(G.ball, { live:false, z:-5, bounces:0, lastBy:null, lastKind:null, serve:null, trail:[] });
   for (const pl of G.players) { const p = pl.team === server ? pos.server : pos.receiver; pl.setTo = { x:p.x, y:p.y }; pl.queue = null; pl.momentum = 0; pl.spot = null; if (!pl.human) aiNewPoint(pl); }
+  G.pendingEnd = null;
 }
 // glide everyone to their spots, then wait for the serve
 function serveSetup(dt){
@@ -115,7 +121,10 @@ function onBallEvent(e, B, vin){
     if (!B.live) return;
     const side = sideOf(B.y), hitter = B.lastBy;
     if (!hitter) { if (++B.bounces >= 2) endRally(side, 'double bounce', B.x, B.y); return; }   // a feed from the cannon: one free bounce
-    if (side === hitter) return endRally(hitter, 'net', B.x, B.y);           // never got over
+    if (side === hitter) {
+      if (B.bounces === 0) return endRally(hitter, 'net', B.x, B.y);          // never got over
+      return endRally(other(hitter), 'double bounce', B.x, B.y);              // bounced in, then spun or rolled back over: still theirs to return
+    }
     B.bounces++;
     if (B.bounces === 1) {
       if (B.serve) {   // the serve has to land in the diagonal service court, past the kitchen line
@@ -132,19 +141,32 @@ function onBallEvent(e, B, vin){
   else if (e === 'post') { sfx('bounce', 1); if (B.live && B.lastBy) endRally(B.lastBy, 'post', B.x, B.y); }
 }
 // a stroke was just made: check it against the two-bounce and kitchen rules
+// (called before the stroke counts, so G.hits is the number of strokes before this one); true = a fault, the rally is over
 function strokeRules(pl, c){
-  if (!c.volley) return;
-  if (G.cfg.twoBounce !== false && twoBounceFault(G.hits - 1, true)) return endRally(pl.team, 'two bounce', pl.x, pl.y);
-  if (G.cfg.kitchen !== false && inKitchenZone(pl.x, pl.y)) return endRally(pl.team, 'kitchen', pl.x, pl.y);
+  if (!c.volley) return false;
+  if (G.cfg.twoBounce !== false && twoBounceFault(G.hits, true)) { endRally(pl.team, 'two bounce', pl.x, pl.y); return true; }
+  if (G.cfg.kitchen !== false && inKitchenZone(pl.x, pl.y)) { endRally(pl.team, 'kitchen', pl.x, pl.y); return true; }
   pl.momentum = MOMENTUM_T;   // a volley's momentum: stepping into the kitchen right after still faults
+  return false;
 }
-// per frame: momentum faults
+// per frame: momentum faults. Any direction counts (a volley wide of the kitchen that carries you sideways into it),
+// and it still counts after the ball is dead: a rally the volleyer would win waits until their momentum is spent (11.A)
 function kitchenWatch(dt){
+  const P = G.pendingEnd;
   for (const pl of G.players) {
     if (!(pl.momentum > 0)) continue;
     pl.momentum -= dt;
-    const towardNet = (pl.vy*backDir(pl.team)) < -0.5;
-    if (G.cfg.kitchen !== false && G.ball.live && towardNet && inKitchenZone(pl.x, pl.y)) { pl.momentum = 0; endRally(pl.team, 'kitchen', pl.x, pl.y); }
+    const moving = hyp(pl.vx, pl.vy) > 0.5, open = G.ball.live || (P && P.loser !== pl.team);
+    if (G.cfg.kitchen !== false && moving && open && inKitchenZone(pl.x, pl.y)) {
+      pl.momentum = 0; G.pendingEnd = null;
+      if (P) { G.ball.live = true; G.rally = P.rally; }
+      endRally(pl.team, 'kitchen', pl.x, pl.y);
+      return;
+    }
+  }
+  if (P && !G.players.some(pl => pl.momentum > 0 && pl.team !== P.loser)) {   // momentum spent: the rally stands
+    G.pendingEnd = null; G.ball.live = true; G.rally = P.rally;
+    endRally(P.loser, P.kind, P.x, P.y);
   }
 }
 // would a volley by this player right now be a kitchen fault? (the kitchen glows to warn you)
@@ -158,6 +180,7 @@ const FEED_MIX = [['serve', 2], ['drive', 3], ['drop', 2], ['dink', 2], ['lob', 
 function pickFeed(){ const tot = FEED_MIX.reduce((a, f) => a + f[1], 0); let r = Math.random()*tot; for (const [k, w] of FEED_MIX) { if ((r -= w) < 0) return k; } return 'drive'; }
 function feedBall(to){
   const B = G.ball, cfg = G.cfg, kind = cfg.feed === 'mix' || !cfg.feed ? pickFeed() : cfg.feed;
+  G.pendingEnd = null; for (const pl of G.players) pl.momentum = 0;
   const near = isNear(to);
   const yFar = d => near ? d : CL - d;           // depth from the cannon's baseline
   const yNear = d => near ? CL - d : d;          // depth from the receiver's baseline
@@ -196,7 +219,11 @@ function rallyWatch(dt){
   }
   const slow = hyp(B.vx, B.vy, B.vz) < 2 && B.z < 0.5;
   B.still = slow ? B.still + dt : 0;
-  if (B.still > 0.5) endRally(B.lastBy ? sideOf(B.y) : G.feedTo, sideOf(B.y) === B.lastBy ? 'net' : 'double bounce', B.x, B.y);
+  if (B.still > 0.5) {
+    if (!B.lastBy) return endRally(G.feedTo, 'double bounce', B.x, B.y);
+    const back = sideOf(B.y) === B.lastBy;   // came to rest on the hitter's side: a net ball, unless it bounced in first and rolled back
+    endRally(back && !B.bounces ? B.lastBy : other(B.lastBy), back && !B.bounces ? 'net' : 'double bounce', B.x, B.y);
+  }
 }
 // ---------------- the game's own clock: what happens between points
 function refereeStep(dt){

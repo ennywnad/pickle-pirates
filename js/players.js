@@ -23,13 +23,13 @@ function runTime(pl, d){
 // where to stand to take the incoming ball: the earliest point on its path that's at a good height, follows the
 // two-bounce rule, and that the player can get to in time. Returns { x, y (body), bx, by, bz (ball), t } or null.
 function contactSpot(pl, B){
-  const pr = predict(B, 2.6, 1/120, 3), hand = handOf(pl), back = backDir(pl.team);
+  const pr = predict(B, 2.6, BALL_DT, 6), hand = handOf(pl), back = backDir(pl.team);
   let fallback = null;
   for (const p of pr.pts) {
     if (sideOf(p.y) !== pl.team) continue;
     const bounced = B.bounces > 0 || p.bounced;
     if (!bounced && mustBounce()) continue;
-    if (p.z < 0.5 || p.z > 6) continue;
+    if (p.z < 0.5 || p.z > (bounced ? 6 : 8.2)) continue;   // up to an overhead reach on the volley (contactQ allows 8.6)
     // stand a little to the side of the ball (forehand) and a touch behind it
     const sx = p.x - hand*1.5, sy = p.y + back*0.5;
     if (!bounced && G.cfg.kitchen !== false && inKitchenZone(sx, sy)) continue;   // never plan a volley from the kitchen

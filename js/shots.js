@@ -36,7 +36,7 @@ function releaseShot(pl){ if (pl.queue) pl.queue.hold = false; }
 function ballFor(pl, B){ return B.live && B.lastBy !== pl.team && (B.lastBy || G.feedTo === pl.team); }
 // best contact over the next half second, from where the player is (and drifting the way they're moving)
 function bestAhead(pl, B){
-  const pr = predict(B, 0.55, 1/120, 2); let best = null;
+  const pr = predict(B, 0.55, BALL_DT, 4); let best = null;
   for (const p of pr.pts) {
     if (p.t < 1/60) continue;
     const k = Math.min(p.t, 0.25), c = contactQ(pl, p.x, p.y, p.z, B.bounces > 0 || p.bounced, pl.x + pl.vx*k, pl.y + pl.vy*k);
@@ -71,6 +71,8 @@ function grade(pl, g, text){
 function strike(pl, Q, c){
   const B = G.ball, opp = G.players.find(p => p.team !== pl.team);
   pl.queue = null;
+  // an illegal stroke (two-bounce or kitchen volley) is a fault on contact: the rally ends there and doesn't count it
+  if (strokeRules(pl, c)) { pl.swing = 0.28; pl.swingKind = Q.kind === 'soft' ? 'dink' : Q.kind; pl.swingSide = c.side; return true; }
   // what the button becomes here: high balls near the net get smashed, soft is a dink up close and a drop from back
   let kind = Q.kind;
   const fromNet = Math.abs(B.y - NETY);
@@ -109,7 +111,6 @@ function strike(pl, Q, c){
   else if (c.lunge) grade(pl, 'stretch', 'STRETCH');
   else grade(pl, tq.grade);
   if (kind === 'smash' && !G.attract) call('smash', B.x, B.y, 'winner', true);
-  strokeRules(pl, c);   // two-bounce and kitchen
   return true;
 }
 // spin modifiers held while hitting: 'top' rolls it over, 'slice' cuts under

@@ -81,7 +81,7 @@ let save = defSave();
 try { const s = JSON.parse(localStorage.getItem(SKEY) || 'null'); if (s && typeof s.xp === 'number') save = normSave(s); } catch(e) {}
 let muted = false;
 try { muted = localStorage.getItem('pickle-mute') === '1'; } catch(e) {}
-const GAME_VERSION = 'v0.0.5';
+const GAME_VERSION = 'v0.0.6';
 // save codes: "PKP1." + base64url(JSON)
 function exportSave(){ const j = JSON.stringify({ ...save, updatedAt:Date.now() }); return 'PKP1.' + btoa(unescape(encodeURIComponent(j))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function importSave(code){

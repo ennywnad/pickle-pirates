@@ -98,8 +98,7 @@ function chooseShot(pl, spot){
     if (!smart && Math.random() < 0.3) { kind = 'drive'; target = T_(rand(3, 17), rand(4, 10)); }   // a speed-up off a ball that's too low
   } else if (returnOfServe) {
     // the return: deep, then come in
-    kind = smart && Math.random() < 0.5 ? 'soft' : 'drive'; target = T_(rand(3, 17), rand(T.deep[0], T.deep[1]));
-    if (kind === 'soft') kind = 'drive';   // from the baseline "soft" would be a drop; a deep return is a drive
+    kind = 'drive'; target = T_(rand(3, 17), rand(T.deep[0], T.deep[1]));
     ai.goNet = Math.random() < T.net;
   } else if (oppUp) {
     // they're at the net and we're back: drop it in, lob over, or try to pass

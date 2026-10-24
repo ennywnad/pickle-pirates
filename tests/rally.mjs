@@ -96,7 +96,7 @@ function session({ opp, feed = 'mix', seconds, lead, kinds = ['drive', 'soft', '
     for (let i = 0; i < 40; i++) { for (const [ax, tag] of [[-1, 'l'], [1, 'r']]) {
       newMatch('brine', false); G.state = 'play'; G.hits = 3; const pl = G.players[0], B = G.ball; pl.x = 10; pl.y = 40;
       Object.assign(B, { x:11.2, y:39.8, z:2.5, vx:0, vy:6, vz:-1, sx:0, sy:0, sz:0, live:true, lastBy:'away', bounces:1 });
-      hitBall(pl, 'drive', [ax, 0]); const pr = predict(G.ball, 3, 1/120, 1000);
+      hitBall(pl, 'drive', [ax, 0]); const pr = predict(G.ball, 3, BALL_DT, 1e4);
       if (pr.first && (tag === 'l' ? pr.first.x < CW/2 : pr.first.x > CW/2)) tag === 'l' ? left++ : right++; } }
     return { left, right }; })()`);
   check('aim left lands left, aim right lands right', r.left >= 36 && r.right >= 36, `${r.left}/40 left, ${r.right}/40 right`);

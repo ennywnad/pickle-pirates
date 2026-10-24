@@ -1,6 +1,6 @@
 // Pickle Pirates · The per-frame simulation step: the referee, players, ball, rules
 'use strict';
-const SUB = 4;   // ball substeps per frame
+// the ball runs on its own fixed clock (BALL_DT, four steps a frame at 60 fps), whatever the frame rate
 function update(dt){
   if (!G) return;
   G.time += dt;
@@ -29,13 +29,13 @@ function update(dt){
   // ball
   const B = G.ball;
   if (B.z > -1 && !serving) {
-    const h = dt/SUB;
-    for (let i = 0; i < SUB; i++) ballStep(B, h, onBallEvent);
+    G.ballAcc = (G.ballAcc || 0) + dt;
+    while (G.ballAcc >= BALL_DT - 1e-9) { G.ballAcc -= BALL_DT; ballStep(B, BALL_DT, onBallEvent); }
     if (B.live) { B.trail.push([B.x, B.y, B.z]); if (B.trail.length > 14) B.trail.shift(); } else if (B.trail.length) B.trail.shift();
     rallyWatch(dt);
   }
   // landing marker for the live ball (where it bounces next)
   G.landing = null;
-  if (G.cfg.marker && B.live && B.z > 0.3) { const pr = predict(B, 2.5, 1/120, 1000); if (pr.first) { G.landing = pr.first; G.landing.in = landedIn(pr.first.x, pr.first.y); } }
+  if (G.cfg.marker && B.live && B.z > 0.3) { const pr = predict(B, 2.5, BALL_DT, 1e4); if (pr.first) { G.landing = pr.first; G.landing.in = landedIn(pr.first.x, pr.first.y); } }
   G.cannon.kick = Math.max(0, G.cannon.kick - dt*3);
 }

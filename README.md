@@ -75,7 +75,7 @@ From the 2026 official rulebook (USA Pickleball text). The kitchen and two-bounc
 | Serve position | Right court on the server's even score, left on odd; receiver diagonally across | 4.B |
 | Serve | Must land in the diagonal service court; the kitchen line is short, other lines are in | 7.A–7.E |
 | Two-bounce | The serve and the return must bounce before they're hit | 10.A |
-| Kitchen | No volleying with a foot in the kitchen or on its line, or stepping in right after a volley | 11.A |
+| Kitchen | No volleying with a foot in the kitchen or on its line, or being carried into it by the volley (any direction, even after the ball is dead) | 11.A |
 | Faults | Out, net, short serve, wrong court, post, double bounce | 10.B, 11.A |
 | Ends | Switch when the first side reaches 6 (8 in a game to 15, 11 in a game to 21) | 21.B |
 

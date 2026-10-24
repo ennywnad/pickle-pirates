@@ -2,6 +2,32 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.0.6 · Fixes from the issue list · 2026-10-23
+
+Fixes all ten open GitHub issues (#1–#10) before milestone 6.
+
+**Rules**
+- A ball that bounces in, then spins or rolls back over the net, is now the receiver's lost point. Before, it was called a net fault on the hitter (#1).
+- A kitchen-volley fault is called at contact. The illegal shot no longer counts toward the rally, the longest rally or the stroke count, and the ball isn't launched (#2).
+- After a volley, being carried into the kitchen in any direction is now a fault, including sideways from just wide of the sideline (#3).
+- The kitchen rule now also applies after a put-away: when the volleyer would win the rally, the call waits until their momentum is spent. If they step in first, the point goes the other way (#3, rule 11.A).
+
+**Play**
+- The CPU and the move-to-ball assist now plan overhead volleys at the net up to about 8 ft. Before, anything over 6 ft was skipped and the player backed off to wait for the ball to drop (#4).
+- The ball now runs on one fixed step (1/240 s) whatever your screen's refresh rate, and every prediction uses that same step. The landing marker, the assist, the CPU and the aim solvers all see the exact flight; a fast drive's predicted bounce now matches the real one (#5).
+- Code cleanup in the CPU's return of serve (#7).
+
+**Views and menus**
+- In 3D, the stick no longer steers backwards for one frame when the ends switch (#6).
+- Crew figures are freed from GPU memory when a new match starts. Before, every new match (including the attract mode behind the menus) left the old figures in memory. One small per-frame allocation is also gone (#8).
+- In the classic view after switching ends, lunges and paddle swings now lean the right way (#9).
+- Opening Feel tuning in a singles game now holds the game, and closing it puts you back where you were (the pause menu, or play). In Practice, tuning still runs live so you can feel each slider (#10).
+
+**Tests**
+- `tests/game.mjs` checks each rules fix, that the predicted bounce matches the live ball to under an inch, and the overhead volley plan.
+- The smoke test checks that figure geometry stays flat across new matches and that Feel tuning holds a game.
+- The quick CPU run in CI skips the three-way level ordering, which three games can't settle; the full `node tests/ai.mjs` still checks it.
+
 ## v0.0.5 · CPU opponent (milestone 5) · 2026-10-23
 
 The crew across the net now plays real pickleball, at three levels.

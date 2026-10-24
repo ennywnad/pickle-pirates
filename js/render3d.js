@@ -256,12 +256,19 @@ async function init(){
     return { root, bob, pivot, v:{ x:pl.x, z:pl.y, yaw:0 } };
   }
   let figs = [];
-  function buildFigures(G){ for (const f of figs) dyn.remove(f.root); figs = G.players.map(mkFigure); }
+  // a new match builds new figures: free the old ones' geometry and their own materials (the shared ones stay)
+  const SHARED_MATS = new Set([eyeW, eyeB, hatMat, goldMat, paddleMat, faceMat, blobMat, inkMat]);
+  function disposeFigure(root){
+    const geos = new Set(), mats = new Set();
+    root.traverse(o => { if (o.geometry) geos.add(o.geometry); for (const m of [].concat(o.material || [])) if (!SHARED_MATS.has(m)) mats.add(m); });
+    geos.forEach(g => g.dispose()); mats.forEach(m => m.dispose());
+  }
+  function buildFigures(G){ for (const f of figs) { dyn.remove(f.root); disposeFigure(f.root); } figs = G.players.map(mkFigure); }
 
   // ------------------------------------------------ post: ink edges, bloom, halftone, vignette
   let post = null, bloomNode = null;
   const vignetteU = uniform(1);
-  const texelU = uniform(new THREE.Vector2(1/1000, 1/1000)), shakeU = uniform(0);
+  const texelU = uniform(new THREE.Vector2(1/1000, 1/1000)), shakeU = uniform(0), _dbSize = new THREE.Vector2();
   function buildPost(){
     post = post || new THREE.PostProcessing(renderer);
     const sp = pass(scene, cam);
@@ -342,7 +349,7 @@ async function init(){
     cam.updateMatrixWorld();
     _cr.setFromMatrixColumn(cam.matrixWorld, 0); _cr.y = 0; _cr.normalize();
     _cf.set(0, 0, -1).applyQuaternion(cam.quaternion); _cf.y = 0; _cf.normalize();
-    R3.basis = { rx:_cr.x, ry:_cr.z, fx:_cf.x, fy:_cf.z };
+    R3.basis = { rx:_cr.x, ry:_cr.z, fx:_cf.x, fy:_cf.z, flip };   // flip: which end the camera was behind when this was measured
     key.position.set(camS.tx + 18, 70, camS.tz + 26); key.target.position.set(camS.tx, 0, camS.tz); key.target.updateMatrixWorld();
   }
   const isNearS = tm => tm === S.G.near;
@@ -402,6 +409,7 @@ async function init(){
   };
 
   // ------------------------------------------------ frame
+  R3.mem = () => { const m = renderer.info && renderer.info.memory; return m ? { geometries:m.geometries, textures:m.textures } : null; };   // for the smoke test
   R3.frame = (dt, tms) => {
     const G = S.G; if (!G) return;
     if (G !== lastG) onNewMatch(G);
@@ -461,7 +469,7 @@ async function init(){
     { let n = 0; for (const p of G.parts) { if (n >= PART_MAX) break; tmpM.compose(W(p.x, p.y, p.z, tmpV), tmpQ.identity(), tmpS.setScalar(p.s*(p.life/p.max))); partMesh.setMatrixAt(n++, tmpM); } partMesh.count = n; partMesh.instanceMatrix.needsUpdate = true; }
     if (R3.cut) { R3.cut = false; camCut = true; }
     updateCamera(G, dt);
-    { const db = renderer.getDrawingBufferSize(new THREE.Vector2()); texelU.value.set(1/Math.max(1, db.x), 1/Math.max(1, db.y)); }
+    { const db = renderer.getDrawingBufferSize(_dbSize); texelU.value.set(1/Math.max(1, db.x), 1/Math.max(1, db.y)); }
     shakeU.value = S.reducedMotion() ? 0 : Math.min(1.2, G.shake || 0);
     post.render();
     if (checkPlan.length && !checking && performance.now() > checkPlan[0]) { checkPlan.shift(); selfCheck(); }

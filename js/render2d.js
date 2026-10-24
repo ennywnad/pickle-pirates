@@ -53,11 +53,12 @@ function drawNet(){
 }
 function drawPlayer(pl, t){
   const sp = SPECIES[pl.species] || SPECIES.pickle, r = PL_R*scale, hand = handOf(pl);
-  const lean = pl.lunge > 0 ? pl.lungeSide*hand*(pl.lunge/0.45)*0.6*r : 0, hop = pl.split > 0 ? Math.sin(pl.split/0.18*Math.PI)*r*0.35 : 0;
+  // the lunge is a court-x direction (forehand side = handOf), drawn mirrored when the view is from the other end
+  const lean = pl.lunge > 0 ? pl.lungeSide*hand*(FLIP ? -1 : 1)*(pl.lunge/0.45)*0.6*r : 0, hop = pl.split > 0 ? Math.sin(pl.split/0.18*Math.PI)*r*0.35 : 0;
   const x = sx(pl.x) + lean, y = sy(pl.y) - hop;
   ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(sx(pl.x), sy(pl.y) + r*0.3, r*1.1, r*0.5, 0, 0, 7); ctx.fill();
   // paddle: ready in front, swinging across on the side the ball was on
-  const sw = pl.swing > 0 ? (1 - pl.swing/0.28) : 0, side = (pl.swing > 0 ? pl.swingSide : 1)*hand*(pl.team === 'home' ? 1 : -1);
+  const sw = pl.swing > 0 ? (1 - pl.swing/0.28) : 0, side = pl.swing > 0 ? pl.swingSide : 1;   // turned from the way the player faces, so forehand is +1 at either end
   const pa = pl.face + (FLIP ? Math.PI : 0) + side*(0.9 - sw*1.8), px = x + Math.cos(pa)*r*1.5, py = y - r*0.6 + Math.sin(pa)*r*1.5*0.6;
   ctx.fillStyle = '#3a2a1a'; ctx.strokeStyle = '#150e1c'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(px, py, r*0.45, r*0.55, pa, 0, 7); ctx.fill(); ctx.stroke();

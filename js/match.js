@@ -87,7 +87,7 @@ function newMatch(islandId, attract, mode){
   mode = attract ? 'game' : mode || 'practice';
   const cfg = attract ? { ...gameDef(), opp:'cpu' } : mode === 'game' ? { ...gameCfg, opp:'cpu' } : { kitchen:true, twoBounce:true, ...practice };
   G = { island:isl, theme:THEMES[isl.id], attract:!!attract, mode, state:'feed', stT:1.0, time:0,
-    near:'home', hits:0, score:{ home:0, away:0 }, rally:0, best:0, shotN:0, aimPreview:null, feedTo:'home', lastCall:null,
+    near:'home', hits:0, pendingEnd:null, ballAcc:0, score:{ home:0, away:0 }, rally:0, best:0, shotN:0, aimPreview:null, feedTo:'home', lastCall:null,
     ball:mkBall(), landing:null, parts:[], pops:[], shake:0, cfg, cannon:{ x:CW/2, y:-3.4, z:2.5, kick:0 }, stats:{ rallies:0, longest:0, aces:0, strokes:0, faults:{}, faultBy:{ home:{}, away:{} } } };
   G.players = [mkPlayer('home', HOME.species, !attract), mkPlayer('away', isl.opp.species, false)];
   G.players[1].tier = AI_TIERS[cfg.tier] ? cfg.tier : 'bosun';

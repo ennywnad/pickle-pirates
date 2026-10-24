@@ -8,6 +8,9 @@ const AERO = 0.5*1.21*Math.PI*0.0371*0.0371/0.026*0.3048;
 const TAPE_R = 0.055;                                 // net cord radius
 const POST_R = 0.14, POST_H = NET_H_SIDE + 0.25;
 const SHELL_K = 2/3;                                  // I/(mR²) for a thin hollow ball
+// one fixed step for the live ball and every prediction of it, so the landing marker, the move-to-ball assist,
+// the CPU and the aim solvers all see exactly the flight that happens
+const BALL_DT = 1/240;
 
 // one integration step. ev(name, ball, info) is told about 'bounce', 'net', 'tape' and 'post'. Returns the event name or null.
 function ballStep(B, dt, ev){
@@ -107,7 +110,7 @@ const lineMargin = (x, y) => Math.min(x, CW - x, y, CL - y);   // negative = out
 // copy of the parts of the ball the simulation needs
 const ballCopy = B => ({ x:B.x, y:B.y, z:B.z, vx:B.vx, vy:B.vy, vz:B.vz, sx:B.sx, sy:B.sy, sz:B.sz });
 // simulate forward; returns samples (every `every` steps), the first bounce, and whether the net stopped it
-function predict(B, T = 3, dt = 1/120, every = 4){
+function predict(B, T = 3, dt = BALL_DT, every = 8){
   const b = ballCopy(B), pts = []; let first = null, netted = false, apex = b.z, netZ = null;
   for (let i = 0, n = Math.round(T/dt); i < n; i++) {
     const py = b.y;
@@ -165,7 +168,7 @@ function aimBySpeed(from, tx, ty, speed, spin = 0){
 function aimThrough(from, tx, ty, clearZ, spin = 0){
   const dx = tx - from.x, dy = ty - from.y, D = hyp(dx, dy) || 1, ux = dx/D, uy = dy/D, sv = spinVec(dx, dy, spin);
   const fly = (a, sp) => { const c = Math.cos(a), b = { ...from, vx:ux*sp*c, vy:uy*sp*c, vz:sp*Math.sin(a), ...sv, ghost:true }; let netZ = null;
-    for (let i = 0; i < 500; i++) { const py = b.y, e = ballStep(b, 1/120); if (netZ === null && (py - NETY)*(b.y - NETY) <= 0) netZ = b.z; if (e === 'bounce') return { s:(b.x - from.x)*ux + (b.y - from.y)*uy, netZ: netZ ?? b.z }; }
+    for (let i = 0; i < 1000; i++) { const py = b.y, e = ballStep(b, BALL_DT); if (netZ === null && (py - NETY)*(b.y - NETY) <= 0) netZ = b.z; if (e === 'bounce') return { s:(b.x - from.x)*ux + (b.y - from.y)*uy, netZ: netZ ?? b.z }; }
     return { s:1e3, netZ: netZ ?? 0 }; };
   const speedFor = a => { let lo = 3, hi = 140; for (let i = 0; i < 16; i++) { const m = (lo + hi)/2; if (fly(a, m).s < D) lo = m; else hi = m; } return (lo + hi)/2; };
   let alo = -0.2, ahi = 1.25, a = 0.4, sp = speedFor(a);
@@ -175,7 +178,7 @@ function aimThrough(from, tx, ty, clearZ, spin = 0){
 }
 function landingOf(b){
   b = { ...b };
-  for (let i = 0; i < 720; i++) { const e = ballStep(b, 1/240); if (e === 'bounce') return b; if (e === 'net' || e === 'tape' || e === 'post') return null; }   // aim for clean flights only: a tape clip lands anywhere
+  for (let i = 0; i < 720; i++) { const e = ballStep(b, BALL_DT); if (e === 'bounce') return b; if (e === 'net' || e === 'tape' || e === 'post') return null; }   // aim for clean flights only: a tape clip lands anywhere
   return null;
 }
 // net height where the line from `from` to the target crosses it
@@ -188,7 +191,7 @@ function launchFor(kind, from, tx, ty, opt = {}){
     case 'drive': {
       for (let k = 1; k > 0.5; k -= 0.08) {   // too hard to keep in? take a little off until it lands and clears the net
         const v = aimBySpeed(from, tx, ty, TUNE.driveSpeed*MPH*sp*k, spin ?? TUNE.driveSpin*RPM);
-        if (v) { const pr = predict({ ...from, ...v }, 2.5, 1/120, 1000); if (!pr.netted && pr.first) return v; }
+        if (v) { const pr = predict({ ...from, ...v }, 2.5, BALL_DT, 1e4); if (!pr.netted && pr.first) return v; }
       }
       return aimByApex(from, tx, ty, netH(from.x) + 1.5, spin ?? TUNE.driveSpin*RPM*0.5);
     }

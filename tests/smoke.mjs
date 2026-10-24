@@ -34,7 +34,7 @@ for (const gfx of ['classic', 'med']) {
   await tap('#p_opp button[data-v="none"]');
   await tap('#pracGo');
   await page.waitForTimeout(1500);
-  const dk = await page.evaluate(() => { const S = window.__sim, G = S.G; for (let i = 0; i < 240 && !G.ball.live; i++) S.step(1); const kind = G.ball.lastKind, pr = S.predict(G.ball, 3, 1/120, 1000); return { kind, land: pr.first && pr.first.y, opp: G.cfg.opp }; });
+  const dk = await page.evaluate(() => { const S = window.__sim, G = S.G; for (let i = 0; i < 240 && !G.ball.live; i++) S.step(1); const kind = G.ball.lastKind, pr = S.predict(G.ball, 3, 1/240, 1e4); return { kind, land: pr.first && pr.first.y, opp: G.cfg.opp }; });
   if (dk.kind !== 'feed:dink' || !(dk.land > 22 && dk.land < 29.5) || dk.opp !== 'none') fail(`${gfx}: dink feed did not land in the near kitchen (${JSON.stringify(dk)})`);
   // back to the mix with the stand-in crew, from the pause menu
   await page.keyboard.press('KeyP');
@@ -94,6 +94,23 @@ for (const gfx of ['classic', 'med']) {
   if (gm.tier !== 'captain' || !/CAPTAIN/.test(gm.board)) fail(`${gfx}: the opponent level did not carry into the game (${gm.tier}, "${gm.board}")`);
   await page.waitForTimeout(300);
 
+  // Feel tuning from the pause menu holds a singles game, and closing it goes back to the pause menu
+  await page.keyboard.press('KeyP');
+  await tap('#btnTune');
+  const t0 = await page.evaluate(() => window.__sim.G.time); await page.waitForTimeout(400);
+  const tn = await page.evaluate(() => ({ t: window.__sim.G.time, tune: !document.getElementById('tune').hidden }));
+  await tap('#tuneClose');
+  const backToPause = await page.isVisible('#pause');
+  if (!tn.tune || tn.t !== t0 || !backToPause) fail(`${gfx}: Feel tuning did not hold the game (${JSON.stringify({ t0, ...tn, backToPause })})`);
+  await tap('#btnResume');
+  // new matches don't pile up figure geometry on the GPU (3D only)
+  if (gfx !== 'classic') {
+    const mem = await page.evaluate(async () => { const R3 = window.__r3d, S = window.__sim, wait = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (!R3.mem || !R3.mem()) return null; startAttract(); await wait(); const a = R3.mem().geometries;
+      for (let i = 0; i < 6; i++) { startAttract(); await wait(); } const b = R3.mem().geometries; startGame(); await wait(); return { a, b }; });
+    if (mem && mem.b > mem.a + 4) fail(`${gfx}: figure geometry leaks across matches (${mem.a} -> ${mem.b})`);
+    console.log(`${gfx}: geometries across 6 new matches`, mem ? `${mem.a} -> ${mem.b}` : 'n/a');
+  }
   // pause, back to the dock, save code round trip
   await page.keyboard.press('KeyP');
   if (await page.isHidden('#pause')) fail(`${gfx}: pause menu did not open`);
