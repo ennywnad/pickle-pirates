@@ -40,7 +40,7 @@ function setEngine(e){
   refreshGfx();
 }
 window.__sim = {
-  humans, reducedMotion: () => !!A11Y.rm,
+  humans, reducedMotion: () => !!A11Y.rm, bigBall: () => !!A11Y.bigBall,
   audio: () => ({ ctx: AC ? AC.state : null, loaded: Object.values(sfxBuf).reduce((n, l) => n + l.length, 0), crowd: !!crowdSrc, muted, volume, crowdVol, musicVol, music: cueOn() ? musCue.name : null, loop: !!musLoop }),
   get G(){ return G; }, HOME, SPECIES, THEMES,
   C:{ CW, CL, NETY, KD, NET_H_SIDE, NET_H_MID, POST_OUT, BALL_R, PL_R, netH },

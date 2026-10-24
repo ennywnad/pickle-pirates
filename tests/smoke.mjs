@@ -58,6 +58,12 @@ for (const gfx of ['classic', 'med']) {
   const st = await page.evaluate(() => { const G = window.__sim.G; return { attract: G.attract, mode: G.mode, state: G.state, live: G.ball.live, z: G.ball.z }; });
   if (st.attract || st.mode !== 'practice') fail(`${gfx}: practice not running (${JSON.stringify(st)})`);
   if (shots) await page.screenshot({ path: `${shots}/practice-${gfx}.png` });
+  // Accessibility: game speed 70% scales every sim step to 70% of the frame time (frames are capped at 50 ms)
+  const sp = await page.evaluate(async () => { A11Y.speed = 0.7; const orig = window.update, dts = []; let last = performance.now(), ok = true;
+    window.update = dt => { const now = performance.now(), fdt = Math.min(0.05, (now - last)/1000); last = now; dts.push(dt); return orig(dt); };
+    await new Promise(r => setTimeout(r, 1500)); window.update = orig; A11Y.speed = 1;
+    return { n: dts.length, max: Math.max(...dts) }; });
+  if (!(sp.n >= 1 && sp.max <= 0.0351)) fail(`${gfx}: game speed 70% did not slow the game (${JSON.stringify(sp)})`);
 
   // hit: stand the player where the fed ball lands and drive it back over the net
   const hit = await page.evaluate(() => {

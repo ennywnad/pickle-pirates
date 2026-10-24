@@ -299,7 +299,7 @@ function padLabels(ps){
 }
 // ---------------- controls strip (toggled from the scoreboard)
 let ctrlBarOn = true;
-try { ctrlBarOn = localStorage.getItem('pickle-ctrlbar') !== '0'; } catch(e) {}
+try { const v = localStorage.getItem('pickle-ctrlbar'); ctrlBarOn = v === null ? !matchMedia('(pointer:coarse)').matches : v !== '0'; } catch(e) {}   // touch screens have labeled buttons: the strip starts hidden
 function ctrlItems(){
   const kbKeys = (prof, a) => (binds[prof][a] || []).map(keyName);
   const pl = padList();

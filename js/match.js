@@ -9,7 +9,7 @@ const mkPlayer = (team, species, human, slot = 0, pad = 0) => ({ team, species, 
 const mkBall = () => ({ x:CW/2, y:NETY, z:-5, vx:0, vy:0, vz:0, sx:0, sy:0, sz:0, live:false, side:null, bounces:0, lastBy:null, lastKind:null, still:0, trail:[] });
 
 // ---------------- accessibility (saved per browser)
-const A11Y = { rm: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches), btn: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'large' : 'normal', replay:true };
+const A11Y = { rm: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches), btn: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'large' : 'normal', replay:true, speed:1, bigBall:false };
 try { const a = JSON.parse(localStorage.getItem('pickle-a11y') || 'null'); if (a) Object.assign(A11Y, a); } catch(e) {}
 const saveA11y = () => { try { localStorage.setItem('pickle-a11y', JSON.stringify(A11Y)); } catch(e) {} };
 

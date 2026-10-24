@@ -81,6 +81,10 @@ button:focus-visible{outline:2px solid var(--hazard);outline-offset:2px}
 #bBooty svg{width:26px;height:26px}
 @keyframes throb{50%{box-shadow:0 0 0 7px rgba(255,181,30,.18)}}
 #bLob{right:112px;bottom:92px;width:56px;height:56px;font-size:10px}
+/* portrait phones: Lob above Hit and Booty above Soft, so the cluster stays in the corner and off the middle of the court */
+@media (pointer:coarse) and (orientation:portrait){.ctrls{width:176px}#bLob{right:18px;bottom:104px}#bBooty{right:102px;bottom:84px;width:64px;height:64px}}
+/* phones on their side: no room for the controls strip */
+@media (max-height:480px) and (orientation:landscape){.ctrlbar{display:none!important}}
 #bBooty .pl{font-size:9px;letter-spacing:.04em;max-width:62px;text-align:center;line-height:1.05}
 @media (pointer:fine){#bHit,#bSoft,#bLob{display:none}.ctrls{height:90px;width:96px}#bBooty{bottom:0;right:12px}}
 .keys{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);font:500 12px/1.3 var(--body);color:var(--muted);background:var(--scrim);border:1px solid var(--line);border-radius:999px;padding:6px 12px;white-space:nowrap;pointer-events:none}
@@ -384,3 +388,4 @@ body:not(.rm) .rtag b{animation:rblink 1s steps(2) infinite}
 .lifegrid div{padding:10px;background:var(--well);border:1px solid var(--line);border-radius:10px}
 .lifegrid dt{font:600 11px/1.2 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .lifegrid dd{margin:4px 0 0;font:400 20px/1.1 var(--block);color:var(--bone)}
+@media (max-width:480px){#hBooty span,#aBooty span{display:none}#hBooty svg,#aBooty svg{margin:0;width:14px;height:14px}}

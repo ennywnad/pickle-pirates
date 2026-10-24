@@ -35,6 +35,8 @@ function renderHub(){
     <div class="card gfx"><h3 class="h">Accessibility</h3>
       <label class="tog"><input type="checkbox" id="a_rm" ${A11Y.rm ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>Reduce motion</b><small>No screen shake or pulsing buttons</small></span></label>
       <label class="tog"><input type="checkbox" id="a_replay" ${A11Y.replay !== false ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>Instant replays</b><small>Long rallies and smash winners play back at half speed. Any shot button skips one</small></span></label>
+      <label class="tog"><input type="checkbox" id="a_big" ${A11Y.bigBall ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="tl"><b>Bigger ball</b><small>Draws the ball half as big again, easier to follow. The game plays the same</small></span></label>
+      <div class="prow"><span class="xptext">Game speed</span>${segHtml('a_speed', [['1','Full'],['0.85','85%'],['0.7','70%']], String(A11Y.speed || 1))}<p class="gfxnote">Slows the whole game (ball, players and clock) for more time to react. The rules and scoring don't change.</p></div>
       <div class="prow"><span class="xptext">On-screen buttons</span>${segHtml('a_btn', [['normal','Normal'],['large','Large'],['xl','Extra large']], A11Y.btn)}</div></div>
     <div class="card gfx"><h3 class="h">Graphics</h3><div class="seg" id="gfxSeg">${GFX_OPTS.map(([k,l]) => `<button type="button" data-g="${k}" aria-pressed="${k===gfxPref}">${l}</button>`).join('')}</div><h3 class="h" style="margin-top:6px">3D engine</h3><div class="seg" id="engSeg">${[['webgpu','WebGPU'],['webgl','WebGL2 (compatibility)']].map(([k,l]) => `<button type="button" data-e="${k}" aria-pressed="${k===gfxEngine()}">${l}</button>`).join('')}</div><p class="gfxnote" id="gfxNote">${gfxStatusText()}</p></div>
     <div class="card gfx"><h3 class="h">Save data</h3>
@@ -50,6 +52,8 @@ function renderHub(){
   $('btnControls').onclick = () => openControls('hub');
   $('a_rm').onchange = e => { A11Y.rm = e.target.checked; saveA11y(); applyA11y(); };
   $('a_replay').onchange = e => { A11Y.replay = e.target.checked; saveA11y(); };
+  $('a_big').onchange = e => { A11Y.bigBall = e.target.checked; saveA11y(); };
+  $('a_speed').querySelectorAll('button').forEach(b => b.onclick = () => { A11Y.speed = Number(b.dataset.v); saveA11y(); $('a_speed').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
   $('a_btn').querySelectorAll('button').forEach(b => b.onclick = () => { A11Y.btn = b.dataset.v; saveA11y(); applyA11y(); $('a_btn').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
   $('sndVol').oninput = e => { volume = Number(e.target.value)/100; $('sndVolV').textContent = e.target.value + '%'; try { localStorage.setItem('pickle-vol', String(volume)); } catch(err) {} ensureAudio(); applyVolume(); };
   $('sndCrowd').oninput = e => { crowdVol = Number(e.target.value)/100; $('sndCrowdV').textContent = e.target.value + '%'; try { localStorage.setItem('pickle-crowdvol', String(crowdVol)); } catch(err) {} ensureAudio(); applyVolume(); };

@@ -6,7 +6,7 @@ Arcade pickleball between pirate crews, in the browser. Real rules underneath (t
 
 ## Status
 
-Milestones 1–10 of 12 are done, and milestone 11 is under way: the Voyage career shipped in v0.7, and instant replays and stats in v0.8 (v0.1 to v0.8 are live). What changed in each version is in the [changelog](CHANGELOG.md).
+Milestones 1–10 of 12 are done, and milestone 11 is under way: the Voyage career shipped in v0.7, instant replays and stats in v0.8, and phone and accessibility polish in v0.9 (v0.1 to v0.9 are live). What changed in each version is in the [changelog](CHANGELOG.md).
 
 - **The skeleton:** a placeholder dock court in a comic-book 3D view and a classic top-down view.
 - **The ball:** real drag and spin lift, a bounce that grips or skids depending on spin, a net cord the ball can roll over, and line-is-in calls.

@@ -251,7 +251,7 @@ function drawHazardsOver(t){
 }
 function drawBall(){
   const B = G.ball; if (B.z < -0.5 || ballHidden()) return;   // lost in the fog (Ghost Galleon)
-  const r = Math.max(3, BALL_R*scale*2.2);
+  const r = Math.max(3, BALL_R*scale*2.2)*(A11Y.bigBall ? 1.5 : 1);
   if (G.landing) { const lx = sx(G.landing.x), ly = sy(G.landing.y); ctx.strokeStyle = G.landing.in ? 'rgba(255,194,58,.9)' : 'rgba(255,90,60,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(lx, ly, r*1.8, r*0.9, 0, 0, 7); ctx.stroke(); }
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(sx(B.x), sy(B.y), r*0.9, r*0.45, 0, 0, 7); ctx.fill();
   if (G.cfg.height && B.z > 0.4) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx(B.x), sy(B.y)); ctx.lineTo(sx(B.x), sy(B.y, B.z)); ctx.stroke(); }
@@ -319,7 +319,7 @@ function updateHud(){
   if (!G || G.attract) return;
   // booty held by each crew, and the touch button for P1's crew
   { const Y = G.booty, hb = Y && Y.held.home, ab = Y && Y.held.away, me = humanPl(), mine = Y && me && Y.held[me.team];
-    const chip = k => k ? svg('bt_' + k) + BOOTY_SHORT[k].toUpperCase() : '';
+    const chip = k => k ? svg('bt_' + k) + `<span>${BOOTY_SHORT[k].toUpperCase()}</span>` : '';
     setH('hBooty', chip(hb)); $('hBooty').hidden = !hb; $('hBooty').title = hb ? BOOTY[hb].name + ': ' + BOOTY[hb].desc : '';
     setH('aBooty', chip(ab)); $('aBooty').hidden = !ab; $('aBooty').title = ab ? BOOTY[ab].name + ': ' + BOOTY[ab].desc : '';
     const bb = $('bBooty'); if (bb) { bb.hidden = !mine; if (mine) bb.firstElementChild.textContent = BOOTY_SHORT[mine].toUpperCase(); } }

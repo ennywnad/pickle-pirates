@@ -2,6 +2,25 @@
 
 What changed in each version of Pickle Pirates, newest first. Each version finishes one milestone from the [README](README.md#status).
 
+## v0.9.0 · Phones and accessibility (milestone 11, part 3) · 2026-10-24
+
+**Phones and tablets**
+- **Phone on its side:** the camera now fits the whole court top to bottom, not just side to side. Before, the near player could sit below the bottom edge.
+- **Phone upright:**
+  - The court sits a little higher, so your player stays clear of the thumb buttons.
+  - The buttons are packed into the corner: Lob above Hit, and Booty above Soft. Lob used to sit over the middle of the court.
+- **Controls strip:** it starts hidden on touch screens, since the buttons are labeled. The gamepad button in the scoreboard still shows it. On a phone on its side it never shows, so the court gets the room.
+- **Booty chips:** on narrow screens they show only the icon, so they no longer cover the pause button.
+
+**Accessibility** (on the dock)
+- **Game speed:** full, 85% or 70%. It slows the whole game (ball, players and clock) for more time to react. The rules and scoring don't change.
+- **Bigger ball:** draws the ball half as big again in both views, without changing how the game plays.
+- These join the settings already there:
+  - **Reduce motion**
+  - **Instant replays**
+  - **Button size**
+  - a controller that can work every menu
+
 ## v0.8.0 · Instant replays and stats (milestone 11, part 2) · 2026-10-24
 
 **Instant replays**

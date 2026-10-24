@@ -917,8 +917,11 @@ async function init(){
       const pitch = (portrait ? 38 : 25)*Math.PI/180; cam.fov = portrait ? 50 : 36;
       // fit the court's width (plus a margin) across the screen
       const halfW = portrait ? 13 : 19, tanH = Math.tan(cam.fov*Math.PI/360)*aspect;
-      const d = clampN(halfW/tanH/Math.cos(pitch)*1.0 + 26, 50, 110);
-      tx = clampN(bx*0.25, -4, 4); ty = 0; tz = clampN(bz*0.12, -3, 3) - (portrait ? 1 : 3);
+      let d = clampN(halfW/tanH/Math.cos(pitch)*1.0 + 26, 50, 110);
+      // a very wide screen (a phone on its side) also has to fit the court's length top to bottom
+      const dV = 25*Math.cos(pitch) + 25*Math.sin(pitch)/Math.tan(cam.fov*Math.PI/360*0.85);
+      d = Math.max(d, dV);
+      tx = clampN(bx*0.25, -4, 4); ty = 0; tz = clampN(bz*0.12, -3, 3) - (portrait ? -2.5 : 3);   // portrait: the court sits a little higher, clear of the thumb buttons
       px = tx*0.6; py = d*Math.sin(pitch); pz = tz + d*Math.cos(pitch);
     }
     if (flip < 0) { tx = -tx; tz = -tz; px = -px; pz = -pz; }
@@ -1052,7 +1055,7 @@ async function init(){
     const B = G.ball;
     ball.visible = ballBlob.visible = B.z > -0.5 && !ballHidden();   // fog banks hide it (Ghost Galleon)
     if (ball.visible) {
-      W(B.x, B.y, B.z, ball.position);
+      W(B.x, B.y, B.z, ball.position); ball.scale.setScalar(S.bigBall() ? 1.6 : 1);   // Accessibility: a bigger ball
       ball.rotation.x += B.vy*dt*0.6; ball.rotation.z -= B.vx*dt*0.6;
       W(B.x, B.y, 0.05, ballBlob.position); const sc = Math.max(0.25, 0.9 - B.z*0.06); ballBlob.scale.set(sc, 1, sc);
     }
